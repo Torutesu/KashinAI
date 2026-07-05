@@ -258,7 +258,24 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
     const settings = getSettings()
     const { searchQuery } = buildSearchQuery(request.currentContext, 'custom', latestUserMessage)
     const suppressMemory = shouldSuppressMemoryForInlineRecommendation(request.currentContext, latestUserMessage)
-    const gbrain = suppressMemory ? null : await searchGBrain(searchQuery, settings, brainDir())
+    if (suppressMemory) {
+      const output =
+        request.currentContext.contextKind === 'social'
+          ? contentAwareSocialFallback(request.currentContext)
+          : contentAwareCodingFallback(request.currentContext)
+      return {
+        ok: true,
+        data: {
+          message: { role: 'assistant', content: output },
+          sources: [],
+          searchQuery: compactLiveContext(request.currentContext, 160),
+          contextSource: 'none',
+          currentContext: request.currentContext
+        }
+      }
+    }
+
+    const gbrain = await searchGBrain(searchQuery, settings, brainDir())
     const results = gbrain?.results ?? []
     const contextSource = gbrain?.contextSource ?? 'none'
     const { system, user } = buildChatPrompt({

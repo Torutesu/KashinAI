@@ -11,6 +11,7 @@
     "package:mac": "pnpm build && electron-builder --mac dir",
     "start": "electron-vite preview",
     "smoke:fusion": "node scripts/smoke-fusion.mjs",
+    "smoke:live-context": "node scripts/smoke-live-context.mjs",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "pnpm typecheck:node && pnpm typecheck:web"
