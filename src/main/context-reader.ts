@@ -370,15 +370,28 @@ export async function captureCurrentContext(frontmost: FrontmostAppInfo): Promis
   const originalClipboard = clipboard.readText()
   const selectedText = await captureSelectionViaClipboard(originalClipboard)
   let pageContext = await captureBrowserPageContext(frontmost.activeApp)
-  if (browserScriptName(frontmost.activeApp) && !pageContext.pageUrl && !pageContext.pageText) {
-    pageContext = await captureBrowserPageViaKeyboard(frontmost, originalClipboard)
+  if (browserScriptName(frontmost.activeApp) && !pageContext.pageText) {
+    const keyboardContext = await captureBrowserPageViaKeyboard(frontmost, originalClipboard)
+    pageContext = {
+      pageTitle: pageContext.pageTitle || keyboardContext.pageTitle,
+      pageUrl: pageContext.pageUrl || keyboardContext.pageUrl,
+      pageText: pageContext.pageText || keyboardContext.pageText,
+      pageCaptureMethod:
+        pageContext.pageText || !keyboardContext.pageText ? pageContext.pageCaptureMethod : keyboardContext.pageCaptureMethod
+    }
   }
   if (
     (!frontmost.activeApp || frontmost.activeApp.toLowerCase().includes('chrome')) &&
-    !pageContext.pageUrl &&
     !pageContext.pageText
   ) {
-    pageContext = await captureChromePageViaSession(frontmost)
+    const sessionContext = await captureChromePageViaSession(frontmost)
+    pageContext = {
+      pageTitle: pageContext.pageTitle || sessionContext.pageTitle,
+      pageUrl: pageContext.pageUrl || sessionContext.pageUrl,
+      pageText: pageContext.pageText || sessionContext.pageText,
+      pageCaptureMethod:
+        pageContext.pageText || !sessionContext.pageText ? pageContext.pageCaptureMethod : sessionContext.pageCaptureMethod
+    }
   }
   const screenContext = await captureScreenContext()
 

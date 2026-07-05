@@ -78,6 +78,11 @@ export type ChatResult = {
   currentContext: CurrentContext
 }
 
+export type ContextPushPayload = {
+  context: CurrentContext
+  autoInsert: boolean
+}
+
 export type BackendDiagnostics = {
   accessibilityGranted: boolean
   screenCaptureStatus: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'
@@ -194,7 +199,7 @@ export type ContextAssistantApi = {
   requestScreenCapture: () => Promise<BackendDiagnostics['screenCaptureStatus']>
   openScreenCaptureSettings: () => Promise<boolean>
   runDiagnostics: () => Promise<BackendDiagnosticsIpcResult>
-  onContextPushed: (callback: (context: CurrentContext) => void) => () => void
+  onContextPushed: (callback: (payload: ContextPushPayload) => void) => () => void
   onNavigate: (callback: (view: 'assistant' | 'settings') => void) => () => void
   onCollapsedChanged: (callback: (collapsed: boolean) => void) => () => void
 }

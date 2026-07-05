@@ -55,6 +55,10 @@
       {
         "from": "scripts/ocr.swift",
         "to": "ocr.swift"
+      },
+      {
+        "from": "scripts/option-listener.swift",
+        "to": "option-listener.swift"
       }
     ],
     "asar": true,

@@ -26,13 +26,13 @@ function AssistantFlow() {
   const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
-    const unsubscribe = window.api.onContextPushed((ctx) => {
+    const unsubscribe = window.api.onContextPushed(({ context: ctx, autoInsert }) => {
       setContext(ctx)
       setView('assistant')
       setResult(null)
       setError(null)
       setMessages([])
-      void autoRecommendForContext(ctx)
+      void autoRecommendForContext(ctx, autoInsert)
     })
 
     const unsubscribeNavigate = window.api.onNavigate((nextView) => {
@@ -65,7 +65,7 @@ function AssistantFlow() {
     }
   }, [])
 
-  async function autoRecommendForContext(nextContext: CurrentContext): Promise<void> {
+  async function autoRecommendForContext(nextContext: CurrentContext, autoInsert: boolean): Promise<void> {
     const recommendationRequest: ChatMessage = {
       role: 'user',
       content:
@@ -84,7 +84,9 @@ function AssistantFlow() {
       setMessages([res.data.message])
       setLastContextSource(res.data.contextSource)
       setLastSearchQuery(res.data.searchQuery)
-      await window.api.insertOutput(res.data.message.content, nextContext.activeApp)
+      if (autoInsert) {
+        await window.api.insertOutput(res.data.message.content, nextContext.activeApp)
+      }
     } else {
       setError(res.error)
     }

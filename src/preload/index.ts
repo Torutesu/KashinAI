@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ContextAssistantApi, CurrentContext } from '../shared/types'
+import type { ContextAssistantApi, ContextPushPayload, CurrentContext } from '../shared/types'
 
 const api: ContextAssistantApi = {
   captureContext: () => ipcRenderer.invoke('context:capture'),
@@ -39,8 +39,14 @@ const api: ContextAssistantApi = {
 
   runDiagnostics: () => ipcRenderer.invoke('system:runDiagnostics'),
 
-  onContextPushed: (callback: (context: CurrentContext) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, context: CurrentContext): void => callback(context)
+  onContextPushed: (callback: (payload: ContextPushPayload) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: ContextPushPayload | CurrentContext): void => {
+      if ('context' in payload && 'autoInsert' in payload) {
+        callback(payload)
+      } else {
+        callback({ context: payload, autoInsert: true })
+      }
+    }
     ipcRenderer.on('context:pushed', listener)
     return () => ipcRenderer.removeListener('context:pushed', listener)
   },
