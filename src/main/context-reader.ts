@@ -309,7 +309,11 @@ export async function captureCurrentContext(frontmost: FrontmostAppInfo): Promis
   if (browserScriptName(frontmost.activeApp) && !pageContext.pageUrl && !pageContext.pageText) {
     pageContext = await captureBrowserPageViaKeyboard(frontmost, originalClipboard)
   }
-  if (frontmost.activeApp?.toLowerCase().includes('chrome') && !pageContext.pageUrl && !pageContext.pageText) {
+  if (
+    (!frontmost.activeApp || frontmost.activeApp.toLowerCase().includes('chrome')) &&
+    !pageContext.pageUrl &&
+    !pageContext.pageText
+  ) {
     pageContext = await captureChromePageViaSession(frontmost)
   }
 

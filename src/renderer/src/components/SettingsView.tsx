@@ -201,9 +201,16 @@ export default function SettingsView({
               {diagnostics && (
                 <div className="space-y-2 rounded-[14px] border border-white/10 bg-white/[0.04] px-4 py-3 text-[12px] leading-5 text-white/68">
                   <div>Accessibility: {diagnostics.accessibilityGranted ? 'granted' : 'missing'}</div>
+                  <div>Fusion ready: {diagnostics.canFuseContext ? 'yes' : 'no'}</div>
                   <div>
                     GBrain: {diagnostics.gbrain.ok ? 'ok' : 'not ready'} / {diagnostics.gbrain.contextSource} /{' '}
                     {diagnostics.gbrain.resultCount} results
+                  </div>
+                  <div>
+                    Inputs: GBrain {diagnostics.fusionInputs.hasGBrainContext ? 'yes' : 'no'}, page{' '}
+                    {diagnostics.fusionInputs.hasPageContext ? 'yes' : 'no'}, selection{' '}
+                    {diagnostics.fusionInputs.hasSelectedText ? 'yes' : 'no'}, clipboard{' '}
+                    {diagnostics.fusionInputs.hasClipboardFallback ? 'yes' : 'no'}
                   </div>
                   <div>Sources: {diagnostics.gbrain.sampleSources.join(', ') || 'none'}</div>
                   <div>

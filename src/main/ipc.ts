@@ -236,11 +236,20 @@ export function registerIpcHandlers(): void {
         ok: true,
         data: {
           accessibilityGranted: systemPreferences.isTrustedAccessibilityClient(false),
+          canFuseContext:
+            (gbrain.contextSource === 'gbrain-cli' || gbrain.contextSource === 'gbrain-http') &&
+            Boolean(currentContext.pageUrl || currentContext.pageText || currentContext.selectedText),
           gbrain: {
             ok: gbrain.contextSource === 'gbrain-cli' || gbrain.contextSource === 'gbrain-http',
             contextSource: gbrain.contextSource,
             resultCount: gbrain.results.length,
             sampleSources: gbrain.results.slice(0, 5).map((result) => result.source)
+          },
+          fusionInputs: {
+            hasGBrainContext: gbrain.results.length > 0,
+            hasPageContext: Boolean(currentContext.pageUrl || currentContext.pageText),
+            hasSelectedText: Boolean(currentContext.selectedText),
+            hasClipboardFallback: Boolean(currentContext.clipboardText)
           },
           currentContext
         }

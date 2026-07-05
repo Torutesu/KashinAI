@@ -76,11 +76,18 @@ export type ChatResult = {
 
 export type BackendDiagnostics = {
   accessibilityGranted: boolean
+  canFuseContext: boolean
   gbrain: {
     ok: boolean
     contextSource: ContextSource
     resultCount: number
     sampleSources: string[]
+  }
+  fusionInputs: {
+    hasGBrainContext: boolean
+    hasPageContext: boolean
+    hasSelectedText: boolean
+    hasClipboardFallback: boolean
   }
   currentContext: CurrentContext
 }
