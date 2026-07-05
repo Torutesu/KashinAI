@@ -1,5 +1,6 @@
 import Store from 'electron-store'
 import { safeStorage } from 'electron'
+import { existsSync } from 'node:fs'
 import type { AppSettings, PublicAppSettings, SettingsUpdate } from '../shared/types'
 
 type StoredSecret = {
@@ -12,14 +13,27 @@ type StoredSettings = Omit<AppSettings, 'gbrain' | 'llm'> & {
   llm: Omit<AppSettings['llm'], 'apiKey'> & { apiKey: StoredSecret }
 }
 
+function detectDefaultGbrainCliPath(): string {
+  const candidates = ['/Users/torutano/.bun/bin/gbrain', `${process.env.HOME ?? ''}/.bun/bin/gbrain`, 'gbrain']
+  for (const candidate of candidates) {
+    if (candidate === 'gbrain') return candidate
+    if (candidate && existsSync(candidate)) return candidate
+  }
+  return 'gbrain'
+}
+
+const detectedCliPath = detectDefaultGbrainCliPath()
+const NEW_DEFAULT_SHORTCUT = 'Option+['
+const LEGACY_DEFAULT_SHORTCUT = 'Option+Space'
+
 const DEFAULT_SETTINGS: StoredSettings = {
-  appDisplayName: 'Context Assistant',
-  shortcut: 'Option+Space',
+  appDisplayName: 'KashinAI',
+  shortcut: NEW_DEFAULT_SHORTCUT,
   gbrain: {
-    mode: 'local',
+    mode: detectedCliPath === 'gbrain' ? 'local' : 'cli',
     endpoint: 'http://localhost:3000',
     token: { value: '', encrypted: false },
-    cliPath: 'gbrain',
+    cliPath: detectedCliPath,
     timeoutMs: 10000
   },
   llm: {
@@ -69,10 +83,18 @@ function decryptSecret(secret: StoredSecret | undefined): string {
 /** Full settings with secrets decrypted, for internal main-process use only (gbrain/llm clients). */
 export function getSettings(): AppSettings {
   const raw = store.store
+  const cliPath =
+    raw.gbrain.cliPath === 'gbrain' && detectedCliPath !== 'gbrain' ? detectedCliPath : raw.gbrain.cliPath
+  const mode =
+    raw.gbrain.mode === 'local' && detectedCliPath !== 'gbrain' && raw.gbrain.cliPath === 'gbrain' ? 'cli' : raw.gbrain.mode
+  const shortcut = raw.shortcut === LEGACY_DEFAULT_SHORTCUT ? NEW_DEFAULT_SHORTCUT : raw.shortcut
   return {
     ...raw,
+    shortcut,
     gbrain: {
       ...raw.gbrain,
+      mode,
+      cliPath,
       token: decryptSecret(raw.gbrain.token)
     },
     llm: {
@@ -85,12 +107,18 @@ export function getSettings(): AppSettings {
 /** Settings safe to send to the renderer: secrets are masked to booleans, never sent in plaintext. */
 export function getPublicSettings(): PublicAppSettings {
   const raw = store.store
+  const cliPath =
+    raw.gbrain.cliPath === 'gbrain' && detectedCliPath !== 'gbrain' ? detectedCliPath : raw.gbrain.cliPath
+  const mode =
+    raw.gbrain.mode === 'local' && detectedCliPath !== 'gbrain' && raw.gbrain.cliPath === 'gbrain' ? 'cli' : raw.gbrain.mode
+  const shortcut = raw.shortcut === LEGACY_DEFAULT_SHORTCUT ? NEW_DEFAULT_SHORTCUT : raw.shortcut
   return {
     ...raw,
+    shortcut,
     gbrain: {
-      mode: raw.gbrain.mode,
+      mode,
       endpoint: raw.gbrain.endpoint,
-      cliPath: raw.gbrain.cliPath,
+      cliPath,
       timeoutMs: raw.gbrain.timeoutMs,
       hasToken: Boolean(raw.gbrain.token?.value)
     },

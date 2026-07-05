@@ -5,10 +5,11 @@ import ResultView from './components/ResultView'
 import SettingsView from './components/SettingsView'
 
 type View = 'assistant' | 'result'
+type PanelView = 'assistant' | 'result' | 'settings'
 
 function AssistantFlow() {
   const [context, setContext] = useState<CurrentContext | null>(null)
-  const [view, setView] = useState<View>('assistant')
+  const [view, setView] = useState<PanelView>('assistant')
   const [actionType, setActionType] = useState<ActionType | null>(null)
   const [userInstruction, setUserInstruction] = useState('')
   const [customInstruction, setCustomInstruction] = useState('')
@@ -16,9 +17,10 @@ function AssistantFlow() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<AppError | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle')
-  const [appDisplayName, setAppDisplayName] = useState('Context Assistant')
+  const [appDisplayName, setAppDisplayName] = useState('KashinAI')
   const [showSources, setShowSources] = useState(true)
   const [accessibilityGranted, setAccessibilityGranted] = useState<boolean | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
     const unsubscribe = window.api.onContextPushed((ctx) => {
@@ -28,9 +30,20 @@ function AssistantFlow() {
       setError(null)
     })
 
+    const unsubscribeNavigate = window.api.onNavigate((nextView) => {
+      setView(nextView)
+    })
+
+    const unsubscribeCollapsed = window.api.onCollapsedChanged((nextCollapsed) => {
+      setCollapsed(nextCollapsed)
+    })
+
     window.api.getSettings().then((settings) => {
       setAppDisplayName(settings.appDisplayName)
       setShowSources(settings.privacy.showSources)
+    })
+    window.api.getWindowState().then((state) => {
+      setCollapsed(state.collapsed)
     })
 
     window.api.checkAccessibility().then(setAccessibilityGranted)
@@ -44,6 +57,8 @@ function AssistantFlow() {
 
     return () => {
       unsubscribe()
+      unsubscribeNavigate()
+      unsubscribeCollapsed()
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [])
@@ -104,8 +119,21 @@ function AssistantFlow() {
     await window.api.insertOutput(result.output, context?.activeApp ?? null)
   }
 
+  if (collapsed) {
+    return (
+      <div className="flex h-screen w-screen items-start justify-center bg-transparent" onMouseEnter={() => void window.api.expandWindow()}>
+        <button
+          onMouseEnter={() => void window.api.expandWindow()}
+          onClick={() => void window.api.expandWindow()}
+          className="mt-1.5 h-2.5 w-28 rounded-full border border-white/15 bg-white/18 shadow-[0_4px_16px_rgba(0,0,0,0.2)] backdrop-blur-md"
+          aria-label="Open KashinAI"
+        />
+      </div>
+    )
+  }
+
   return (
-    <div className="h-screen w-screen overflow-hidden rounded-xl border border-white/10 bg-neutral-900/90 shadow-2xl">
+    <div className="h-screen w-screen overflow-hidden bg-transparent">
       {view === 'assistant' && (
         <AssistantPanel
           appDisplayName={appDisplayName}
@@ -117,6 +145,7 @@ function AssistantFlow() {
           loading={loading}
           error={error}
           onOpenSettings={() => void window.api.openSettings()}
+          onClose={() => void window.api.hideWindow()}
           accessibilityGranted={accessibilityGranted}
         />
       )}
@@ -126,6 +155,7 @@ function AssistantFlow() {
           loading={loading}
           showSources={showSources}
           onBack={() => setView('assistant')}
+          onClose={() => void window.api.hideWindow()}
           onCopy={() => void handleCopy()}
           onInsert={() => void handleInsert()}
           onRegenerate={() => void regenerate(null)}
@@ -134,16 +164,11 @@ function AssistantFlow() {
           copyState={copyState}
         />
       )}
+      {view === 'settings' && <SettingsView onBack={() => setView('assistant')} onClose={() => void window.api.hideWindow()} />}
     </div>
   )
 }
 
 export default function App() {
-  const isSettingsWindow = window.location.hash === '#settings'
-
-  if (isSettingsWindow) {
-    return <SettingsView />
-  }
-
   return <AssistantFlow />
 }

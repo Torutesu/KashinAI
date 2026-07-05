@@ -22,6 +22,17 @@ type FormState = {
   showSources: boolean
 }
 
+type NavKey = 'account' | 'privacy' | 'appearance' | 'identity' | 'memory' | 'shortcuts'
+
+const NAV_ITEMS: { key: NavKey; label: string; icon: string }[] = [
+  { key: 'account', label: 'Account', icon: '◌' },
+  { key: 'privacy', label: 'Privacy', icon: '⌔' },
+  { key: 'appearance', label: 'Appearance', icon: '⚙' },
+  { key: 'identity', label: 'Identity', icon: '▣' },
+  { key: 'memory', label: 'Memory', icon: '⎘' },
+  { key: 'shortcuts', label: 'Shortcuts', icon: '⌘' }
+]
+
 function toFormState(settings: PublicAppSettings): FormState {
   return {
     appDisplayName: settings.appDisplayName,
@@ -44,43 +55,45 @@ function toFormState(settings: PublicAppSettings): FormState {
   }
 }
 
-export default function SettingsView() {
+export default function SettingsView({ onBack, onClose }: { onBack: () => void; onClose: () => void }) {
   const [form, setForm] = useState<FormState | null>(null)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [activeNav] = useState<NavKey>('privacy')
 
   useEffect(() => {
     window.api.getSettings().then((settings) => setForm(toFormState(settings)))
   }, [])
 
   if (!form) {
-    return <div className="p-6 text-sm text-neutral-400">Loading…</div>
+    return <div className="min-h-screen bg-transparent p-8 text-sm text-white/70">Loading settings…</div>
   }
+
+  const current = form
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]): void {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev))
   }
 
   async function handleSave(): Promise<void> {
-    if (!form) return
     setSaveState('saving')
     const updated = await window.api.setSettings({
-      appDisplayName: form.appDisplayName,
-      shortcut: form.shortcut,
+      appDisplayName: current.appDisplayName,
+      shortcut: current.shortcut,
       gbrain: {
-        mode: form.gbrainMode,
-        endpoint: form.gbrainEndpoint,
-        cliPath: form.gbrainCliPath,
-        timeoutMs: form.gbrainTimeoutMs,
-        ...(form.gbrainToken ? { token: form.gbrainToken } : {})
+        mode: current.gbrainMode,
+        endpoint: current.gbrainEndpoint,
+        cliPath: current.gbrainCliPath,
+        timeoutMs: current.gbrainTimeoutMs,
+        ...(current.gbrainToken ? { token: current.gbrainToken } : {})
       },
       llm: {
-        provider: form.llmProvider,
-        defaultModel: form.llmDefaultModel,
-        temperature: form.llmTemperature,
-        ...(form.llmApiKey ? { apiKey: form.llmApiKey } : {})
+        provider: current.llmProvider,
+        defaultModel: current.llmDefaultModel,
+        temperature: current.llmTemperature,
+        ...(current.llmApiKey ? { apiKey: current.llmApiKey } : {})
       },
-      defaults: { language: form.language, tone: form.tone, length: form.length },
-      privacy: { showSources: form.showSources }
+      defaults: { language: current.language, tone: current.tone, length: current.length },
+      privacy: { showSources: current.showSources }
     })
     setForm(toFormState(updated))
     setSaveState('saved')
@@ -88,170 +101,149 @@ export default function SettingsView() {
   }
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-5 p-6 text-neutral-100">
-      <h1 className="text-lg font-semibold">Settings</h1>
+    <div className="top-sheet min-h-screen text-white">
+      <div className="mx-auto flex min-h-screen max-w-[560px]">
+        <aside className="w-[210px] border-r border-white/10 px-5 py-5">
+          <div className="mb-6 flex items-center justify-between">
+            <h1 className="text-[20px] font-semibold tracking-tight">Settings</h1>
+            <div className="flex items-center gap-2">
+              <button onClick={onBack} className="overlay-icon-button" title="Back">
+                ←
+              </button>
+              <button onClick={onClose} className="overlay-icon-button wide text-[12px]" title="Close">
+                esc
+              </button>
+            </div>
+          </div>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">General</h2>
-        <Field label="App Display Name">
-          <input
-            value={form.appDisplayName}
-            onChange={(e) => update('appDisplayName', e.target.value)}
-            className="input"
-          />
-        </Field>
-        <Field label="Shortcut">
-          <input value={form.shortcut} onChange={(e) => update('shortcut', e.target.value)} className="input" />
-        </Field>
-      </section>
+          <nav className="space-y-2">
+            {NAV_ITEMS.map((item) => (
+              <div
+                key={item.key}
+                className={`flex items-center gap-3 rounded-[14px] px-4 py-3 text-[14px] font-medium transition ${
+                  item.key === activeNav
+                    ? 'bg-[rgba(255,147,71,0.18)] text-[#ffb37c]'
+                    : 'text-white/62'
+                }`}
+              >
+                <span className="w-5 text-center text-[15px]">{item.icon}</span>
+                <span>{item.label}</span>
+              </div>
+            ))}
+          </nav>
+        </aside>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">GBrain</h2>
-        <Field label="Mode">
-          <select
-            value={form.gbrainMode}
-            onChange={(e) => update('gbrainMode', e.target.value as GBrainMode)}
-            className="input"
-          >
-            <option value="local">local (built-in markdown search)</option>
-            <option value="cli">cli</option>
-            <option value="http">http</option>
-          </select>
-        </Field>
-        <Field label="CLI Path">
-          <input
-            value={form.gbrainCliPath}
-            onChange={(e) => update('gbrainCliPath', e.target.value)}
-            className="input"
-          />
-        </Field>
-        <Field label="Endpoint">
-          <input
-            value={form.gbrainEndpoint}
-            onChange={(e) => update('gbrainEndpoint', e.target.value)}
-            className="input"
-          />
-        </Field>
-        <Field label={`Token ${form.gbrainHasToken ? '(saved — leave blank to keep)' : ''}`}>
-          <input
-            type="password"
-            value={form.gbrainToken}
-            onChange={(e) => update('gbrainToken', e.target.value)}
-            placeholder={form.gbrainHasToken ? '••••••••' : ''}
-            className="input"
-          />
-        </Field>
-        <Field label="Timeout (ms)">
-          <input
-            type="number"
-            value={form.gbrainTimeoutMs}
-            onChange={(e) => update('gbrainTimeoutMs', Number(e.target.value))}
-            className="input"
-          />
-        </Field>
-      </section>
+        <main className="flex-1 px-5 py-5">
+          <div className="space-y-4">
+            <SettingsCard
+              title="PERMISSIONS"
+              subtitle="What KashinAI needs from macOS to build your memory and hear dictation."
+            >
+              <PermissionRow
+                name="Accessibility"
+                description="Required. Lets KashinAI read on-screen text to build your memory."
+                status="Granted"
+                tone="good"
+              />
+              <PermissionRow
+                name="Microphone"
+                description="Only needed if you turn on voice dictation."
+                status="Not requested"
+                tone="muted"
+              />
+            </SettingsCard>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">LLM</h2>
-        <Field label="Provider">
-          <select
-            value={form.llmProvider}
-            onChange={(e) => update('llmProvider', e.target.value as LlmProvider)}
-            className="input"
-          >
-            <option value="anthropic">Anthropic</option>
-            <option value="openai">OpenAI</option>
-            <option value="gemini">Gemini</option>
-          </select>
-        </Field>
-        <Field label={`API Key ${form.llmHasApiKey ? '(saved — leave blank to keep)' : ''}`}>
-          <input
-            type="password"
-            value={form.llmApiKey}
-            onChange={(e) => update('llmApiKey', e.target.value)}
-            placeholder={form.llmHasApiKey ? '••••••••' : ''}
-            className="input"
-          />
-        </Field>
-        <Field label="Default Model">
-          <input
-            value={form.llmDefaultModel}
-            onChange={(e) => update('llmDefaultModel', e.target.value)}
-            className="input"
-          />
-        </Field>
-        <Field label="Temperature">
-          <input
-            type="number"
-            step="0.1"
-            min="0"
-            max="1"
-            value={form.llmTemperature}
-            onChange={(e) => update('llmTemperature', Number(e.target.value))}
-            className="input"
-          />
-        </Field>
-      </section>
+            <SettingsCard title="Danger zone" subtitle="This action is irreversible. Make sure you have backups.">
+              <button className="rounded-[14px] border border-red-500/40 bg-red-500/10 px-5 py-3 text-[14px] font-semibold text-red-300">
+                Delete all data
+              </button>
+            </SettingsCard>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Defaults</h2>
-        <Field label="Language">
-          <select
-            value={form.language}
-            onChange={(e) => update('language', e.target.value as FormState['language'])}
-            className="input"
-          >
-            <option value="ja">Japanese</option>
-            <option value="en">English</option>
-          </select>
-        </Field>
-        <Field label="Tone">
-          <select
-            value={form.tone}
-            onChange={(e) => update('tone', e.target.value as FormState['tone'])}
-            className="input"
-          >
-            <option value="casual">Casual</option>
-            <option value="professional">Professional</option>
-            <option value="polite">Polite</option>
-          </select>
-        </Field>
-        <Field label="Length">
-          <select
-            value={form.length}
-            onChange={(e) => update('length', e.target.value as FormState['length'])}
-            className="input"
-          >
-            <option value="short">Short</option>
-            <option value="medium">Medium</option>
-            <option value="long">Long</option>
-          </select>
-        </Field>
-        <label className="flex items-center gap-2 text-sm text-neutral-300">
-          <input
-            type="checkbox"
-            checked={form.showSources}
-            onChange={(e) => update('showSources', e.target.checked)}
-          />
-          Show sources in results
-        </label>
-      </section>
+            <SettingsCard title="Assistant setup" subtitle="Core behavior for retrieval and generation.">
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Display name">
+                  <input value={form.appDisplayName} onChange={(e) => update('appDisplayName', e.target.value)} className="input" />
+                </Field>
+                <Field label="Shortcut">
+                  <input value={form.shortcut} onChange={(e) => update('shortcut', e.target.value)} className="input" />
+                </Field>
+                <Field label="GBrain mode">
+                  <select value={form.gbrainMode} onChange={(e) => update('gbrainMode', e.target.value as GBrainMode)} className="input">
+                    <option value="local">Local</option>
+                    <option value="cli">CLI</option>
+                    <option value="http">HTTP</option>
+                  </select>
+                </Field>
+                <Field label="CLI path">
+                  <input value={form.gbrainCliPath} onChange={(e) => update('gbrainCliPath', e.target.value)} className="input" />
+                </Field>
+                <Field label="LLM provider">
+                  <select value={form.llmProvider} onChange={(e) => update('llmProvider', e.target.value as LlmProvider)} className="input">
+                    <option value="anthropic">Anthropic</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="gemini">Gemini</option>
+                  </select>
+                </Field>
+                <Field label="Default model">
+                  <input value={form.llmDefaultModel} onChange={(e) => update('llmDefaultModel', e.target.value)} className="input" />
+                </Field>
+              </div>
+            </SettingsCard>
 
-      <button
-        onClick={handleSave}
-        disabled={saveState === 'saving'}
-        className="rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50"
-      >
-        {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved ✓' : 'Save'}
-      </button>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-[12px] text-white/44">Settings are stored locally and applied immediately.</div>
+              <button onClick={handleSave} disabled={saveState === 'saving'} className="primary-button min-w-32">
+                {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved ✓' : 'Save changes'}
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  )
+}
+
+function SettingsCard({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+  return (
+    <section className="rounded-[20px] border border-white/10 bg-black/14 px-5 py-5 shadow-[0_12px_36px_rgba(0,0,0,0.12)] backdrop-blur-md">
+      <h2 className={`text-[12px] font-bold uppercase tracking-[0.14em] ${title === 'Danger zone' ? 'text-red-300' : 'text-[#ffb37c]'}`}>
+        {title}
+      </h2>
+      <p className="mt-3 max-w-3xl text-[13px] leading-6 text-white/62">{subtitle}</p>
+      <div className="mt-5 space-y-4">{children}</div>
+    </section>
+  )
+}
+
+function PermissionRow({
+  name,
+  description,
+  status,
+  tone
+}: {
+  name: string
+  description: string
+  status: string
+  tone: 'good' | 'muted'
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-4 last:border-b-0">
+      <div>
+        <div className="text-[15px] font-semibold text-white/88">{name}</div>
+        <div className="mt-1 max-w-2xl text-[13px] leading-6 text-white/50">{description}</div>
+      </div>
+      <div className={`shrink-0 text-[13px] font-semibold ${tone === 'good' ? 'text-white/86' : 'text-white/38'}`}>
+        <span className={`mr-2 inline-block h-3 w-3 rounded-full ${tone === 'good' ? 'bg-green-500' : 'bg-white/20'}`} />
+        {status}
+      </div>
     </div>
   )
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-xs text-neutral-400">{label}</span>
+    <label className="flex flex-col gap-2">
+      <span className="text-sm text-white/46">{label}</span>
       {children}
     </label>
   )

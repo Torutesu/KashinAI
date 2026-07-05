@@ -7,8 +7,9 @@ import { buildSearchQuery } from './search-query'
 import { searchGBrain } from './gbrain'
 import { generate, LlmError } from './llm'
 import { getPublicSettings, getSettings, updateSettings } from './settings'
-import { createSettingsWindow, hideAssistantWindow } from './windows'
+import { collapseAssistantWindow, expandAssistantWindow, isAssistantCollapsed, openAssistantSettings } from './windows'
 import { insertText } from './insert'
+import { getRegisteredShortcut, updateRegisteredShortcut } from './shortcut'
 
 function brainDir(): string {
   return path.join(app.getAppPath(), 'brain')
@@ -108,15 +109,38 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('settings:set', async (_event, update: SettingsUpdate) => {
-    return updateSettings(update)
+    const previousSettings = getSettings()
+    const updated = updateSettings(update)
+
+    if (update.shortcut && update.shortcut !== previousSettings.shortcut) {
+      const swapped = updateRegisteredShortcut(update.shortcut)
+      if (!swapped) {
+        updateSettings({ shortcut: previousSettings.shortcut })
+        const restored = updateRegisteredShortcut(previousSettings.shortcut)
+        if (!restored && getRegisteredShortcut() !== previousSettings.shortcut) {
+          return getPublicSettings()
+        }
+        return getPublicSettings()
+      }
+    }
+
+    return updated
   })
 
   ipcMain.handle('window:hide', async () => {
-    hideAssistantWindow()
+    collapseAssistantWindow()
+  })
+
+  ipcMain.handle('window:getState', async () => {
+    return { collapsed: isAssistantCollapsed() }
+  })
+
+  ipcMain.handle('window:expand', async () => {
+    expandAssistantWindow()
   })
 
   ipcMain.handle('window:openSettings', async () => {
-    createSettingsWindow()
+    openAssistantSettings()
   })
 
   ipcMain.handle('system:checkAccessibility', async () => {

@@ -2,10 +2,11 @@ import { BrowserWindow, screen } from 'electron'
 import path from 'node:path'
 
 let assistantWindow: BrowserWindow | null = null
-let settingsWindow: BrowserWindow | null = null
-
-const ASSISTANT_WIDTH = 420
-const ASSISTANT_HEIGHT = 520
+const ASSISTANT_WIDTH = 560
+const ASSISTANT_HEIGHT = 460
+const COLLAPSED_WIDTH = 152
+const COLLAPSED_HEIGHT = 12
+let assistantCollapsed = true
 
 function getRendererUrlOrFile(hash?: string): { url?: string; file?: string } {
   const devServerUrl = process.env['ELECTRON_RENDERER_URL']
@@ -19,32 +20,30 @@ function preloadPath(): string {
   return path.join(__dirname, '../preload/index.js')
 }
 
-function centerTopPosition(): { x: number; y: number } {
+function currentWorkArea(): { x: number; y: number; width: number; height: number } {
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-  const { x, y, width } = display.workArea
-  return {
-    x: Math.round(x + (width - ASSISTANT_WIDTH) / 2),
-    y: Math.round(y + 80)
-  }
+  return display.workArea
 }
 
 export function createAssistantWindow(): BrowserWindow {
   if (assistantWindow && !assistantWindow.isDestroyed()) return assistantWindow
 
-  const { x, y } = centerTopPosition()
+  const { x, y, width } = currentWorkArea()
+  const windowX = Math.round(x + (width - ASSISTANT_WIDTH) / 2)
+  const windowY = Math.round(y + 12)
 
   assistantWindow = new BrowserWindow({
     width: ASSISTANT_WIDTH,
     height: ASSISTANT_HEIGHT,
-    x,
-    y,
+    x: windowX,
+    y: windowY,
     frame: false,
     alwaysOnTop: true,
+    transparent: true,
     resizable: false,
     show: false,
     skipTaskbar: true,
-    vibrancy: 'sidebar',
-    visualEffectState: 'active',
+    hasShadow: false,
     webPreferences: {
       preload: preloadPath(),
       contextIsolation: true,
@@ -59,10 +58,6 @@ export function createAssistantWindow(): BrowserWindow {
     void assistantWindow.loadFile(target.file)
   }
 
-  assistantWindow.on('blur', () => {
-    hideAssistantWindow()
-  })
-
   assistantWindow.on('closed', () => {
     assistantWindow = null
   })
@@ -71,16 +66,52 @@ export function createAssistantWindow(): BrowserWindow {
 }
 
 export function showAssistantWindow(): void {
+  expandAssistantWindow()
+}
+
+function expandedBounds(): { x: number; y: number; width: number; height: number } {
   const win = createAssistantWindow()
-  const { x, y } = centerTopPosition()
-  win.setPosition(x, y)
+  const { x, y, width } = currentWorkArea()
+  return {
+    x: Math.round(x + (width - ASSISTANT_WIDTH) / 2),
+    y: Math.round(y + 12),
+    width: ASSISTANT_WIDTH,
+    height: ASSISTANT_HEIGHT
+  }
+}
+
+function collapsedBounds(): { x: number; y: number; width: number; height: number } {
+  const { x, y, width } = currentWorkArea()
+  return {
+    x: Math.round(x + (width - COLLAPSED_WIDTH) / 2),
+    y,
+    width: COLLAPSED_WIDTH,
+    height: COLLAPSED_HEIGHT
+  }
+}
+
+function syncCollapsedState(collapsed: boolean): void {
+  assistantCollapsed = collapsed
+  assistantWindow?.webContents.send('window:collapsed-changed', collapsed)
+}
+
+export function expandAssistantWindow(): void {
+  const win = createAssistantWindow()
+  win.setBounds(expandedBounds())
+  syncCollapsedState(false)
   win.show()
   win.focus()
 }
 
 export function hideAssistantWindow(): void {
+  collapseAssistantWindow()
+}
+
+export function collapseAssistantWindow(): void {
   if (assistantWindow && !assistantWindow.isDestroyed()) {
-    assistantWindow.hide()
+    assistantWindow.setBounds(collapsedBounds())
+    syncCollapsedState(true)
+    assistantWindow.showInactive()
   }
 }
 
@@ -88,32 +119,16 @@ export function getAssistantWindow(): BrowserWindow | null {
   return assistantWindow
 }
 
-export function createSettingsWindow(): void {
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    settingsWindow.show()
-    settingsWindow.focus()
-    return
-  }
+export function openAssistantSettings(): void {
+  expandAssistantWindow()
+  assistantWindow?.webContents.send('view:navigate', 'settings')
+}
 
-  settingsWindow = new BrowserWindow({
-    width: 520,
-    height: 640,
-    title: 'Settings',
-    webPreferences: {
-      preload: preloadPath(),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  })
+export function openAssistantHome(): void {
+  expandAssistantWindow()
+  assistantWindow?.webContents.send('view:navigate', 'assistant')
+}
 
-  const target = getRendererUrlOrFile('settings')
-  if (target.url) {
-    void settingsWindow.loadURL(target.url)
-  } else if (target.file) {
-    void settingsWindow.loadFile(target.file, { hash: 'settings' })
-  }
-
-  settingsWindow.on('closed', () => {
-    settingsWindow = null
-  })
+export function isAssistantCollapsed(): boolean {
+  return assistantCollapsed
 }

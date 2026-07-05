@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
 import { registerIpcHandlers } from './ipc'
 import { registerShortcut } from './shortcut'
-import { createAssistantWindow, showAssistantWindow, createSettingsWindow, getAssistantWindow } from './windows'
+import { createAssistantWindow, showAssistantWindow, openAssistantSettings, getAssistantWindow } from './windows'
 import { getFrontmostAppInfo, captureCurrentContext } from './context-reader'
 import { getSettings } from './settings'
 
@@ -17,7 +17,7 @@ if (!gotLock) {
   })
 
   app.whenReady().then(() => {
-    if (process.platform === 'darwin') {
+    if (process.platform === 'darwin' && !import.meta.env.DEV) {
       app.dock?.hide()
     }
 
@@ -25,6 +25,14 @@ if (!gotLock) {
     createAssistantWindow()
     setupTray()
     setupShortcut()
+
+    // In development, surface the floating window immediately so we can verify
+    // the desktop UI without relying on the global shortcut or tray click path.
+    if (import.meta.env.DEV) {
+      setTimeout(() => {
+        void triggerAssistant()
+      }, 400)
+    }
   })
 
   app.on('activate', () => {
@@ -46,7 +54,7 @@ function setupTray(): void {
 
   const menu = Menu.buildFromTemplate([
     { label: 'Show Assistant', click: () => showAssistantWindow() },
-    { label: 'Settings', click: () => createSettingsWindow() },
+    { label: 'Settings', click: () => openAssistantSettings() },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() }
   ])

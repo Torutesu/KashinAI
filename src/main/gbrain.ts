@@ -11,6 +11,21 @@ export type GBrainSearchResult = {
   contextSource: ContextSource
 }
 
+function normalizeTypeFromSource(source: string): RetrievedContext['type'] {
+  const root = source.split(/[\\/]/)[0]?.toLowerCase() ?? ''
+  switch (root) {
+    case 'company':
+    case 'products':
+    case 'customers':
+    case 'projects':
+    case 'people':
+    case 'templates':
+      return root === 'products' ? 'product' : (root.slice(0, -1) as RetrievedContext['type'])
+    default:
+      return 'unknown'
+  }
+}
+
 function normalizeResults(raw: unknown): RetrievedContext[] {
   const list: unknown[] = Array.isArray(raw)
     ? raw
@@ -36,6 +51,26 @@ function normalizeResults(raw: unknown): RetrievedContext[] {
     .filter((v): v is RetrievedContext => v !== null)
 }
 
+function parseCliPlaintext(stdout: string): RetrievedContext[] {
+  return stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line): RetrievedContext | null => {
+      const match = line.match(/^\[(\d+(?:\.\d+)?)\]\s+(.+?)\s+--\s+([\s\S]+)$/)
+      if (!match) return null
+      const [, scoreText, source, content] = match
+      return {
+        title: source,
+        source: source.trim(),
+        content: content.trim(),
+        score: Number(scoreText),
+        type: normalizeTypeFromSource(source.trim())
+      }
+    })
+    .filter((value): value is RetrievedContext => value !== null)
+}
+
 /** Queries GBrain via its CLI. Defensive: any non-JSON or malformed output is treated as a
  * failure so the caller can fall through to the local fallback rather than crashing. */
 async function searchViaCli(
@@ -45,9 +80,13 @@ async function searchViaCli(
 ): Promise<RetrievedContext[] | null> {
   try {
     const { stdout } = await execFileAsync(cliPath, ['query', query, '--json'], { timeout: timeoutMs })
-    const parsed: unknown = JSON.parse(stdout)
-    const results = normalizeResults(parsed)
-    return results
+    try {
+      const parsed: unknown = JSON.parse(stdout)
+      return normalizeResults(parsed)
+    } catch {
+      const parsed = parseCliPlaintext(stdout)
+      return parsed.length > 0 ? parsed : null
+    }
   } catch {
     return null
   }

@@ -14,7 +14,10 @@ const api: ContextAssistantApi = {
 
   setSettings: (update) => ipcRenderer.invoke('settings:set', update),
 
+  getWindowState: () => ipcRenderer.invoke('window:getState'),
+
   hideWindow: () => ipcRenderer.invoke('window:hide'),
+  expandWindow: () => ipcRenderer.invoke('window:expand'),
 
   openSettings: () => ipcRenderer.invoke('window:openSettings'),
 
@@ -24,6 +27,18 @@ const api: ContextAssistantApi = {
     const listener = (_event: Electron.IpcRendererEvent, context: CurrentContext): void => callback(context)
     ipcRenderer.on('context:pushed', listener)
     return () => ipcRenderer.removeListener('context:pushed', listener)
+  },
+
+  onNavigate: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, view: 'assistant' | 'settings'): void => callback(view)
+    ipcRenderer.on('view:navigate', listener)
+    return () => ipcRenderer.removeListener('view:navigate', listener)
+  },
+
+  onCollapsedChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, collapsed: boolean): void => callback(collapsed)
+    ipcRenderer.on('window:collapsed-changed', listener)
+    return () => ipcRenderer.removeListener('window:collapsed-changed', listener)
   }
 }
 

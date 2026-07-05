@@ -125,8 +125,12 @@ export type ContextAssistantApi = {
   insertOutput: (text: string, activeApp: string | null) => Promise<boolean>
   getSettings: () => Promise<PublicAppSettings>
   setSettings: (update: SettingsUpdate) => Promise<PublicAppSettings>
+  getWindowState: () => Promise<{ collapsed: boolean }>
   hideWindow: () => Promise<void>
+  expandWindow: () => Promise<void>
   openSettings: () => Promise<void>
   checkAccessibility: () => Promise<boolean>
   onContextPushed: (callback: (context: CurrentContext) => void) => () => void
+  onNavigate: (callback: (view: 'assistant' | 'settings') => void) => () => void
+  onCollapsedChanged: (callback: (collapsed: boolean) => void) => () => void
 }
