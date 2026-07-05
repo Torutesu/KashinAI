@@ -16,6 +16,8 @@ const api: ContextAssistantApi = {
 
   setSettings: (update) => ipcRenderer.invoke('settings:set', update),
 
+  saveMemory: (request) => ipcRenderer.invoke('memory:save', request),
+
   getWindowState: () => ipcRenderer.invoke('window:getState'),
 
   hideWindow: () => ipcRenderer.invoke('window:hide'),

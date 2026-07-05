@@ -125,6 +125,10 @@ export type AppSettings = {
     cliPath: string
     timeoutMs: number
   }
+  memory: {
+    enabled: boolean
+    dir: string
+  }
   llm: {
     provider: LlmProvider
     apiKey: string
@@ -153,6 +157,7 @@ export type SettingsUpdate = {
   appDisplayName?: string
   shortcut?: string
   gbrain?: Partial<Omit<AppSettings['gbrain'], 'token'>> & { token?: string }
+  memory?: Partial<AppSettings['memory']>
   llm?: Partial<Omit<AppSettings['llm'], 'apiKey'>> & { apiKey?: string }
   defaults?: Partial<AppSettings['defaults']>
   privacy?: Partial<AppSettings['privacy']>
@@ -177,6 +182,7 @@ export type ContextAssistantApi = {
   insertOutput: (text: string, activeApp: string | null) => Promise<boolean>
   getSettings: () => Promise<PublicAppSettings>
   setSettings: (update: SettingsUpdate) => Promise<PublicAppSettings>
+  saveMemory: (request: { currentContext: CurrentContext; note?: string }) => Promise<{ ok: true; path: string } | { ok: false; error: AppError }>
   getWindowState: () => Promise<{ collapsed: boolean; registeredShortcut: string | null }>
   hideWindow: () => Promise<void>
   expandWindow: () => Promise<void>

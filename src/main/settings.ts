@@ -1,6 +1,8 @@
 import Store from 'electron-store'
 import { safeStorage } from 'electron'
 import { existsSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import type { AppSettings, PublicAppSettings, SettingsUpdate } from '../shared/types'
 
 type StoredSecret = {
@@ -30,6 +32,7 @@ function detectDefaultGbrainCliPath(): string {
 const detectedCliPath = detectDefaultGbrainCliPath()
 const NEW_DEFAULT_SHORTCUT = 'Option+Space'
 const LEGACY_DEFAULT_SHORTCUT = 'Option+['
+const DEFAULT_MEMORY_DIR = path.join(os.homedir(), 'KashinAI', 'memory')
 
 const DEFAULT_SETTINGS: StoredSettings = {
   appDisplayName: 'KashinAI',
@@ -40,6 +43,10 @@ const DEFAULT_SETTINGS: StoredSettings = {
     token: { value: '', encrypted: false },
     cliPath: detectedCliPath,
     timeoutMs: 10000
+  },
+  memory: {
+    enabled: true,
+    dir: DEFAULT_MEMORY_DIR
   },
   llm: {
     provider: 'anthropic',
@@ -101,6 +108,10 @@ export function getSettings(): AppSettings {
       cliPath,
       token: decryptSecret(raw.gbrain.token)
     },
+    memory: {
+      enabled: raw.memory?.enabled ?? true,
+      dir: raw.memory?.dir || DEFAULT_MEMORY_DIR
+    },
     llm: {
       ...raw.llm,
       apiKey: decryptSecret(raw.llm.apiKey)
@@ -124,6 +135,10 @@ export function getPublicSettings(): PublicAppSettings {
       cliPath,
       timeoutMs: raw.gbrain.timeoutMs,
       hasToken: Boolean(raw.gbrain.token?.value)
+    },
+    memory: {
+      enabled: raw.memory?.enabled ?? true,
+      dir: raw.memory?.dir || DEFAULT_MEMORY_DIR
     },
     llm: {
       provider: raw.llm.provider,
@@ -151,6 +166,10 @@ export function updateSettings(update: SettingsUpdate): PublicAppSettings {
         update.gbrain?.token !== undefined && update.gbrain.token !== ''
           ? encryptSecret(update.gbrain.token)
           : current.gbrain.token
+    },
+    memory: {
+      enabled: update.memory?.enabled ?? current.memory?.enabled ?? true,
+      dir: update.memory?.dir ?? current.memory?.dir ?? DEFAULT_MEMORY_DIR
     },
     llm: {
       provider: update.llm?.provider ?? current.llm.provider,

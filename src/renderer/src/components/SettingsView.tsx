@@ -11,6 +11,8 @@ type FormState = {
   gbrainTimeoutMs: number
   gbrainToken: string
   gbrainHasToken: boolean
+  memoryEnabled: boolean
+  memoryDir: string
   llmProvider: LlmProvider
   llmDefaultModel: string
   llmTemperature: number
@@ -43,6 +45,8 @@ function toFormState(settings: PublicAppSettings): FormState {
     gbrainTimeoutMs: settings.gbrain.timeoutMs,
     gbrainToken: '',
     gbrainHasToken: settings.gbrain.hasToken,
+    memoryEnabled: settings.memory.enabled,
+    memoryDir: settings.memory.dir,
     llmProvider: settings.llm.provider,
     llmDefaultModel: settings.llm.defaultModel,
     llmTemperature: settings.llm.temperature,
@@ -101,6 +105,10 @@ export default function SettingsView({
         cliPath: current.gbrainCliPath,
         timeoutMs: current.gbrainTimeoutMs,
         ...(current.gbrainToken ? { token: current.gbrainToken } : {})
+      },
+      memory: {
+        enabled: current.memoryEnabled,
+        dir: current.memoryDir
       },
       llm: {
         provider: current.llmProvider,
@@ -277,6 +285,19 @@ export default function SettingsView({
                 </Field>
                 <Field label="CLI path">
                   <input value={form.gbrainCliPath} onChange={(e) => update('gbrainCliPath', e.target.value)} className="input" />
+                </Field>
+                <Field label="Memory folder">
+                  <input value={form.memoryDir} onChange={(e) => update('memoryDir', e.target.value)} className="input" />
+                </Field>
+                <Field label="Markdown memory">
+                  <select
+                    value={form.memoryEnabled ? 'enabled' : 'disabled'}
+                    onChange={(e) => update('memoryEnabled', e.target.value === 'enabled')}
+                    className="input"
+                  >
+                    <option value="enabled">Enabled</option>
+                    <option value="disabled">Disabled</option>
+                  </select>
                 </Field>
                 <Field label="LLM provider">
                   <select value={form.llmProvider} onChange={(e) => update('llmProvider', e.target.value as LlmProvider)} className="input">

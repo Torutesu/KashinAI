@@ -146,6 +146,14 @@ function AssistantFlow() {
     setError(null)
   }
 
+  async function saveMemory(): Promise<void> {
+    if (!context) return
+    const res = await window.api.saveMemory({ currentContext: context })
+    if (!res.ok) {
+      setError(res.error)
+    }
+  }
+
   async function requestAccessibility(): Promise<void> {
     const granted = await window.api.requestAccessibility()
     setAccessibilityGranted(granted)
@@ -229,6 +237,7 @@ function AssistantFlow() {
           }}
           onGenerateCustom={() => void triggerChat(customInstruction)}
           onRefreshContext={() => void refreshContext()}
+          onSaveMemory={() => void saveMemory()}
           loading={loading}
           error={error}
           onOpenSettings={() => void window.api.openSettings()}

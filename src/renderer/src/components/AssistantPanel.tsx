@@ -18,6 +18,7 @@ type Props = {
   onSelectAction: (actionType: ActionType) => void
   onGenerateCustom: () => void
   onRefreshContext: () => void
+  onSaveMemory: () => void
   loading: boolean
   error: AppError | null
   onOpenSettings: () => void
@@ -121,6 +122,7 @@ export default function AssistantPanel({
   onSelectAction,
   onGenerateCustom,
   onRefreshContext,
+  onSaveMemory,
   loading,
   error,
   onOpenSettings,
@@ -189,6 +191,14 @@ export default function AssistantPanel({
               title="Refresh context"
             >
               ⤴
+            </button>
+            <button
+              onClick={onSaveMemory}
+              className="overlay-icon-button"
+              aria-label="Save memory"
+              title="Save memory"
+            >
+              ⎘
             </button>
             <button
               onClick={() => setPanelMode((prev) => (prev === 'inbox' ? 'focus' : 'inbox'))}

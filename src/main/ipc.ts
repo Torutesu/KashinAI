@@ -18,6 +18,7 @@ import { getPublicSettings, getSettings, updateSettings } from './settings'
 import { expandAssistantWindow, hideAssistantWindow, isAssistantCollapsed, openAssistantSettings } from './windows'
 import { insertText } from './insert'
 import { getRegisteredShortcut, updateRegisteredShortcut } from './shortcut'
+import { saveMarkdownMemory } from './memory'
 
 function brainDir(): string {
   return path.join(app.getAppPath(), 'brain')
@@ -281,6 +282,22 @@ export function registerIpcHandlers(): void {
     }
 
     return updated
+  })
+
+  ipcMain.handle('memory:save', async (_event, payload: { currentContext: ChatRequest['currentContext']; note?: string }) => {
+    try {
+      const filePath = await saveMarkdownMemory({
+        settings: getSettings(),
+        currentContext: payload.currentContext,
+        note: payload.note
+      })
+      return { ok: true, path: filePath }
+    } catch (err) {
+      return {
+        ok: false,
+        error: { code: 'unknown', message: err instanceof Error ? err.message : 'Failed to save memory.' }
+      }
+    }
   })
 
   ipcMain.handle('window:hide', async () => {

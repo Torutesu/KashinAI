@@ -237,6 +237,10 @@ function scoreText(text: string, terms: string[]): number {
  * automatic fallback when cli/http modes fail. Guarantees the demo always produces something.
  */
 async function searchLocalBrain(query: string, brainDir: string): Promise<RetrievedContext[]> {
+  return searchMarkdownDirs(query, [{ dir: brainDir, prefix: '' }])
+}
+
+async function searchMarkdownDirs(query: string, roots: { dir: string; prefix: string }[]): Promise<RetrievedContext[]> {
   const terms = query
     .split(/\s+/)
     .map((t) => t.trim())
@@ -244,44 +248,46 @@ async function searchLocalBrain(query: string, brainDir: string): Promise<Retrie
 
   if (terms.length === 0) return []
 
-  const files = await listMarkdownFiles(brainDir)
   const scored: RetrievedContext[] = []
 
-  for (const filePath of files) {
-    let content: string
-    try {
-      content = await readFile(filePath, 'utf-8')
-    } catch {
-      continue
-    }
-
-    const relSource = path.relative(brainDir, filePath)
-    const filenameBoost = scoreText(relSource, terms) * 3
-
-    const sections = splitIntoSections(content)
-    let bestSection: Section | null = null
-    let bestScore = -1
-
-    for (const section of sections) {
-      const headingBoost = scoreText(section.heading, terms) * 2
-      const bodyScore = scoreText(section.body, terms)
-      const total = headingBoost + bodyScore
-      if (total > bestScore) {
-        bestScore = total
-        bestSection = section
+  for (const root of roots) {
+    const files = await listMarkdownFiles(root.dir)
+    for (const filePath of files) {
+      let content: string
+      try {
+        content = await readFile(filePath, 'utf-8')
+      } catch {
+        continue
       }
+
+      const relSource = `${root.prefix}${path.relative(root.dir, filePath)}`
+      const filenameBoost = scoreText(relSource, terms) * 3
+
+      const sections = splitIntoSections(content)
+      let bestSection: Section | null = null
+      let bestScore = -1
+
+      for (const section of sections) {
+        const headingBoost = scoreText(section.heading, terms) * 2
+        const bodyScore = scoreText(section.body, terms)
+        const total = headingBoost + bodyScore
+        if (total > bestScore) {
+          bestScore = total
+          bestSection = section
+        }
+      }
+
+      const totalScore = filenameBoost + Math.max(bestScore, 0)
+      if (totalScore <= 0 || !bestSection) continue
+
+      scored.push({
+        title: bestSection.heading,
+        content: bestSection.body.slice(0, 1500),
+        source: relSource,
+        score: totalScore,
+        type: 'unknown'
+      })
     }
-
-    const totalScore = filenameBoost + Math.max(bestScore, 0)
-    if (totalScore <= 0 || !bestSection) continue
-
-    scored.push({
-      title: bestSection.heading,
-      content: bestSection.body.slice(0, 1500),
-      source: relSource,
-      score: totalScore,
-      type: 'unknown'
-    })
   }
 
   scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
@@ -313,7 +319,10 @@ export async function searchGBrain(
     }
   }
 
-  const localResults = await searchLocalBrain(query, brainDir)
+  const localResults = await searchMarkdownDirs(query, [
+    { dir: brainDir, prefix: '' },
+    ...(settings.memory.enabled && settings.memory.dir ? [{ dir: settings.memory.dir, prefix: 'memory/' }] : [])
+  ])
   if (localResults.length > 0) {
     return { results: localResults, contextSource: 'local-fallback' }
   }
