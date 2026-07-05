@@ -69,7 +69,7 @@ function AssistantFlow() {
     const recommendationRequest: ChatMessage = {
       role: 'user',
       content:
-        '現在の画面コンテキストとGBrainの会社文脈を融合して、今すぐ使えるおすすめ文を1つ作ってください。返信、要約、次アクションのうち、この状況に一番合う形式を選んでください。'
+        '現在の画面コンテキスト、スクリーンOCR、GBrainの会社文脈を融合して、今すぐ入力欄に貼り付けて使えるおすすめ文を1つ作ってください。返信、要約、次アクションのうち、この状況に一番合う形式を選んでください。前置き、見出し、引用符、説明、Context used、箇条書きラベルは出さず、貼り付ける本文だけを出力してください。'
     }
 
     setLoading(true)

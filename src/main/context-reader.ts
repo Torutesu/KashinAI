@@ -1,6 +1,6 @@
-import { clipboard } from 'electron'
+import { app, clipboard, desktopCapturer } from 'electron'
 import { execFile } from 'node:child_process'
-import { readFile, readdir, stat } from 'node:fs/promises'
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -31,6 +31,65 @@ type BrowserPageContext = {
   pageUrl: string | null
   pageText: string | null
   pageCaptureMethod: CurrentContext['pageCaptureMethod']
+}
+
+type ScreenContext = {
+  screenshotPath: string | null
+  screenText: string | null
+  screenCaptureMethod: CurrentContext['screenCaptureMethod']
+}
+
+function ocrScriptPath(): string {
+  if (process.defaultApp || process.env['ELECTRON_RENDERER_URL']) {
+    return path.join(app.getAppPath(), 'scripts/ocr.swift')
+  }
+  return path.join(process.resourcesPath, 'ocr.swift')
+}
+
+async function captureScreenshotPng(): Promise<string | null> {
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: 1920, height: 1200 }
+    })
+    const source = sources[0]
+    if (!source || source.thumbnail.isEmpty()) return null
+
+    const capturesDir = path.join(app.getPath('userData'), 'captures')
+    await mkdir(capturesDir, { recursive: true })
+    const screenshotPath = path.join(capturesDir, 'latest-screen.png')
+    await writeFile(screenshotPath, source.thumbnail.toPNG())
+    return screenshotPath
+  } catch {
+    return null
+  }
+}
+
+async function recognizeScreenshotText(screenshotPath: string): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync('/usr/bin/swift', [ocrScriptPath(), screenshotPath], {
+      timeout: 10000,
+      maxBuffer: 1024 * 1024 * 4
+    })
+    const text = stdout.replace(/\s+\n/g, '\n').trim()
+    return text ? text.slice(0, 12000) : null
+  } catch {
+    return null
+  }
+}
+
+async function captureScreenContext(): Promise<ScreenContext> {
+  const screenshotPath = await captureScreenshotPng()
+  if (!screenshotPath) {
+    return { screenshotPath: null, screenText: null, screenCaptureMethod: 'none' }
+  }
+
+  const screenText = await recognizeScreenshotText(screenshotPath)
+  return {
+    screenshotPath,
+    screenText,
+    screenCaptureMethod: screenText ? 'desktop-capturer-ocr' : 'screenshot-only'
+  }
 }
 
 /**
@@ -321,6 +380,7 @@ export async function captureCurrentContext(frontmost: FrontmostAppInfo): Promis
   ) {
     pageContext = await captureChromePageViaSession(frontmost)
   }
+  const screenContext = await captureScreenContext()
 
   return {
     activeApp: frontmost.activeApp,
@@ -329,6 +389,9 @@ export async function captureCurrentContext(frontmost: FrontmostAppInfo): Promis
     pageUrl: pageContext.pageUrl,
     pageText: pageContext.pageText,
     pageCaptureMethod: pageContext.pageCaptureMethod,
+    screenshotPath: screenContext.screenshotPath,
+    screenText: screenContext.screenText,
+    screenCaptureMethod: screenContext.screenCaptureMethod,
     selectedText,
     clipboardText: originalClipboard || null,
     timestamp: new Date().toISOString()

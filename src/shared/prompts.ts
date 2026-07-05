@@ -44,11 +44,20 @@ ${currentContext.pageUrl ?? '(none)'}
 Page Capture Method:
 ${currentContext.pageCaptureMethod}
 
+Screen Capture Method:
+${currentContext.screenCaptureMethod}
+
+Screenshot Path:
+${currentContext.screenshotPath ?? '(none)'}
+
 Selected Text:
 ${currentContext.selectedText ?? '(none)'}
 
 Open Page Text:
 ${currentContext.pageText ?? '(none)'}
+
+Screen OCR Text:
+${currentContext.screenText ?? '(none)'}
 
 Clipboard Fallback:
 ${currentContext.clipboardText ?? '(none)'}`

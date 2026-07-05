@@ -7,6 +7,9 @@ export type CurrentContext = {
   pageUrl: string | null
   pageText: string | null
   pageCaptureMethod: 'browser-automation' | 'keyboard-copy' | 'chrome-session' | 'none'
+  screenshotPath: string | null
+  screenText: string | null
+  screenCaptureMethod: 'desktop-capturer-ocr' | 'screenshot-only' | 'none'
   selectedText: string | null
   clipboardText: string | null
   timestamp: string
@@ -88,6 +91,7 @@ export type BackendDiagnostics = {
   fusionInputs: {
     hasGBrainContext: boolean
     hasPageContext: boolean
+    hasScreenContext: boolean
     hasSelectedText: boolean
     hasClipboardFallback: boolean
   }

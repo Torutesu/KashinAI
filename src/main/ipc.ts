@@ -33,6 +33,7 @@ function buildRetrievalOnlyAnswer(params: {
   pageUrl: string | null
   pageTitle: string | null
   pageText: string | null
+  screenText: string | null
   sources: { source: string; title: string; content: string }[]
 }): string {
   const sourceLines = params.sources
@@ -42,6 +43,9 @@ function buildRetrievalOnlyAnswer(params: {
   const pageSummary = params.pageText
     ? params.pageText.replace(/\s+/g, ' ').trim().slice(0, 600)
     : '(page body not captured)'
+  const screenSummary = params.screenText
+    ? params.screenText.replace(/\s+/g, ' ').trim().slice(0, 600)
+    : '(screen OCR not captured)'
   const wantsRecommendation = /おすすめ文|recommended|ready-to-send/i.test(params.latestUserMessage)
 
   if (wantsRecommendation) {
@@ -61,6 +65,7 @@ Open page context:
 - Title: ${params.pageTitle || '(unknown)'}
 - URL: ${params.pageUrl || '(not captured)'}
 - Text preview: ${pageSummary}
+- Screen OCR preview: ${screenSummary}
 
 GBrain context used:
 ${sourceLines || '- none'}
@@ -77,6 +82,7 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
   try {
     const hasAnyInput = Boolean(
       request.currentContext.selectedText || request.currentContext.clipboardText || request.userInstruction
+        || request.currentContext.screenText
     )
     if (!hasAnyInput) {
       return {
@@ -127,6 +133,7 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
           pageUrl: request.currentContext.pageUrl,
           pageTitle: request.currentContext.pageTitle,
           pageText: request.currentContext.pageText,
+          screenText: request.currentContext.screenText,
           sources: results
         })
 
@@ -152,6 +159,7 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
       latestUserMessage ||
         request.currentContext.selectedText ||
         request.currentContext.pageText ||
+        request.currentContext.screenText ||
         request.currentContext.clipboardText
     )
 
@@ -194,6 +202,7 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
           pageUrl: request.currentContext.pageUrl,
           pageTitle: request.currentContext.pageTitle,
           pageText: request.currentContext.pageText,
+          screenText: request.currentContext.screenText,
           sources: results
         })
 
@@ -330,7 +339,7 @@ export function registerIpcHandlers(): void {
           screenCaptureStatus: getScreenCaptureStatus(),
           canFuseContext:
             (gbrain.contextSource === 'gbrain-cli' || gbrain.contextSource === 'gbrain-http') &&
-            Boolean(currentContext.pageUrl || currentContext.pageText || currentContext.selectedText),
+            Boolean(currentContext.pageUrl || currentContext.pageText || currentContext.screenText || currentContext.selectedText),
           gbrain: {
             ok: gbrain.contextSource === 'gbrain-cli' || gbrain.contextSource === 'gbrain-http',
             contextSource: gbrain.contextSource,
@@ -340,6 +349,7 @@ export function registerIpcHandlers(): void {
           fusionInputs: {
             hasGBrainContext: gbrain.results.length > 0,
             hasPageContext: Boolean(currentContext.pageUrl || currentContext.pageText),
+            hasScreenContext: Boolean(currentContext.screenshotPath || currentContext.screenText),
             hasSelectedText: Boolean(currentContext.selectedText),
             hasClipboardFallback: Boolean(currentContext.clipboardText)
           },

@@ -236,7 +236,8 @@ export default function SettingsView({
                   <div>
                     Inputs: GBrain {diagnostics.fusionInputs.hasGBrainContext ? 'yes' : 'no'}, page{' '}
                     {diagnostics.fusionInputs.hasPageContext ? 'yes' : 'no'}, selection{' '}
-                    {diagnostics.fusionInputs.hasSelectedText ? 'yes' : 'no'}, clipboard{' '}
+                    {diagnostics.fusionInputs.hasSelectedText ? 'yes' : 'no'}, screen{' '}
+                    {diagnostics.fusionInputs.hasScreenContext ? 'yes' : 'no'}, clipboard{' '}
                     {diagnostics.fusionInputs.hasClipboardFallback ? 'yes' : 'no'}
                   </div>
                   <div>Sources: {diagnostics.gbrain.sampleSources.join(', ') || 'none'}</div>
@@ -248,6 +249,12 @@ export default function SettingsView({
                   <div>Page capture: {diagnostics.currentContext.pageCaptureMethod}</div>
                   <div>
                     Page text: {diagnostics.currentContext.pageText ? `${diagnostics.currentContext.pageText.length} chars` : 'not captured'}
+                  </div>
+                  <div>Screen capture: {diagnostics.currentContext.screenCaptureMethod}</div>
+                  <div>Screenshot: {diagnostics.currentContext.screenshotPath ?? 'not captured'}</div>
+                  <div>
+                    Screen OCR:{' '}
+                    {diagnostics.currentContext.screenText ? `${diagnostics.currentContext.screenText.length} chars` : 'not captured'}
                   </div>
                 </div>
               )}

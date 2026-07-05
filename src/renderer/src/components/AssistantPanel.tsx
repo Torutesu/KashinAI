@@ -80,6 +80,16 @@ function buildContextItems(context: CurrentContext | null): ContextItem[] {
     })
   }
 
+  if (context.screenshotPath || context.screenText) {
+    items.push({
+      title: `Screen (${context.screenCaptureMethod}): ${compact(context.screenText || context.screenshotPath || 'Screenshot captured')}`,
+      time: 'now',
+      instruction: [context.screenText, context.screenshotPath ? `Screenshot: ${context.screenshotPath}` : null]
+        .filter(Boolean)
+        .join('\n\n')
+    })
+  }
+
   if (!context.selectedText && context.clipboardText) {
     items.push({
       title: `Clipboard fallback: ${compact(context.clipboardText)}`,

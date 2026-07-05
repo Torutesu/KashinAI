@@ -48,7 +48,14 @@
     "files": [
       "out/**/*",
       "brain/**/*",
+      "scripts/ocr.swift",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "scripts/ocr.swift",
+        "to": "ocr.swift"
+      }
     ],
     "asar": true,
     "mac": {

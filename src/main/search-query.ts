@@ -69,7 +69,14 @@ export function buildSearchQuery(
   actionType: ActionType,
   userInstruction: string
 ): SearchQueryResult {
-  const sourceText = [context.selectedText, context.pageTitle, context.pageUrl, context.pageText, context.clipboardText]
+  const sourceText = [
+    context.selectedText,
+    context.pageTitle,
+    context.pageUrl,
+    context.pageText,
+    context.screenText,
+    context.clipboardText
+  ]
     .filter((value): value is string => Boolean(value))
     .join('\n')
   const quoted = extractQuotedPhrases(sourceText)

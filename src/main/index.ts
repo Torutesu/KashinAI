@@ -70,6 +70,9 @@ async function triggerAssistant(): Promise<void> {
     pageUrl: null,
     pageText: null,
     pageCaptureMethod: 'none' as const,
+    screenshotPath: null,
+    screenText: null,
+    screenCaptureMethod: 'none' as const,
     selectedText: null,
     clipboardText: null,
     timestamp: new Date().toISOString()
