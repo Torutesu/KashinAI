@@ -26,13 +26,9 @@ if (!gotLock) {
     setupTray()
     setupShortcut()
 
-    // In development, surface the floating window immediately so we can verify
-    // the desktop UI without relying on the global shortcut or tray click path.
-    if (import.meta.env.DEV) {
-      setTimeout(() => {
-        void triggerAssistant()
-      }, 400)
-    }
+    // Shortcut/tray actions are the only paths that capture and write back into another app.
+    // Do not auto-trigger in development because recommendation mode can paste into the
+    // previously focused app.
   })
 
   app.on('activate', () => {

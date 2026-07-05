@@ -84,6 +84,7 @@ function AssistantFlow() {
       setMessages([res.data.message])
       setLastContextSource(res.data.contextSource)
       setLastSearchQuery(res.data.searchQuery)
+      await window.api.insertOutput(res.data.message.content, nextContext.activeApp)
     } else {
       setError(res.error)
     }

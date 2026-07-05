@@ -49,14 +49,7 @@ function buildRetrievalOnlyAnswer(params: {
     const pageLabel = params.pageTitle || params.pageUrl || 'いま開いている画面'
     const gbrainHint = topSource ? `GBrainの「${topSource.title}」` : 'GBrainの会社文脈'
 
-    return `おすすめ文:
-「${pageLabel}の内容を確認しました。${gbrainHint}に合わせて、相手に伝えるべき要点と次のアクションをこちらで整理します。」
-
-Context used:
-- Page: ${params.pageTitle || '(unknown)'} ${params.pageUrl || ''}
-- GBrain: ${sourceLines || 'none'}
-
-LLM API key is not configured, so this is a lightweight local recommendation. Add an LLM API key in Settings for a more natural, context-specific draft.`
+    return `${pageLabel}の内容を確認しました。${gbrainHint}に合わせて、相手に伝えるべき要点と次のアクションをこちらで整理します。`
   }
 
   return `LLM API key is not configured, so this is a retrieval-only backend check.

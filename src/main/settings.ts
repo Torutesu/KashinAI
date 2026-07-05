@@ -28,8 +28,8 @@ function detectDefaultGbrainCliPath(): string {
 }
 
 const detectedCliPath = detectDefaultGbrainCliPath()
-const NEW_DEFAULT_SHORTCUT = 'Option+['
-const LEGACY_DEFAULT_SHORTCUT = 'Option+Space'
+const NEW_DEFAULT_SHORTCUT = 'Option+Space'
+const LEGACY_DEFAULT_SHORTCUT = 'Option+['
 
 const DEFAULT_SETTINGS: StoredSettings = {
   appDisplayName: 'KashinAI',
