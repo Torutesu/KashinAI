@@ -10,7 +10,7 @@ export type CurrentContext = {
   pageCaptureMethod: 'browser-automation' | 'keyboard-copy' | 'chrome-session' | 'none'
   screenshotPath: string | null
   screenText: string | null
-  screenCaptureMethod: 'desktop-capturer-ocr' | 'screenshot-only' | 'none'
+  screenCaptureMethod: 'window-ocr' | 'screen-ocr' | 'window-screenshot-only' | 'screen-screenshot-only' | 'none'
   selectedText: string | null
   clipboardText: string | null
   timestamp: string

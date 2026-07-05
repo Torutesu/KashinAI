@@ -132,10 +132,10 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
       request.userInstruction
     )
 
-    const gbrain = await searchGBrain(searchQuery, settings, brainDir())
     const suppressMemory = shouldSuppressMemoryForInlineRecommendation(request.currentContext, request.userInstruction)
-    const results = suppressMemory ? [] : gbrain.results
-    const contextSource = suppressMemory ? 'none' : gbrain.contextSource
+    const gbrain = suppressMemory ? null : await searchGBrain(searchQuery, settings, brainDir())
+    const results = gbrain?.results ?? []
+    const contextSource = gbrain?.contextSource ?? 'none'
 
     const pack: ContextPack = {
       currentContext: request.currentContext,
@@ -210,10 +210,10 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
 
     const settings = getSettings()
     const { searchQuery } = buildSearchQuery(request.currentContext, 'custom', latestUserMessage)
-    const gbrain = await searchGBrain(searchQuery, settings, brainDir())
     const suppressMemory = shouldSuppressMemoryForInlineRecommendation(request.currentContext, latestUserMessage)
-    const results = suppressMemory ? [] : gbrain.results
-    const contextSource = suppressMemory ? 'none' : gbrain.contextSource
+    const gbrain = suppressMemory ? null : await searchGBrain(searchQuery, settings, brainDir())
+    const results = gbrain?.results ?? []
+    const contextSource = gbrain?.contextSource ?? 'none'
     const { system, user } = buildChatPrompt({
       currentContext: request.currentContext,
       messages: request.messages,

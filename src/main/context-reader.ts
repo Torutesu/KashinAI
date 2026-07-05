@@ -39,6 +39,11 @@ type ScreenContext = {
   screenCaptureMethod: CurrentContext['screenCaptureMethod']
 }
 
+type ScreenshotCapture = {
+  screenshotPath: string
+  sourceKind: 'window' | 'screen'
+}
+
 function classifyContext(params: {
   activeApp: string | null
   windowTitle: string | null
@@ -79,20 +84,59 @@ function ocrScriptPath(): string {
   return path.join(process.resourcesPath, 'ocr.swift')
 }
 
-async function captureScreenshotPng(): Promise<string | null> {
+async function ocrHelperPath(): Promise<string> {
+  const helpersDir = path.join(app.getPath('userData'), 'helpers')
+  await mkdir(helpersDir, { recursive: true })
+  const binaryPath = path.join(helpersDir, 'kashin-ocr')
+  const scriptPath = ocrScriptPath()
+
+  try {
+    const [binaryInfo, scriptInfo] = await Promise.all([stat(binaryPath), stat(scriptPath)])
+    if (binaryInfo.mtimeMs >= scriptInfo.mtimeMs) return binaryPath
+  } catch {
+    // Compile below.
+  }
+
+  await execFileAsync('/usr/bin/swiftc', [scriptPath, '-o', binaryPath], { timeout: 20000 })
+  return binaryPath
+}
+
+function sourceScore(sourceName: string, frontmost: FrontmostAppInfo): number {
+  const source = sourceName.toLowerCase()
+  const title = frontmost.windowTitle?.toLowerCase() ?? ''
+  const appName = frontmost.activeApp?.toLowerCase() ?? ''
+  if (source.includes('kashinai')) return -100
+  let score = 0
+  if (title && source.includes(title.slice(0, Math.min(title.length, 60)))) score += 8
+  for (const part of title.split(/[\s\-–—|/]+/).filter((value) => value.length > 3)) {
+    if (source.includes(part)) score += 2
+  }
+  if (appName && source.includes(appName)) score += 3
+  return score
+}
+
+async function captureScreenshotPng(frontmost: FrontmostAppInfo): Promise<ScreenshotCapture | null> {
   try {
     const sources = await desktopCapturer.getSources({
-      types: ['screen'],
-      thumbnailSize: { width: 1920, height: 1200 }
+      types: ['window', 'screen'],
+      thumbnailSize: { width: 1600, height: 1000 }
     })
-    const source = sources[0]
+    const windowSources = sources.filter((source) => source.id.startsWith('window:') && !source.thumbnail.isEmpty())
+    const rankedWindow = windowSources
+      .map((source) => ({ source, score: sourceScore(source.name, frontmost) }))
+      .sort((a, b) => b.score - a.score)[0]
+    const source =
+      rankedWindow && rankedWindow.score > 0
+        ? rankedWindow.source
+        : sources.find((candidate) => candidate.id.startsWith('screen:') && !candidate.thumbnail.isEmpty())
     if (!source || source.thumbnail.isEmpty()) return null
 
     const capturesDir = path.join(app.getPath('userData'), 'captures')
     await mkdir(capturesDir, { recursive: true })
-    const screenshotPath = path.join(capturesDir, 'latest-screen.png')
+    const sourceKind = source.id.startsWith('window:') ? 'window' : 'screen'
+    const screenshotPath = path.join(capturesDir, `latest-${sourceKind}.png`)
     await writeFile(screenshotPath, source.thumbnail.toPNG())
-    return screenshotPath
+    return { screenshotPath, sourceKind }
   } catch {
     return null
   }
@@ -100,7 +144,8 @@ async function captureScreenshotPng(): Promise<string | null> {
 
 async function recognizeScreenshotText(screenshotPath: string): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync('/usr/bin/swift', [ocrScriptPath(), screenshotPath], {
+    const helperPath = await ocrHelperPath()
+    const { stdout } = await execFileAsync(helperPath, [screenshotPath], {
       timeout: 10000,
       maxBuffer: 1024 * 1024 * 4
     })
@@ -111,17 +156,18 @@ async function recognizeScreenshotText(screenshotPath: string): Promise<string |
   }
 }
 
-async function captureScreenContext(): Promise<ScreenContext> {
-  const screenshotPath = await captureScreenshotPng()
-  if (!screenshotPath) {
+async function captureScreenContext(frontmost: FrontmostAppInfo): Promise<ScreenContext> {
+  const screenshot = await captureScreenshotPng(frontmost)
+  if (!screenshot) {
     return { screenshotPath: null, screenText: null, screenCaptureMethod: 'none' }
   }
 
-  const screenText = await recognizeScreenshotText(screenshotPath)
+  const screenText = await recognizeScreenshotText(screenshot.screenshotPath)
+  const prefix = screenshot.sourceKind === 'window' ? 'window' : 'screen'
   return {
-    screenshotPath,
+    screenshotPath: screenshot.screenshotPath,
     screenText,
-    screenCaptureMethod: screenText ? 'desktop-capturer-ocr' : 'screenshot-only'
+    screenCaptureMethod: screenText ? `${prefix}-ocr` : `${prefix}-screenshot-only`
   }
 }
 
@@ -426,7 +472,7 @@ export async function captureCurrentContext(frontmost: FrontmostAppInfo): Promis
         pageContext.pageText || !sessionContext.pageText ? pageContext.pageCaptureMethod : sessionContext.pageCaptureMethod
     }
   }
-  const screenContext = await captureScreenContext()
+  const screenContext = await captureScreenContext(frontmost)
 
   return {
     activeApp: frontmost.activeApp,
