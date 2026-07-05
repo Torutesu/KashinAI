@@ -20,7 +20,6 @@ function AssistantFlow() {
   const [appDisplayName, setAppDisplayName] = useState('KashinAI')
   const [showSources, setShowSources] = useState(true)
   const [accessibilityGranted, setAccessibilityGranted] = useState<boolean | null>(null)
-  const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
     const unsubscribe = window.api.onContextPushed((ctx) => {
@@ -34,16 +33,9 @@ function AssistantFlow() {
       setView(nextView)
     })
 
-    const unsubscribeCollapsed = window.api.onCollapsedChanged((nextCollapsed) => {
-      setCollapsed(nextCollapsed)
-    })
-
     window.api.getSettings().then((settings) => {
       setAppDisplayName(settings.appDisplayName)
       setShowSources(settings.privacy.showSources)
-    })
-    window.api.getWindowState().then((state) => {
-      setCollapsed(state.collapsed)
     })
 
     window.api.checkAccessibility().then(setAccessibilityGranted)
@@ -58,7 +50,6 @@ function AssistantFlow() {
     return () => {
       unsubscribe()
       unsubscribeNavigate()
-      unsubscribeCollapsed()
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [])
@@ -117,19 +108,6 @@ function AssistantFlow() {
   async function handleInsert(): Promise<void> {
     if (!result) return
     await window.api.insertOutput(result.output, context?.activeApp ?? null)
-  }
-
-  if (collapsed) {
-    return (
-      <div className="flex h-screen w-screen items-start justify-center bg-transparent" onMouseEnter={() => void window.api.expandWindow()}>
-        <button
-          onMouseEnter={() => void window.api.expandWindow()}
-          onClick={() => void window.api.expandWindow()}
-          className="mt-1.5 h-2.5 w-28 rounded-full border border-white/15 bg-white/18 shadow-[0_4px_16px_rgba(0,0,0,0.2)] backdrop-blur-md"
-          aria-label="Open KashinAI"
-        />
-      </div>
-    )
   }
 
   return (

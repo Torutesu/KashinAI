@@ -67,13 +67,23 @@ function setupTray(): void {
  * window and pushes the captured context to the renderer.
  */
 async function triggerAssistant(): Promise<void> {
-  const frontmost = await getFrontmostAppInfo()
-  const context = await captureCurrentContext(frontmost)
-
   showAssistantWindow()
-
   const win = getAssistantWindow()
-  win?.webContents.send('context:pushed', context)
+  const fallbackContext = {
+    activeApp: null,
+    windowTitle: null,
+    selectedText: null,
+    clipboardText: null,
+    timestamp: new Date().toISOString()
+  }
+
+  try {
+    const frontmost = await getFrontmostAppInfo()
+    const context = await captureCurrentContext(frontmost)
+    win?.webContents.send('context:pushed', context)
+  } catch {
+    win?.webContents.send('context:pushed', fallbackContext)
+  }
 }
 
 function setupShortcut(): void {

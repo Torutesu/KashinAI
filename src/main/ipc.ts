@@ -7,7 +7,7 @@ import { buildSearchQuery } from './search-query'
 import { searchGBrain } from './gbrain'
 import { generate, LlmError } from './llm'
 import { getPublicSettings, getSettings, updateSettings } from './settings'
-import { collapseAssistantWindow, expandAssistantWindow, isAssistantCollapsed, openAssistantSettings } from './windows'
+import { expandAssistantWindow, hideAssistantWindow, isAssistantCollapsed, openAssistantSettings } from './windows'
 import { insertText } from './insert'
 import { getRegisteredShortcut, updateRegisteredShortcut } from './shortcut'
 
@@ -128,7 +128,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('window:hide', async () => {
-    collapseAssistantWindow()
+    hideAssistantWindow()
   })
 
   ipcMain.handle('window:getState', async () => {
