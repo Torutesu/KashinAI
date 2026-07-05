@@ -13,7 +13,7 @@ type StoredSettings = Omit<AppSettings, 'gbrain' | 'llm'> & {
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {
-  appDisplayName: 'Context Assistant',
+  appDisplayName: 'Kashin AI',
   shortcut: 'Option+Space',
   gbrain: {
     mode: 'local',
