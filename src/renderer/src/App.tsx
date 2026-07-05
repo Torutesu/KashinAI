@@ -22,6 +22,7 @@ function AssistantFlow() {
   const [appDisplayName, setAppDisplayName] = useState('KashinAI')
   const [showSources, setShowSources] = useState(true)
   const [accessibilityGranted, setAccessibilityGranted] = useState<boolean | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
     const unsubscribe = window.api.onContextPushed((ctx) => {
@@ -29,17 +30,22 @@ function AssistantFlow() {
       setView('assistant')
       setResult(null)
       setError(null)
+      setMessages([])
+      void autoRecommendForContext(ctx)
     })
 
     const unsubscribeNavigate = window.api.onNavigate((nextView) => {
       setView(nextView)
     })
 
+    const unsubscribeCollapsed = window.api.onCollapsedChanged(setCollapsed)
+
     window.api.getSettings().then((settings) => {
       setAppDisplayName(settings.appDisplayName)
       setShowSources(settings.privacy.showSources)
     })
 
+    window.api.getWindowState().then((state) => setCollapsed(state.collapsed))
     window.api.checkAccessibility().then(setAccessibilityGranted)
 
     function handleKeyDown(e: KeyboardEvent): void {
@@ -52,9 +58,34 @@ function AssistantFlow() {
     return () => {
       unsubscribe()
       unsubscribeNavigate()
+      unsubscribeCollapsed()
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [])
+
+  async function autoRecommendForContext(nextContext: CurrentContext): Promise<void> {
+    const recommendationRequest: ChatMessage = {
+      role: 'user',
+      content:
+        '現在の画面コンテキストとGBrainの会社文脈を融合して、今すぐ使えるおすすめ文を1つ作ってください。返信、要約、次アクションのうち、この状況に一番合う形式を選んでください。'
+    }
+
+    setLoading(true)
+    setError(null)
+    const res = await window.api.chat({
+      currentContext: nextContext,
+      messages: [recommendationRequest]
+    })
+
+    setLoading(false)
+    if (res.ok) {
+      setMessages([res.data.message])
+      setLastContextSource(res.data.contextSource)
+      setLastSearchQuery(res.data.searchQuery)
+    } else {
+      setError(res.error)
+    }
+  }
 
   async function triggerGenerate(nextActionType: ActionType, nextInstruction: string): Promise<void> {
     if (!context) return
@@ -148,6 +179,22 @@ function AssistantFlow() {
   async function handleInsert(): Promise<void> {
     if (!result) return
     await window.api.insertOutput(result.output, context?.activeApp ?? null)
+  }
+
+  if (collapsed) {
+    return (
+      <div className="flex h-screen w-screen items-start justify-center overflow-hidden bg-transparent">
+        <button
+          type="button"
+          aria-label="Show KashinAI"
+          className="mt-0 h-6 w-52 rounded-b-md border border-white/15 bg-zinc-950/90 shadow-lg shadow-black/30 outline-none transition-colors hover:bg-zinc-900"
+          onMouseEnter={() => void window.api.expandWindow()}
+          onFocus={() => void window.api.expandWindow()}
+        >
+          <span className="mx-auto block h-1 w-16 rounded-full bg-white/65" />
+        </button>
+      </div>
+    )
   }
 
   return (

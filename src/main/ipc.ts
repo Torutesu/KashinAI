@@ -29,6 +29,22 @@ function buildRetrievalOnlyAnswer(params: {
   const pageSummary = params.pageText
     ? params.pageText.replace(/\s+/g, ' ').trim().slice(0, 600)
     : '(page body not captured)'
+  const wantsRecommendation = /おすすめ文|recommended|ready-to-send/i.test(params.latestUserMessage)
+
+  if (wantsRecommendation) {
+    const topSource = params.sources[0]
+    const pageLabel = params.pageTitle || params.pageUrl || 'いま開いている画面'
+    const gbrainHint = topSource ? `GBrainの「${topSource.title}」` : 'GBrainの会社文脈'
+
+    return `おすすめ文:
+「${pageLabel}の内容を確認しました。${gbrainHint}に合わせて、相手に伝えるべき要点と次のアクションをこちらで整理します。」
+
+Context used:
+- Page: ${params.pageTitle || '(unknown)'} ${params.pageUrl || ''}
+- GBrain: ${sourceLines || 'none'}
+
+LLM API key is not configured, so this is a lightweight local recommendation. Add an LLM API key in Settings for a more natural, context-specific draft.`
+  }
 
   return `LLM API key is not configured, so this is a retrieval-only backend check.
 

@@ -4,6 +4,9 @@ import path from 'node:path'
 let assistantWindow: BrowserWindow | null = null
 const ASSISTANT_WIDTH = 560
 const ASSISTANT_HEIGHT = 460
+const COVER_WIDTH = 220
+const COVER_HEIGHT = 28
+let assistantCollapsed = false
 
 function getRendererUrlOrFile(hash?: string): { url?: string; file?: string } {
   const devServerUrl = process.env['ELECTRON_RENDERER_URL']
@@ -67,7 +70,6 @@ export function showAssistantWindow(): void {
 }
 
 function expandedBounds(): { x: number; y: number; width: number; height: number } {
-  const win = createAssistantWindow()
   const { x, y, width } = currentWorkArea()
   return {
     x: Math.round(x + (width - ASSISTANT_WIDTH) / 2),
@@ -77,12 +79,23 @@ function expandedBounds(): { x: number; y: number; width: number; height: number
   }
 }
 
+function collapsedBounds(): { x: number; y: number; width: number; height: number } {
+  const { x, y, width } = currentWorkArea()
+  return {
+    x: Math.round(x + (width - COVER_WIDTH) / 2),
+    y: y,
+    width: COVER_WIDTH,
+    height: COVER_HEIGHT
+  }
+}
+
 function syncCollapsedState(collapsed: boolean): void {
   assistantWindow?.webContents.send('window:collapsed-changed', collapsed)
 }
 
 export function expandAssistantWindow(): void {
   const win = createAssistantWindow()
+  assistantCollapsed = false
   win.setBounds(expandedBounds())
   syncCollapsedState(false)
   win.show()
@@ -91,8 +104,10 @@ export function expandAssistantWindow(): void {
 
 export function hideAssistantWindow(): void {
   if (assistantWindow && !assistantWindow.isDestroyed()) {
-    syncCollapsedState(false)
-    assistantWindow.hide()
+    assistantCollapsed = true
+    assistantWindow.setBounds(collapsedBounds())
+    syncCollapsedState(true)
+    assistantWindow.showInactive()
   }
 }
 
@@ -111,5 +126,5 @@ export function openAssistantHome(): void {
 }
 
 export function isAssistantCollapsed(): boolean {
-  return false
+  return assistantCollapsed
 }
