@@ -3,6 +3,7 @@ export type ActionType = 'reply' | 'summarize' | 'next_actions' | 'proposal' | '
 export type CurrentContext = {
   activeApp: string | null
   windowTitle: string | null
+  contextKind: 'social' | 'coding' | 'browser' | 'document' | 'general'
   pageTitle: string | null
   pageUrl: string | null
   pageText: string | null

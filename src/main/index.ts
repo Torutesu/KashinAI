@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
 import { registerIpcHandlers } from './ipc'
 import { registerShortcut } from './shortcut'
-import { createAssistantWindow, showAssistantWindow, openAssistantSettings, getAssistantWindow } from './windows'
+import { createAssistantWindow, showAssistantWindow, hideAssistantWindow, openAssistantSettings, getAssistantWindow } from './windows'
 import { getFrontmostAppInfo, captureCurrentContext } from './context-reader'
 import { getSettings } from './settings'
 import { startOptionListener, stopOptionListener } from './option-listener'
@@ -77,6 +77,7 @@ async function triggerAssistant(options: { autoInsert: boolean; showWindow: bool
   const fallbackContext = {
     activeApp: null,
     windowTitle: null,
+    contextKind: 'general' as const,
     pageTitle: null,
     pageUrl: null,
     pageText: null,
@@ -90,6 +91,10 @@ async function triggerAssistant(options: { autoInsert: boolean; showWindow: bool
   }
 
   try {
+    if (options.autoInsert) {
+      hideAssistantWindow()
+      await new Promise((resolve) => setTimeout(resolve, 90))
+    }
     const frontmost = await getFrontmostAppInfo()
     const context = await captureCurrentContext(frontmost)
     if (options.showWindow) showAssistantWindow()

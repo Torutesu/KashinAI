@@ -29,12 +29,21 @@ function getScreenCaptureStatus(): BackendDiagnostics['screenCaptureStatus'] {
   return systemPreferences.getMediaAccessStatus('screen') as BackendDiagnostics['screenCaptureStatus']
 }
 
+function wantsInlineRecommendation(message: string): boolean {
+  return /おすすめ文|recommended|ready-to-send|貼り付けて使える/i.test(message)
+}
+
+function shouldSuppressMemoryForInlineRecommendation(context: ChatRequest['currentContext'], message: string): boolean {
+  return wantsInlineRecommendation(message) && (context.contextKind === 'social' || context.contextKind === 'coding')
+}
+
 function buildRetrievalOnlyAnswer(params: {
   latestUserMessage: string
   pageUrl: string | null
   pageTitle: string | null
   pageText: string | null
   screenText: string | null
+  contextKind: ChatRequest['currentContext']['contextKind']
   sources: { source: string; title: string; content: string }[]
 }): string {
   const sourceLines = params.sources
@@ -47,7 +56,7 @@ function buildRetrievalOnlyAnswer(params: {
   const screenSummary = params.screenText
     ? params.screenText.replace(/\s+/g, ' ').trim().slice(0, 600)
     : '(screen OCR not captured)'
-  const wantsRecommendation = /おすすめ文|recommended|ready-to-send/i.test(params.latestUserMessage)
+  const wantsRecommendation = wantsInlineRecommendation(params.latestUserMessage)
 
   if (wantsRecommendation) {
     const topSource = params.sources[0]
@@ -56,6 +65,18 @@ function buildRetrievalOnlyAnswer(params: {
     const visibleHint = visibleContext
       ? visibleContext.replace(/\s+/g, ' ').trim().slice(0, 90)
       : pageLabel
+
+    if (params.contextKind === 'social') {
+      return visibleContext
+        ? `この内容、かなり面白いですね。もう少し詳しく見てみたいです。`
+        : `これ、かなり気になります。もう少し詳しく教えてください。`
+    }
+
+    if (params.contextKind === 'coding') {
+      return visibleContext
+        ? `この箇所は、まず現在のエラー/差分を切り分けて、再現条件と影響範囲を確認するのがよさそうです。`
+        : `まず再現条件、該当ファイル、直近の変更点を確認してから原因を絞り込みます。`
+    }
 
     if (!topSource) {
       return `${visibleHint}について確認しました。必要な内容をこちらで整理して、次に進められる形で対応します。`
@@ -111,7 +132,10 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
       request.userInstruction
     )
 
-    const { results, contextSource } = await searchGBrain(searchQuery, settings, brainDir())
+    const gbrain = await searchGBrain(searchQuery, settings, brainDir())
+    const suppressMemory = shouldSuppressMemoryForInlineRecommendation(request.currentContext, request.userInstruction)
+    const results = suppressMemory ? [] : gbrain.results
+    const contextSource = suppressMemory ? 'none' : gbrain.contextSource
 
     const pack: ContextPack = {
       currentContext: request.currentContext,
@@ -144,6 +168,7 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
           pageTitle: request.currentContext.pageTitle,
           pageText: request.currentContext.pageText,
           screenText: request.currentContext.screenText,
+          contextKind: request.currentContext.contextKind,
           sources: results
         })
 
@@ -185,7 +210,10 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
 
     const settings = getSettings()
     const { searchQuery } = buildSearchQuery(request.currentContext, 'custom', latestUserMessage)
-    const { results, contextSource } = await searchGBrain(searchQuery, settings, brainDir())
+    const gbrain = await searchGBrain(searchQuery, settings, brainDir())
+    const suppressMemory = shouldSuppressMemoryForInlineRecommendation(request.currentContext, latestUserMessage)
+    const results = suppressMemory ? [] : gbrain.results
+    const contextSource = suppressMemory ? 'none' : gbrain.contextSource
     const { system, user } = buildChatPrompt({
       currentContext: request.currentContext,
       messages: request.messages,
@@ -213,6 +241,7 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
           pageTitle: request.currentContext.pageTitle,
           pageText: request.currentContext.pageText,
           screenText: request.currentContext.screenText,
+          contextKind: request.currentContext.contextKind,
           sources: results
         })
 

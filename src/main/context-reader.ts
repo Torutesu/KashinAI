@@ -39,6 +39,39 @@ type ScreenContext = {
   screenCaptureMethod: CurrentContext['screenCaptureMethod']
 }
 
+function classifyContext(params: {
+  activeApp: string | null
+  windowTitle: string | null
+  pageTitle: string | null
+  pageUrl: string | null
+  screenText: string | null
+}): CurrentContext['contextKind'] {
+  const haystack = [
+    params.activeApp,
+    params.windowTitle,
+    params.pageTitle,
+    params.pageUrl,
+    params.screenText?.slice(0, 2000)
+  ]
+    .filter(Boolean)
+    .join('\n')
+    .toLowerCase()
+
+  if (/(twitter|x\.com|tweet|post|repost|following|followers|for you|返信|リポスト|フォロー)/i.test(haystack)) {
+    return 'social'
+  }
+  if (/(visual studio code|cursor|xcode|terminal|iterm|github|pull request|typescript|javascript|python|swift|tsx|jsx|\.ts|\.tsx|\.py|\.swift|function |class |const |import )/i.test(haystack)) {
+    return 'coding'
+  }
+  if (/(google docs|notion|obsidian|markdown|document|docs\.google)/i.test(haystack)) {
+    return 'document'
+  }
+  if (params.pageUrl || browserScriptName(params.activeApp)) {
+    return 'browser'
+  }
+  return 'general'
+}
+
 function ocrScriptPath(): string {
   if (process.defaultApp || process.env['ELECTRON_RENDERER_URL']) {
     return path.join(app.getAppPath(), 'scripts/ocr.swift')
@@ -398,6 +431,13 @@ export async function captureCurrentContext(frontmost: FrontmostAppInfo): Promis
   return {
     activeApp: frontmost.activeApp,
     windowTitle: frontmost.windowTitle,
+    contextKind: classifyContext({
+      activeApp: frontmost.activeApp,
+      windowTitle: frontmost.windowTitle,
+      pageTitle: pageContext.pageTitle,
+      pageUrl: pageContext.pageUrl,
+      screenText: screenContext.screenText
+    }),
     pageTitle: pageContext.pageTitle,
     pageUrl: pageContext.pageUrl,
     pageText: pageContext.pageText,

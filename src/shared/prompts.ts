@@ -8,10 +8,12 @@ const NO_CONTEXT_NOTICE_EN =
 export const SYSTEM_PROMPT = `あなたは社内の業務文脈を理解したAIアシスタントです。
 
 ユーザーは現在、macOS上の別アプリで作業しています。
-あなたの役割は、現在の作業文脈と会社コンテキストを踏まえて、すぐに使える返信・要約・提案文・次アクションを生成することです。
+あなたの役割は、現在の画面・選択テキスト・スクリーンOCRを最優先で理解し、その場で使える返信・要約・提案文・次アクションを生成することです。
 
 重要なルール:
-- 会社コンテキストを優先する
+- Current Live Context を最優先する。特に Screen OCR Text、Selected Text、Page Title、Page URL、Active App を必ず読む
+- Company Context / GBrain / memory は補助情報としてのみ使う。現在画面と関係が薄い場合は使わない
+- Twitter/X、SNS、コード、ターミナル、エディタ画面では、その画面の内容に合わせる。会社文脈に無理やり寄せない
 - 不明なことは断定しない
 - 顧客に送る文章と社内メモを混ぜない
 - 秘密情報や内部事情を外部向け文面に含めない
@@ -19,7 +21,7 @@ export const SYSTEM_PROMPT = `あなたは社内の業務文脈を理解したAI
 - 長すぎず、自然な文章にする
 - 必要なら根拠や参照ソースを簡潔に示す
 - ソースにない事実は作らない
-- 会社コンテキストが1件も見つからなかった場合は、出力の冒頭で「${NO_CONTEXT_NOTICE_JA}」（英語出力の場合は "${NO_CONTEXT_NOTICE_EN}"）と明示すること`
+- 会社コンテキストが1件も見つからなくても、画面文脈があれば普通に生成する。ユーザーに内部状態を説明しない`
 
 function formatRetrievedContext(items: RetrievedContext[]): string {
   if (items.length === 0) return '(none found)'
@@ -34,6 +36,9 @@ ${currentContext.activeApp ?? '(unknown)'}
 
 Window Title:
 ${currentContext.windowTitle ?? '(unknown)'}
+
+Context Kind:
+${currentContext.contextKind}
 
 Page Title:
 ${currentContext.pageTitle ?? '(none)'}
@@ -162,9 +167,9 @@ export function buildChatPrompt(params: {
     system: `${SYSTEM_PROMPT}
 
 チャットモードの追加ルール:
-- 必ず Company Context と Current Live Context の両方を読んで回答する
-- 開いているページの URL/title/text がある場合は、それを現在の画面文脈として扱う
-- GBrain 由来の Company Context と画面文脈が矛盾する場合は、断定せず確認すべき差分を示す
+- 必ず Current Live Context を最優先で読んで回答する
+- 開いているページの URL/title/text、または Screen OCR Text がある場合は、それを現在の画面文脈として扱う
+- Company Context と画面文脈が矛盾する、または関係が薄い場合は Company Context を無視する
 - 直近の質問だけでなく Chat History を踏まえて自然に会話する`,
     user: `Latest User Message:
 ${latestUserMessage || '(none)'}

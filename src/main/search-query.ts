@@ -69,16 +69,16 @@ export function buildSearchQuery(
   actionType: ActionType,
   userInstruction: string
 ): SearchQueryResult {
-  const sourceText = [
+  const primaryContext = [
     context.selectedText,
     context.pageTitle,
     context.pageUrl,
     context.pageText,
-    context.screenText,
-    context.clipboardText
+    context.screenText
   ]
     .filter((value): value is string => Boolean(value))
     .join('\n')
+  const sourceText = primaryContext || context.clipboardText || ''
   const quoted = extractQuotedPhrases(sourceText)
   const bodyTokens = tokenize(sourceText)
   const titleTokens = tokenize(context.windowTitle ?? '')
