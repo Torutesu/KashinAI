@@ -14,32 +14,76 @@ type Props = {
   onCustomInstructionChange: (value: string) => void
   onSelectAction: (actionType: ActionType) => void
   onGenerateCustom: () => void
+  onRefreshContext: () => void
   loading: boolean
   error: AppError | null
   onOpenSettings: () => void
   onClose: () => void
+  onRequestAccessibility: () => void
   accessibilityGranted: boolean | null
 }
 
-function buildInboxItems(context: CurrentContext | null): { title: string; time: string; tone?: 'alert' | 'normal' }[] {
-  const base = [
-    { title: 'KashinAI database problem. Automatic recovery failed…', time: '8m', tone: 'alert' as const },
-    { title: 'KashinAI is not active. Due to a recent stability update…', time: '10m', tone: 'alert' as const },
-    { title: 'KashinAI database problem. Automatic recovery failed…', time: '10m', tone: 'alert' as const },
-    { title: 'KashinAI just updated to 0.1.4.', time: '23h', tone: 'normal' as const }
-  ]
+type ContextItem = {
+  title: string
+  time: string
+  tone?: 'alert' | 'normal'
+  instruction: string
+}
 
-  const contextual = context?.selectedText
-    ? [
-        { title: context.selectedText.slice(0, 64), time: 'now', tone: 'normal' as const },
-        { title: `Working in ${context.activeApp ?? 'your app'} right now, with live captured context ready.`, time: 'now', tone: 'normal' as const }
-      ]
-    : [
-        { title: 'Ask KashinAI about what is on screen and it will thread context back in.', time: '4d', tone: 'normal' as const },
-        { title: 'If you are comparing ideas, KashinAI can summarize and organize them for you.', time: '4d', tone: 'normal' as const }
-      ]
+function compact(value: string, max = 76): string {
+  const normalized = value.replace(/\s+/g, ' ').trim()
+  return normalized.length > max ? `${normalized.slice(0, max - 1)}...` : normalized
+}
 
-  return [...base, ...contextual]
+function buildContextItems(context: CurrentContext | null): ContextItem[] {
+  if (!context) {
+    return [
+      {
+        title: 'No context captured yet. Refresh after focusing another app.',
+        time: 'now',
+        tone: 'alert',
+        instruction: ''
+      }
+    ]
+  }
+
+  const items: ContextItem[] = []
+
+  if (context.selectedText) {
+    items.push({
+      title: `Selection: ${compact(context.selectedText)}`,
+      time: 'now',
+      instruction: context.selectedText
+    })
+  }
+
+  if (context.activeApp || context.windowTitle) {
+    const location = [context.activeApp, context.windowTitle].filter(Boolean).join(' / ')
+    items.push({
+      title: `Working context: ${compact(location || 'Unknown app')}`,
+      time: 'now',
+      instruction: `Use the current ${location || 'macOS'} context.`
+    })
+  }
+
+  if (!context.selectedText && context.clipboardText) {
+    items.push({
+      title: `Clipboard fallback: ${compact(context.clipboardText)}`,
+      time: 'now',
+      instruction: context.clipboardText
+    })
+  }
+
+  if (items.length === 0) {
+    items.push({
+      title: 'Context is empty. Select text in another app, then refresh.',
+      time: 'now',
+      tone: 'alert',
+      instruction: ''
+    })
+  }
+
+  return items
 }
 
 export default function AssistantPanel({
@@ -49,13 +93,15 @@ export default function AssistantPanel({
   onCustomInstructionChange,
   onSelectAction,
   onGenerateCustom,
+  onRefreshContext,
   loading,
   error,
   onOpenSettings,
   onClose,
+  onRequestAccessibility,
   accessibilityGranted
 }: Props) {
-  const items = useMemo(() => buildInboxItems(context), [context])
+  const items = useMemo(() => buildContextItems(context), [context])
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [readItems, setReadItems] = useState<number[]>([])
   const [panelMode, setPanelMode] = useState<'inbox' | 'focus'>('inbox')
@@ -69,7 +115,7 @@ export default function AssistantPanel({
   function handleSelectItem(index: number): void {
     setSelectedIndex(index)
     setReadItems((prev) => (prev.includes(index) ? prev : [...prev, index]))
-    onCustomInstructionChange(items[index]?.title ?? '')
+    onCustomInstructionChange(items[index]?.instruction ?? '')
   }
 
   function handleMarkRead(): void {
@@ -108,10 +154,10 @@ export default function AssistantPanel({
               ⚙
             </button>
             <button
-              onClick={() => handleSelectItem(selectedIndex)}
+              onClick={onRefreshContext}
               className="overlay-icon-button"
-              aria-label="Use selected item"
-              title="Use selected item"
+              aria-label="Refresh context"
+              title="Refresh context"
             >
               ⤴
             </button>
@@ -149,7 +195,7 @@ export default function AssistantPanel({
         <main className="mx-auto flex w-full max-w-[560px] flex-1 flex-col justify-between">
           <section className="drop-in mt-2.5 overflow-hidden rounded-[18px] border border-white/12 bg-[rgba(36,28,28,0.66)] shadow-[0_10px_28px_rgba(0,0,0,0.12)] backdrop-blur-md">
             <div className="flex items-center justify-between border-b border-white/8 px-3.5 py-2">
-              <div className="text-[12px] font-semibold text-white/48">⌕&nbsp;&nbsp;Search inbox...</div>
+              <div className="text-[12px] font-semibold text-white/48">⌕&nbsp;&nbsp;Live context</div>
               <button onClick={handleMarkRead} className="text-[12px] font-medium text-white/44 transition hover:text-white/70">
                 Mark read
               </button>
@@ -185,7 +231,12 @@ export default function AssistantPanel({
 
             {accessibilityGranted === false && (
               <div className="mb-2.5 rounded-[16px] border border-amber-300/20 bg-amber-300/10 px-3.5 py-2.5 text-[12px] text-amber-50/90">
-                Accessibility permission is off, so capture and paste may be partial.
+                <div className="flex items-center justify-between gap-3">
+                  <span>Accessibility permission is off, so capture and paste may be partial.</span>
+                  <button onClick={onRequestAccessibility} className="shrink-0 font-semibold text-amber-50 underline">
+                    Enable
+                  </button>
+                </div>
               </div>
             )}
 

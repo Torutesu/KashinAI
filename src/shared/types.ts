@@ -130,6 +130,7 @@ export type ContextAssistantApi = {
   expandWindow: () => Promise<void>
   openSettings: () => Promise<void>
   checkAccessibility: () => Promise<boolean>
+  requestAccessibility: () => Promise<boolean>
   onContextPushed: (callback: (context: CurrentContext) => void) => () => void
   onNavigate: (callback: (view: 'assistant' | 'settings') => void) => () => void
   onCollapsedChanged: (callback: (collapsed: boolean) => void) => () => void

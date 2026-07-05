@@ -55,7 +55,17 @@ function toFormState(settings: PublicAppSettings): FormState {
   }
 }
 
-export default function SettingsView({ onBack, onClose }: { onBack: () => void; onClose: () => void }) {
+export default function SettingsView({
+  accessibilityGranted,
+  onRequestAccessibility,
+  onBack,
+  onClose
+}: {
+  accessibilityGranted: boolean | null
+  onRequestAccessibility: () => void
+  onBack: () => void
+  onClose: () => void
+}) {
   const [form, setForm] = useState<FormState | null>(null)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [activeNav] = useState<NavKey>('privacy')
@@ -137,26 +147,24 @@ export default function SettingsView({ onBack, onClose }: { onBack: () => void; 
           <div className="space-y-4">
             <SettingsCard
               title="PERMISSIONS"
-              subtitle="What KashinAI needs from macOS to build your memory and hear dictation."
+              subtitle="KashinAI needs macOS Accessibility access to capture selected text and paste generated output."
             >
               <PermissionRow
                 name="Accessibility"
-                description="Required. Lets KashinAI read on-screen text to build your memory."
-                status="Granted"
-                tone="good"
+                description="Required for global selection capture, app/window detection, and automatic insert."
+                status={
+                  accessibilityGranted === null ? 'Checking' : accessibilityGranted ? 'Granted' : 'Required'
+                }
+                tone={accessibilityGranted ? 'good' : 'warning'}
+                action={
+                  accessibilityGranted
+                    ? undefined
+                    : {
+                        label: 'Enable',
+                        onClick: onRequestAccessibility
+                      }
+                }
               />
-              <PermissionRow
-                name="Microphone"
-                description="Only needed if you turn on voice dictation."
-                status="Not requested"
-                tone="muted"
-              />
-            </SettingsCard>
-
-            <SettingsCard title="Danger zone" subtitle="This action is irreversible. Make sure you have backups.">
-              <button className="rounded-[14px] border border-red-500/40 bg-red-500/10 px-5 py-3 text-[14px] font-semibold text-red-300">
-                Delete all data
-              </button>
             </SettingsCard>
 
             <SettingsCard title="Assistant setup" subtitle="Core behavior for retrieval and generation.">
@@ -219,22 +227,35 @@ function PermissionRow({
   name,
   description,
   status,
-  tone
+  tone,
+  action
 }: {
   name: string
   description: string
   status: string
-  tone: 'good' | 'muted'
+  tone: 'good' | 'warning' | 'muted'
+  action?: { label: string; onClick: () => void }
 }) {
+  const statusClass =
+    tone === 'good' ? 'text-white/86' : tone === 'warning' ? 'text-amber-200' : 'text-white/38'
+  const dotClass = tone === 'good' ? 'bg-green-500' : tone === 'warning' ? 'bg-amber-400' : 'bg-white/20'
+
   return (
     <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-4 last:border-b-0">
       <div>
         <div className="text-[15px] font-semibold text-white/88">{name}</div>
         <div className="mt-1 max-w-2xl text-[13px] leading-6 text-white/50">{description}</div>
       </div>
-      <div className={`shrink-0 text-[13px] font-semibold ${tone === 'good' ? 'text-white/86' : 'text-white/38'}`}>
-        <span className={`mr-2 inline-block h-3 w-3 rounded-full ${tone === 'good' ? 'bg-green-500' : 'bg-white/20'}`} />
-        {status}
+      <div className={`flex shrink-0 items-center gap-3 text-[13px] font-semibold ${statusClass}`}>
+        <span>
+          <span className={`mr-2 inline-block h-3 w-3 rounded-full ${dotClass}`} />
+          {status}
+        </span>
+        {action && (
+          <button onClick={action.onClick} className="rounded-[12px] border border-white/12 bg-white/10 px-3 py-1.5 text-white">
+            {action.label}
+          </button>
+        )}
       </div>
     </div>
   )

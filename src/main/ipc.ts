@@ -146,4 +146,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('system:checkAccessibility', async () => {
     return systemPreferences.isTrustedAccessibilityClient(false)
   })
+
+  ipcMain.handle('system:requestAccessibility', async () => {
+    return systemPreferences.isTrustedAccessibilityClient(true)
+  })
 }

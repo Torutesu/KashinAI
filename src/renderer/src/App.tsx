@@ -4,7 +4,6 @@ import AssistantPanel from './components/AssistantPanel'
 import ResultView from './components/ResultView'
 import SettingsView from './components/SettingsView'
 
-type View = 'assistant' | 'result'
 type PanelView = 'assistant' | 'result' | 'settings'
 
 function AssistantFlow() {
@@ -77,6 +76,19 @@ function AssistantFlow() {
     }
   }
 
+  async function refreshContext(): Promise<void> {
+    const ctx = await window.api.captureContext()
+    setContext(ctx)
+    setView('assistant')
+    setResult(null)
+    setError(null)
+  }
+
+  async function requestAccessibility(): Promise<void> {
+    const granted = await window.api.requestAccessibility()
+    setAccessibilityGranted(granted)
+  }
+
   async function regenerate(modifier: 'shorter' | 'more_polite' | null): Promise<void> {
     if (!context || !actionType) return
     setLoading(true)
@@ -120,10 +132,12 @@ function AssistantFlow() {
           onCustomInstructionChange={setCustomInstruction}
           onSelectAction={(type) => void triggerGenerate(type, '')}
           onGenerateCustom={() => void triggerGenerate('custom', customInstruction)}
+          onRefreshContext={() => void refreshContext()}
           loading={loading}
           error={error}
           onOpenSettings={() => void window.api.openSettings()}
           onClose={() => void window.api.hideWindow()}
+          onRequestAccessibility={() => void requestAccessibility()}
           accessibilityGranted={accessibilityGranted}
         />
       )}
@@ -142,7 +156,14 @@ function AssistantFlow() {
           copyState={copyState}
         />
       )}
-      {view === 'settings' && <SettingsView onBack={() => setView('assistant')} onClose={() => void window.api.hideWindow()} />}
+      {view === 'settings' && (
+        <SettingsView
+          accessibilityGranted={accessibilityGranted}
+          onRequestAccessibility={() => void requestAccessibility()}
+          onBack={() => setView('assistant')}
+          onClose={() => void window.api.hideWindow()}
+        />
+      )}
     </div>
   )
 }
