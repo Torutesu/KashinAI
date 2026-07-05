@@ -74,6 +74,17 @@ export type ChatResult = {
   currentContext: CurrentContext
 }
 
+export type BackendDiagnostics = {
+  accessibilityGranted: boolean
+  gbrain: {
+    ok: boolean
+    contextSource: ContextSource
+    resultCount: number
+    sampleSources: string[]
+  }
+  currentContext: CurrentContext
+}
+
 export type ErrorCode =
   | 'no_selection'
   | 'gbrain_failed'
@@ -138,6 +149,10 @@ export type GenerateIpcResult = { ok: true; data: GenerateResult } | { ok: false
 
 export type ChatIpcResult = { ok: true; data: ChatResult } | { ok: false; error: AppError }
 
+export type BackendDiagnosticsIpcResult =
+  | { ok: true; data: BackendDiagnostics }
+  | { ok: false; error: AppError }
+
 /** The typed contract exposed on window.api by the preload script. Declared here (not in
  * src/preload) so both the main-process tsconfig and the renderer tsconfig can reference it
  * without one composite TS project reaching into the other's file set. */
@@ -155,6 +170,8 @@ export type ContextAssistantApi = {
   openSettings: () => Promise<void>
   checkAccessibility: () => Promise<boolean>
   requestAccessibility: () => Promise<boolean>
+  openAccessibilitySettings: () => Promise<boolean>
+  runDiagnostics: () => Promise<BackendDiagnosticsIpcResult>
   onContextPushed: (callback: (context: CurrentContext) => void) => () => void
   onNavigate: (callback: (view: 'assistant' | 'settings') => void) => () => void
   onCollapsedChanged: (callback: (collapsed: boolean) => void) => () => void

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { GBrainMode, LlmProvider, PublicAppSettings } from '@shared/types'
+import type { BackendDiagnostics, GBrainMode, LlmProvider, PublicAppSettings } from '@shared/types'
 
 type FormState = {
   appDisplayName: string
@@ -68,6 +68,8 @@ export default function SettingsView({
 }) {
   const [form, setForm] = useState<FormState | null>(null)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [diagnostics, setDiagnostics] = useState<BackendDiagnostics | null>(null)
+  const [diagnosticsState, setDiagnosticsState] = useState<'idle' | 'running' | 'failed'>('idle')
   const [activeNav] = useState<NavKey>('privacy')
 
   useEffect(() => {
@@ -108,6 +110,18 @@ export default function SettingsView({
     setForm(toFormState(updated))
     setSaveState('saved')
     setTimeout(() => setSaveState('idle'), 1500)
+  }
+
+  async function handleRunDiagnostics(): Promise<void> {
+    setDiagnosticsState('running')
+    const result = await window.api.runDiagnostics()
+    if (result.ok) {
+      setDiagnostics(result.data)
+      setDiagnosticsState('idle')
+    } else {
+      setDiagnostics(null)
+      setDiagnosticsState('failed')
+    }
   }
 
   return (
@@ -165,6 +179,43 @@ export default function SettingsView({
                       }
                 }
               />
+              {!accessibilityGranted && (
+                <button
+                  onClick={() => void window.api.openAccessibilitySettings()}
+                  className="rounded-[14px] border border-white/12 bg-white/10 px-4 py-2 text-[13px] font-semibold text-white"
+                >
+                  Open macOS Settings
+                </button>
+              )}
+            </SettingsCard>
+
+            <SettingsCard title="Backend diagnostics" subtitle="Checks live capture and GBrain retrieval on this Mac.">
+              <button onClick={handleRunDiagnostics} className="primary-button">
+                {diagnosticsState === 'running' ? 'Running...' : 'Run diagnostics'}
+              </button>
+              {diagnosticsState === 'failed' && (
+                <div className="rounded-[14px] border border-red-400/20 bg-red-400/10 px-4 py-3 text-[12px] text-red-100">
+                  Diagnostics failed.
+                </div>
+              )}
+              {diagnostics && (
+                <div className="space-y-2 rounded-[14px] border border-white/10 bg-white/[0.04] px-4 py-3 text-[12px] leading-5 text-white/68">
+                  <div>Accessibility: {diagnostics.accessibilityGranted ? 'granted' : 'missing'}</div>
+                  <div>
+                    GBrain: {diagnostics.gbrain.ok ? 'ok' : 'not ready'} / {diagnostics.gbrain.contextSource} /{' '}
+                    {diagnostics.gbrain.resultCount} results
+                  </div>
+                  <div>Sources: {diagnostics.gbrain.sampleSources.join(', ') || 'none'}</div>
+                  <div>
+                    Captured app: {diagnostics.currentContext.activeApp ?? 'unknown'} /{' '}
+                    {diagnostics.currentContext.windowTitle ?? 'no window title'}
+                  </div>
+                  <div>Page URL: {diagnostics.currentContext.pageUrl ?? 'not captured'}</div>
+                  <div>
+                    Page text: {diagnostics.currentContext.pageText ? `${diagnostics.currentContext.pageText.length} chars` : 'not captured'}
+                  </div>
+                </div>
+              )}
             </SettingsCard>
 
             <SettingsCard title="Assistant setup" subtitle="Core behavior for retrieval and generation.">

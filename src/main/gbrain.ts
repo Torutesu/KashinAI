@@ -5,6 +5,15 @@ import path from 'node:path'
 import type { AppSettings, ContextSource, RetrievedContext } from '../shared/types'
 
 const execFileAsync = promisify(execFile)
+const BASELINE_GBRAIN_SLUGS = [
+  'company/overview',
+  'company/services',
+  'company/pricing',
+  'company/sales_policy',
+  'company/proposal_policy',
+  'products/shogun_ai',
+  'templates/sales_reply'
+]
 
 export type GBrainSearchResult = {
   results: RetrievedContext[]
@@ -71,6 +80,32 @@ function parseCliPlaintext(stdout: string): RetrievedContext[] {
     .filter((value): value is RetrievedContext => value !== null)
 }
 
+function parseGbrainGet(slug: string, stdout: string): RetrievedContext | null {
+  const titleMatch = stdout.match(/^title:\s*(.+)$/m)
+  const content = stdout.replace(/^---[\s\S]*?---\s*/m, '').trim()
+  if (!content) return null
+  return {
+    title: titleMatch?.[1]?.trim() || slug,
+    source: slug,
+    content: content.slice(0, 1500),
+    type: normalizeTypeFromSource(slug)
+  }
+}
+
+async function getBaselineViaCli(cliPath: string, timeoutMs: number): Promise<RetrievedContext[]> {
+  const results: RetrievedContext[] = []
+  for (const slug of BASELINE_GBRAIN_SLUGS) {
+    try {
+      const { stdout } = await execFileAsync(cliPath, ['get', slug], { timeout: timeoutMs })
+      const parsed = parseGbrainGet(slug, stdout)
+      if (parsed) results.push(parsed)
+    } catch {
+      // Keep collecting other baseline pages.
+    }
+  }
+  return results.slice(0, 5)
+}
+
 /** Queries GBrain via its CLI. Defensive: any non-JSON or malformed output is treated as a
  * failure so the caller can fall through to the local fallback rather than crashing. */
 async function searchViaCli(
@@ -78,6 +113,14 @@ async function searchViaCli(
   cliPath: string,
   timeoutMs: number
 ): Promise<RetrievedContext[] | null> {
+  try {
+    const { stdout } = await execFileAsync(cliPath, ['search', query], { timeout: timeoutMs })
+    const parsed = parseCliPlaintext(stdout)
+    if (parsed.length > 0) return parsed
+  } catch {
+    // Fall through to hybrid query and baseline docs.
+  }
+
   try {
     const { stdout } = await execFileAsync(cliPath, ['query', query, '--json'], { timeout: timeoutMs })
     try {
@@ -88,8 +131,11 @@ async function searchViaCli(
       return parsed.length > 0 ? parsed : null
     }
   } catch {
-    return null
+    // Fall through to baseline docs.
   }
+
+  const baseline = await getBaselineViaCli(cliPath, timeoutMs)
+  return baseline.length > 0 ? baseline : null
 }
 
 /** Queries GBrain via HTTP. Defensive in the same way as searchViaCli. */
@@ -253,9 +299,10 @@ export async function searchGBrain(
   brainDir: string
 ): Promise<GBrainSearchResult> {
   const { mode, cliPath, endpoint, token, timeoutMs } = settings.gbrain
+  const resolvedCliPath = cliPath || 'gbrain'
 
-  if (mode === 'cli') {
-    const results = await searchViaCli(query, cliPath || 'gbrain', timeoutMs)
+  if (mode === 'cli' || mode === 'local') {
+    const results = await searchViaCli(query, resolvedCliPath, timeoutMs)
     if (results && results.length > 0) {
       return { results, contextSource: 'gbrain-cli' }
     }

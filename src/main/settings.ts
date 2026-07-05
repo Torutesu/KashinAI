@@ -85,8 +85,7 @@ export function getSettings(): AppSettings {
   const raw = store.store
   const cliPath =
     raw.gbrain.cliPath === 'gbrain' && detectedCliPath !== 'gbrain' ? detectedCliPath : raw.gbrain.cliPath
-  const mode =
-    raw.gbrain.mode === 'local' && detectedCliPath !== 'gbrain' && raw.gbrain.cliPath === 'gbrain' ? 'cli' : raw.gbrain.mode
+  const mode = raw.gbrain.mode === 'local' && detectedCliPath !== 'gbrain' ? 'cli' : raw.gbrain.mode
   const shortcut = raw.shortcut === LEGACY_DEFAULT_SHORTCUT ? NEW_DEFAULT_SHORTCUT : raw.shortcut
   return {
     ...raw,
@@ -109,8 +108,7 @@ export function getPublicSettings(): PublicAppSettings {
   const raw = store.store
   const cliPath =
     raw.gbrain.cliPath === 'gbrain' && detectedCliPath !== 'gbrain' ? detectedCliPath : raw.gbrain.cliPath
-  const mode =
-    raw.gbrain.mode === 'local' && detectedCliPath !== 'gbrain' && raw.gbrain.cliPath === 'gbrain' ? 'cli' : raw.gbrain.mode
+  const mode = raw.gbrain.mode === 'local' && detectedCliPath !== 'gbrain' ? 'cli' : raw.gbrain.mode
   const shortcut = raw.shortcut === LEGACY_DEFAULT_SHORTCUT ? NEW_DEFAULT_SHORTCUT : raw.shortcut
   return {
     ...raw,

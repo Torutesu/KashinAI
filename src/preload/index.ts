@@ -27,6 +27,10 @@ const api: ContextAssistantApi = {
 
   requestAccessibility: () => ipcRenderer.invoke('system:requestAccessibility'),
 
+  openAccessibilitySettings: () => ipcRenderer.invoke('system:openAccessibilitySettings'),
+
+  runDiagnostics: () => ipcRenderer.invoke('system:runDiagnostics'),
+
   onContextPushed: (callback: (context: CurrentContext) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, context: CurrentContext): void => callback(context)
     ipcRenderer.on('context:pushed', listener)

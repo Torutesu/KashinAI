@@ -1,4 +1,4 @@
-import { app, clipboard, ipcMain, systemPreferences } from 'electron'
+import { app, clipboard, ipcMain, shell, systemPreferences } from 'electron'
 import path from 'node:path'
 import type { ChatIpcResult, ChatRequest, ContextPack, GenerateIpcResult, GenerateRequest, SettingsUpdate } from '../shared/types'
 import { buildChatPrompt, buildPrompt } from '../shared/prompts'
@@ -218,5 +218,38 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('system:requestAccessibility', async () => {
     return systemPreferences.isTrustedAccessibilityClient(true)
+  })
+
+  ipcMain.handle('system:openAccessibilitySettings', async () => {
+    await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
+    return true
+  })
+
+  ipcMain.handle('system:runDiagnostics', async () => {
+    try {
+      const settings = getSettings()
+      const frontmost = await getFrontmostAppInfo()
+      const currentContext = await captureCurrentContext(frontmost)
+      const gbrain = await searchGBrain('価格 提案 顧客 会社概要', settings, brainDir())
+
+      return {
+        ok: true,
+        data: {
+          accessibilityGranted: systemPreferences.isTrustedAccessibilityClient(false),
+          gbrain: {
+            ok: gbrain.contextSource === 'gbrain-cli' || gbrain.contextSource === 'gbrain-http',
+            contextSource: gbrain.contextSource,
+            resultCount: gbrain.results.length,
+            sampleSources: gbrain.results.slice(0, 5).map((result) => result.source)
+          },
+          currentContext
+        }
+      }
+    } catch (err) {
+      return {
+        ok: false,
+        error: { code: 'unknown', message: err instanceof Error ? err.message : 'Unknown diagnostics error' }
+      }
+    }
   })
 }
