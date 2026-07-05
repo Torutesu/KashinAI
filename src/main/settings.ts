@@ -14,7 +14,12 @@ type StoredSettings = Omit<AppSettings, 'gbrain' | 'llm'> & {
 }
 
 function detectDefaultGbrainCliPath(): string {
-  const candidates = ['/Users/torutano/.bun/bin/gbrain', `${process.env.HOME ?? ''}/.bun/bin/gbrain`, 'gbrain']
+  const candidates = [
+    '/Users/torutano/.bun/bin/gbrain',
+    `${process.env.HOME ?? ''}/.bun/bin/gbrain`,
+    `${process.env.HOME ?? ''}/gbrain/src/cli.ts`,
+    'gbrain'
+  ]
   for (const candidate of candidates) {
     if (candidate === 'gbrain') return candidate
     if (candidate && existsSync(candidate)) return candidate

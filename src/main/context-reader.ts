@@ -107,7 +107,7 @@ function browserScriptName(activeApp: string | null): string | null {
 
 function cleanSessionUrl(raw: string): string | null {
   try {
-    const withoutNulls = raw.replace(/\u0000/g, '')
+    const withoutNulls = raw.replace(/\u0000/g, '').replace(/[)\]}>,.;:'"(`]+$/g, '')
     const parsed = new URL(withoutNulls)
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
     if (parsed.hostname === 'contacts.google.com') return null

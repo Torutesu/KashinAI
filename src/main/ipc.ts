@@ -277,7 +277,7 @@ export function registerIpcHandlers(): void {
       const settings = getSettings()
       const frontmost = await getFrontmostAppInfo()
       const currentContext = await captureCurrentContext(frontmost)
-      const gbrain = await searchGBrain('価格 提案 顧客 会社概要', settings, brainDir())
+      const gbrain = await searchGBrain('価格', settings, brainDir())
 
       return {
         ok: true,
