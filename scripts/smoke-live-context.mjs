@@ -111,13 +111,28 @@ if (chatStart < 0 || fastPath < 0 || gbrainSearch < 0 || fastPath > gbrainSearch
   })
 }
 
+const contextReaderSource = await readFile(path.join(process.cwd(), 'src/main/context-reader.ts'), 'utf8')
+const captureStart = contextReaderSource.indexOf('export async function captureCurrentContext')
+const axCapture = contextReaderSource.indexOf('const accessibilityContext = await captureAccessibilityContext()', captureStart)
+const browserCapture = contextReaderSource.indexOf('captureBrowserPageContext(frontmost.activeApp)', captureStart)
+const skipBrowser = contextReaderSource.indexOf('const canSkipBrowserCapture', captureStart)
+if (captureStart < 0 || axCapture < 0 || browserCapture < 0 || axCapture > browserCapture || skipBrowser < 0) {
+  fail('Current context capture must read AX before expensive browser capture and expose a skip path', {
+    captureStart,
+    axCapture,
+    browserCapture,
+    skipBrowser
+  })
+}
+
 console.log(
   JSON.stringify(
     {
       ok: true,
       socialDigest,
       codeDigest,
-      fastPathBeforeGBrain: true
+      fastPathBeforeGBrain: true,
+      axBeforeBrowserCapture: true
     },
     null,
     2

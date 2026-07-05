@@ -49,6 +49,17 @@ type ScreenshotCapture = {
   sourceKind: 'window' | 'screen'
 }
 
+const EMPTY_PAGE_CONTEXT: BrowserPageContext = {
+  pageTitle: null,
+  pageUrl: null,
+  pageText: null,
+  pageCaptureMethod: 'none'
+}
+
+function hasSubstantialText(value: string | null, minLength = 240): boolean {
+  return Boolean(value && value.replace(/\s+/g, '').length > minLength)
+}
+
 function classifyContext(params: {
   activeApp: string | null
   windowTitle: string | null
@@ -490,34 +501,47 @@ async function captureBrowserPageContext(activeApp: string | null): Promise<Brow
 export async function captureCurrentContext(frontmost: FrontmostAppInfo): Promise<CurrentContext> {
   const originalClipboard = clipboard.readText()
   const selectedText = await captureSelectionViaClipboard(originalClipboard)
-  let pageContext = await captureBrowserPageContext(frontmost.activeApp)
-  if (browserScriptName(frontmost.activeApp) && !pageContext.pageText) {
-    const keyboardContext = await captureBrowserPageViaKeyboard(frontmost, originalClipboard)
-    pageContext = {
-      pageTitle: pageContext.pageTitle || keyboardContext.pageTitle,
-      pageUrl: pageContext.pageUrl || keyboardContext.pageUrl,
-      pageText: pageContext.pageText || keyboardContext.pageText,
-      pageCaptureMethod:
-        pageContext.pageText || !keyboardContext.pageText ? pageContext.pageCaptureMethod : keyboardContext.pageCaptureMethod
-    }
-  }
-  if (
-    (!frontmost.activeApp || frontmost.activeApp.toLowerCase().includes('chrome')) &&
-    !pageContext.pageText
-  ) {
-    const sessionContext = await captureChromePageViaSession(frontmost)
-    pageContext = {
-      pageTitle: pageContext.pageTitle || sessionContext.pageTitle,
-      pageUrl: pageContext.pageUrl || sessionContext.pageUrl,
-      pageText: pageContext.pageText || sessionContext.pageText,
-      pageCaptureMethod:
-        pageContext.pageText || !sessionContext.pageText ? pageContext.pageCaptureMethod : sessionContext.pageCaptureMethod
-    }
-  }
   const accessibilityContext = await captureAccessibilityContext()
-  const canSkipOcr = Boolean(
-    accessibilityContext.accessibilityText && accessibilityContext.accessibilityText.replace(/\s+/g, '').length > 240
-  )
+  const preliminaryKind = classifyContext({
+    activeApp: frontmost.activeApp,
+    windowTitle: frontmost.windowTitle,
+    pageTitle: null,
+    pageUrl: null,
+    accessibilityText: [selectedText, accessibilityContext.accessibilityText].filter(Boolean).join('\n') || null,
+    screenText: null
+  })
+  const canSkipBrowserCapture =
+    (preliminaryKind === 'social' || preliminaryKind === 'coding') &&
+    hasSubstantialText([selectedText, accessibilityContext.accessibilityText].filter(Boolean).join('\n') || null, 120)
+
+  let pageContext = EMPTY_PAGE_CONTEXT
+  if (!canSkipBrowserCapture) {
+    pageContext = await captureBrowserPageContext(frontmost.activeApp)
+    if (browserScriptName(frontmost.activeApp) && !pageContext.pageText) {
+      const keyboardContext = await captureBrowserPageViaKeyboard(frontmost, originalClipboard)
+      pageContext = {
+        pageTitle: pageContext.pageTitle || keyboardContext.pageTitle,
+        pageUrl: pageContext.pageUrl || keyboardContext.pageUrl,
+        pageText: pageContext.pageText || keyboardContext.pageText,
+        pageCaptureMethod:
+          pageContext.pageText || !keyboardContext.pageText ? pageContext.pageCaptureMethod : keyboardContext.pageCaptureMethod
+      }
+    }
+    if (
+      (!frontmost.activeApp || frontmost.activeApp.toLowerCase().includes('chrome')) &&
+      !pageContext.pageText
+    ) {
+      const sessionContext = await captureChromePageViaSession(frontmost)
+      pageContext = {
+        pageTitle: pageContext.pageTitle || sessionContext.pageTitle,
+        pageUrl: pageContext.pageUrl || sessionContext.pageUrl,
+        pageText: pageContext.pageText || sessionContext.pageText,
+        pageCaptureMethod:
+          pageContext.pageText || !sessionContext.pageText ? pageContext.pageCaptureMethod : sessionContext.pageCaptureMethod
+      }
+    }
+  }
+  const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)
   const screenContext = await captureScreenContext(frontmost, { skipOcr: canSkipOcr })
 
   return {
