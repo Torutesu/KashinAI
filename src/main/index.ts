@@ -26,9 +26,9 @@ if (!gotLock) {
     setupTray()
     setupShortcut()
 
-    // Shortcut/tray actions are the only paths that capture and write back into another app.
-    // Do not auto-trigger in development because recommendation mode can paste into the
-    // previously focused app.
+    // Make the app visibly "on" after launch without capturing context or pasting into
+    // another app. Context capture/writeback only happens from the shortcut path.
+    showAssistantWindow()
   })
 
   app.on('activate', () => {

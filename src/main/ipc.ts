@@ -270,7 +270,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('window:getState', async () => {
-    return { collapsed: isAssistantCollapsed() }
+    return { collapsed: isAssistantCollapsed(), registeredShortcut: getRegisteredShortcut() }
   })
 
   ipcMain.handle('window:expand', async () => {

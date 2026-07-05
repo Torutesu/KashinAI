@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "package:mac": "pnpm build && electron-builder --mac dir",
     "start": "electron-vite preview",
     "smoke:fusion": "node scripts/smoke-fusion.mjs",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
@@ -26,12 +27,40 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.2.1",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^2.3.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",
     "vite": "^5.4.11"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["electron", "esbuild"]
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
+  },
+  "build": {
+    "appId": "ai.kashin.desktop",
+    "productName": "KashinAI",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "brain/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dir"
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "KashinAI uses Apple Events to read the active app context and paste generated text back into the app you are using.",
+        "NSScreenCaptureDescription": "KashinAI uses screen capture permission to understand visible page or app context when text is not directly available."
+      }
+    }
   }
 }
