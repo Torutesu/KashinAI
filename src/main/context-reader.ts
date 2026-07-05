@@ -1,5 +1,8 @@
 import { clipboard } from 'electron'
 import { execFile } from 'node:child_process'
+import { readFile, readdir, stat } from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import { promisify } from 'node:util'
 import type { CurrentContext } from '../shared/types'
 
@@ -102,6 +105,115 @@ function browserScriptName(activeApp: string | null): string | null {
   return null
 }
 
+function cleanSessionUrl(raw: string): string | null {
+  try {
+    const withoutNulls = raw.replace(/\u0000/g, '')
+    const parsed = new URL(withoutNulls)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
+    if (parsed.hostname === 'contacts.google.com') return null
+    return parsed.toString()
+  } catch {
+    return null
+  }
+}
+
+async function findLatestChromeSessionFiles(): Promise<string[]> {
+  const chromeRoot = path.join(os.homedir(), 'Library/Application Support/Google/Chrome')
+  let profiles: string[]
+  try {
+    profiles = await readdir(chromeRoot)
+  } catch {
+    return []
+  }
+
+  const files: { filePath: string; mtimeMs: number }[] = []
+  for (const profile of profiles) {
+    const sessionsDir = path.join(chromeRoot, profile, 'Sessions')
+    let entries: string[]
+    try {
+      entries = await readdir(sessionsDir)
+    } catch {
+      continue
+    }
+
+    for (const entry of entries) {
+      if (!entry.startsWith('Session_') && !entry.startsWith('Tabs_')) continue
+      const filePath = path.join(sessionsDir, entry)
+      try {
+        const info = await stat(filePath)
+        files.push({ filePath, mtimeMs: info.mtimeMs })
+      } catch {
+        // Ignore unreadable session files.
+      }
+    }
+  }
+
+  return files.sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, 6).map((file) => file.filePath)
+}
+
+async function fetchPublicPageText(url: string): Promise<string | null> {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return null
+  }
+
+  const privateHosts = ['mail.google.com', 'docs.google.com', 'drive.google.com', 'calendar.google.com']
+  if (privateHosts.some((host) => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`))) {
+    return null
+  }
+
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(3000) })
+    const contentType = response.headers.get('content-type') ?? ''
+    if (!response.ok || !contentType.includes('text/html')) return null
+    const html = await response.text()
+    return html
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 12000) || null
+  } catch {
+    return null
+  }
+}
+
+async function captureChromePageViaSession(frontmost: FrontmostAppInfo): Promise<BrowserPageContext> {
+  const sessionFiles = await findLatestChromeSessionFiles()
+  const urls: string[] = []
+
+  for (const filePath of sessionFiles) {
+    let raw: string
+    try {
+      const { stdout } = await execFileAsync('strings', [filePath], { timeout: 2000 })
+      raw = stdout
+    } catch {
+      try {
+        const buffer = await readFile(filePath)
+        raw = buffer.toString('utf8')
+      } catch {
+        continue
+      }
+    }
+
+    const matches = raw.match(/https?:\/\/[^\s"'<>\\\u0000]+/g) ?? []
+    for (const match of matches) {
+      const url = cleanSessionUrl(match)
+      if (url) urls.push(url)
+    }
+  }
+
+  const pageUrl = [...urls].reverse().find(Boolean) ?? null
+  return {
+    pageTitle: frontmost.windowTitle,
+    pageUrl,
+    pageText: pageUrl ? await fetchPublicPageText(pageUrl) : null
+  }
+}
+
 async function captureChromiumPage(appName: string): Promise<BrowserPageContext> {
   const escapedApp = escapeForAppleScript(appName)
   const script = `
@@ -196,6 +308,9 @@ export async function captureCurrentContext(frontmost: FrontmostAppInfo): Promis
   let pageContext = await captureBrowserPageContext(frontmost.activeApp)
   if (browserScriptName(frontmost.activeApp) && !pageContext.pageUrl && !pageContext.pageText) {
     pageContext = await captureBrowserPageViaKeyboard(frontmost, originalClipboard)
+  }
+  if (frontmost.activeApp?.toLowerCase().includes('chrome') && !pageContext.pageUrl && !pageContext.pageText) {
+    pageContext = await captureChromePageViaSession(frontmost)
   }
 
   return {
