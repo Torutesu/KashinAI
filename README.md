@@ -1,6 +1,6 @@
 # KashinAI
 
-KashinAI is a small macOS assistant that reads the app you are currently using
+KashinAI is a macOS assistant that reads the app you are currently using
 and suggests text you can paste right away.
 
 It is meant for quick writing support while you are looking at Twitter/X, a web
