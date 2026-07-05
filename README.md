@@ -1,99 +1,176 @@
-# Kashin AI
+# KashinAI
 
-A macOS floating assistant that combines your current screen context with company memory from GBrain.
+KashinAI is a macOS floating AI workspace for people who live across Slack,
+email, docs, browser tabs, and internal notes.
 
-> Product name: **Kashin AI**. The codebase and internal docs still use `ContextAssistant` / `context-assistant` as a neutral internal identifier (package name, code symbols, repo layout) — only the user-facing display name (default app name, README) reflects the product name. See `docs/product.md` for the full concept.
+It sits in the menu bar, opens from a global shortcut, reads the current
+working context, searches a local/company knowledge base, and generates a
+ready-to-use answer, update, summary, or follow-up. The goal is not to be a
+generic chatbot. The goal is to answer with the context your company already
+knows.
 
-## What it is
+## What KashinAI Does
 
-ContextAssistant lets you press a global shortcut anywhere on macOS, capture whatever text you have selected plus the active app/window context, search your company's long-term memory (company info, customers, projects, people, templates) stored in **GBrain**, and generate a ready-to-use reply, summary, proposal draft, translation, or next-action list — grounded in that context, with sources shown.
+KashinAI combines three inputs:
 
-It is not the full SHOGUN AI product. It's a lightweight MVP: one shortcut, one floating window, selected text in, useful text out.
+- Current macOS context: active app, window title, selected text, and clipboard
+  fallback
+- Company memory: Markdown files under `brain/`, optionally searched through
+  GBrain CLI or HTTP
+- An LLM: Anthropic, OpenAI, or Gemini
 
-## Demo Flow
+From those inputs, it creates output such as:
+
+- Customer or internal replies
+- Status updates
+- Summaries and catch-up notes
+- Proposal or follow-up drafts
+- Shorter or more polite rewrites
+
+The current UI is a top-of-screen floating panel with an inbox-like composer.
+It can show generated sources, copy the answer, or insert the answer back into
+the app you were using.
+
+## Core Flow
 
 ```txt
-1. Select a customer message in Slack
-2. Press Option + Space
-3. A floating UI appears
-4. Click "Reply with company context"
-5. GBrain searches customer notes, project status, and proposal templates
-6. The LLM generates a draft reply
-7. The sources used are shown
-8. Copy the result and paste it into Slack
+Select or focus on work in another macOS app
+  -> Press Option+[
+  -> KashinAI opens as a floating top sheet
+  -> It captures the active app, window title, selection, and clipboard fallback
+  -> You choose an action or type a custom instruction
+  -> KashinAI searches company memory
+  -> The selected LLM generates an answer with source context
+  -> Copy or insert the result back into your workflow
 ```
 
-If this flow works end-to-end, the MVP has done its job.
+Default shortcut: `Option+[`
+
+Older installs that still have `Option+Space` saved are migrated to
+`Option+[` at runtime.
+
+## Current Product Shape
+
+KashinAI is currently a local-first desktop MVP.
+
+It is implemented as:
+
+- Electron main process for macOS windowing, global shortcut, tray/menu-bar
+  behavior, clipboard capture, AppleScript-assisted paste, and settings
+- React + TypeScript renderer for the floating assistant, result view, and
+  settings view
+- `brain/` Markdown knowledge base for seed company, product, customer,
+  project, people, and template context
+- GBrain search adapter with three modes:
+  - `local`: keyword search over `brain/**/*.md`
+  - `cli`: call a local `gbrain` binary
+  - `http`: call a GBrain HTTP endpoint
+- LLM adapter for Anthropic, OpenAI, and Gemini
+
+The app is not a full SaaS product yet. There is no team account system,
+cloud sync, OAuth integration, background screen recording, or autonomous task
+execution in this repo.
 
 ## Quick Start
 
+Install dependencies:
+
 ```bash
 pnpm install
+```
+
+Run the desktop app in development:
+
+```bash
 pnpm dev
 ```
 
-Then:
+Then open Settings inside the app and configure:
 
-1. Grant macOS **Accessibility** permission so the app can read selected text and window info (see `docs/setup.md`).
-2. Open **Settings** and configure your LLM provider/API key and GBrain endpoint.
-3. Seed and import the company knowledge base:
+- LLM provider
+- LLM API key
+- Default model
+- GBrain mode (`local`, `cli`, or `http`)
+- GBrain CLI path or HTTP endpoint if needed
+- Default language, tone, length, and source display preference
 
-   ```bash
-   ./scripts/setup-brain.sh --embed
-   ```
+For the best macOS capture/paste experience, grant Accessibility permission to
+the process launching the app. In development this is usually your terminal or
+Electron.
 
-Full setup instructions: `docs/setup.md`.
+## Company Memory
 
-## Stack
+Seed memory lives in `brain/`:
 
-- Electron
-- React + TypeScript
-- Tailwind CSS
-- GBrain (company memory layer — Markdown knowledge base + vector/hybrid search, accessed via CLI, HTTP, or a local fallback)
-- LLM provider (OpenAI / Anthropic / Gemini)
+```txt
+brain/
+  company/      company overview, pricing, sales, security, contract policies
+  products/     product descriptions
+  customers/    customer notes
+  projects/     project overview, meetings, requirements, proposals, decisions
+  people/       people and stakeholder notes
+  templates/    reusable reply, proposal, meeting, and security templates
+```
+
+KashinAI can work without a GBrain install by using local keyword search over
+these Markdown files.
+
+If you have GBrain installed, import and embed the seed brain:
+
+```bash
+./scripts/setup-brain.sh
+./scripts/setup-brain.sh --embed
+```
+
+## Scripts
+
+```bash
+pnpm dev             # Run Electron + React in development
+pnpm build           # Build the Electron app
+pnpm start           # Preview the built app
+pnpm typecheck       # Typecheck main and renderer projects
+pnpm typecheck:node  # Typecheck Electron/main code
+pnpm typecheck:web   # Typecheck renderer code
+```
 
 ## Repo Layout
 
 ```txt
-Woojin/
-  src/                  # Electron + React app (main + renderer)
-  brain/                # Seed company knowledge base (Markdown, imported into GBrain)
-    company/            # overview, mission/vision/values, services, pricing, policies, faq
-    products/            # shogun_ai, ai_management_platform, count_ai, ai_crm
-    customers/           # customer_a, customer_b, customer_c
-    projects/            # project_x_* (overview, meetings, proposal, requirements, decisions)
-    people/               # client_person_a, engineer_b, partner_c
-    templates/            # sales_reply, polite_decline, proposal_followup, meeting_summary,
-                          # english_reply, security_answer
-  docs/
-    architecture.md      # system architecture, data flow, GBrain client modes
-    product.md            # concept, core UX, MVP scope
-    setup.md               # install, permissions, API keys, GBrain setup
-    security.md             # privacy stance and security posture
-  scripts/
-    setup-brain.sh        # imports brain/ into GBrain (gbrain import / gbrain embed)
-  README.md
+src/
+  main/              Electron main process, IPC, settings, context capture,
+                     GBrain search, LLM calls, shortcut, window management
+  preload/           Safe renderer API exposed through contextBridge
+  renderer/          React UI for assistant, results, and settings
+  shared/            Shared types and prompts
+brain/               Local seed knowledge base
+docs/                Product, setup, architecture, and security notes
+scripts/             Brain import/setup scripts
 ```
 
-## Non-goals (MVP)
+## Privacy And Safety Model
 
-- Not the full SHOGUN AI product
-- No continuous screen recording
-- No automatic saving of all app activity
-- No auto-send of generated content
-- No complex multi-tenant SaaS or admin dashboard
-- No full OAuth integrations (Gmail/Slack/Notion API sync is a later phase)
-- No autonomous agent execution
-- No mobile app
+KashinAI is explicit-action-first:
 
-See `docs/product.md` for the full Must/Should/Later scope breakdown.
+- It captures context when opened or invoked, not continuously
+- It uses selected text and clipboard fallback instead of screen recording
+- It restores the previous clipboard after capture/insert flows
+- API keys and GBrain tokens are stored in local app settings and encrypted
+  with Electron `safeStorage` when the OS supports it
+- Generated output is never auto-sent; the user must copy or insert it
 
----
+## Known Gaps
 
-## 概要（日本語）
+- The current inbox items in the assistant panel are demo/mock items mixed with
+  live captured context
+- The settings UI has navigation labels for future sections, but the active
+  implemented settings are still concentrated in one view
+- GBrain local fallback is keyword-based, not vector search
+- Accessibility permission is required for reliable global capture and paste
+- Docs under `docs/` may still use older `ContextAssistant` wording
 
-ContextAssistantは、macOS上でユーザーが今見ている画面の文脈と、GBrainに蓄積された会社の長期記憶（会社概要・顧客情報・案件情報・議事録・テンプレートなど）を組み合わせ、すぐに使える返信・要約・提案文・次アクションを生成する軽量デスクトップアプリです。
+## More Detail
 
-Slackで顧客メッセージを選択 → Option+Spaceを押す → フローティングUIが表示 → 「Reply with company context」をクリック → GBrainが顧客・案件・テンプレートを検索 → LLMが返信案を生成 → 参照ソースを表示 → コピーしてそのまま使う。
-
-これがMVPとして目指す最初のデモ体験です。詳細は `docs/product.md` および `docs/setup.md` を参照してください。
+- `docs/product.md`
+- `docs/setup.md`
+- `docs/architecture.md`
+- `docs/security.md`

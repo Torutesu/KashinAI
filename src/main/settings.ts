@@ -27,13 +27,8 @@ const NEW_DEFAULT_SHORTCUT = 'Option+['
 const LEGACY_DEFAULT_SHORTCUT = 'Option+Space'
 
 const DEFAULT_SETTINGS: StoredSettings = {
-<<<<<<< HEAD
   appDisplayName: 'KashinAI',
   shortcut: NEW_DEFAULT_SHORTCUT,
-=======
-  appDisplayName: 'Kashin AI',
-  shortcut: 'Option+Space',
->>>>>>> f39551cde6543852b82007cf1028b5895721369d
   gbrain: {
     mode: detectedCliPath === 'gbrain' ? 'local' : 'cli',
     endpoint: 'http://localhost:3000',
