@@ -51,8 +51,8 @@ KashinAI currently tries these sources:
 - Local Markdown memory under `brain/`
 - Optional GBrain CLI / HTTP search
 
-Accessibility permission and Screen Recording permission are recommended on
-macOS. Without them, context capture may be partial.
+Accessibility permission and Screen Recording permission let KashinAI capture
+the current screen more reliably on macOS.
 
 ## Quick Start
 
@@ -99,7 +99,6 @@ docs/           Extra product/setup/architecture notes
 
 ## Current Status
 
-This is still a local-first MVP. The main focus is making the app read the
-current screen quickly and generate useful paste-ready text. Some websites or
-apps may not expose good Accessibility text; those cases need OCR fallback or a
-prepared demo/scenario flow.
+KashinAI is a local-first macOS assistant focused on fast context capture and
+paste-ready writing. It is designed to work directly with the app you are using,
+so suggestions stay tied to the visible screen instead of a generic chat flow.
