@@ -1,75 +1,58 @@
 # KashinAI
 
-KashinAI is a macOS floating AI workspace for people who live across Slack,
-email, docs, browser tabs, and internal notes.
+KashinAI is a small macOS assistant that reads the app you are currently using
+and suggests text you can paste right away.
 
-It sits in the menu bar, opens from a global shortcut, reads the current
-working context, searches a local/company knowledge base, and generates a
-ready-to-use answer, update, summary, or follow-up. The goal is not to be a
-generic chatbot. The goal is to answer with the context your company already
-knows.
+It is meant for quick writing support while you are looking at Twitter/X, a web
+page, a coding editor, docs, or any other work screen. The app tries to read the
+visible context first, then creates a short recommendation that fits that screen.
 
-## What KashinAI Does
+## What It Does
 
-KashinAI combines three inputs:
+- Reads the current macOS app and window context
+- Uses Accessibility API first to collect visible text
+- Falls back to screenshot/OCR or browser context when needed
+- Creates a short ready-to-paste suggestion
+- Pastes the suggestion with a single Option key press
+- Shows the floating assistant with Option + Space
+- Can use local Markdown memory / GBrain when the current screen actually needs it
 
-- Current macOS context: active app, window title, selected text, and clipboard
-  fallback
-- Company memory: Markdown files under `brain/`, optionally searched through
-  GBrain CLI or HTTP
-- An LLM: Anthropic, OpenAI, or Gemini
+For Twitter/X, SNS, code editors, and terminal-style screens, KashinAI avoids
+forcing company memory into the answer. It should use the visible screen context
+first.
 
-From those inputs, it creates output such as:
-
-- Customer or internal replies
-- Status updates
-- Summaries and catch-up notes
-- Proposal or follow-up drafts
-- Shorter or more polite rewrites
-
-The current UI is a top-of-screen floating panel with an inbox-like composer.
-It can show generated sources, copy the answer, or insert the answer back into
-the app you were using.
-
-## Core Flow
+## Keyboard Flow
 
 ```txt
-Select or focus on work in another macOS app
-  -> Press Option+[
-  -> KashinAI opens as a floating top sheet
-  -> It captures the active app, window title, selection, and clipboard fallback
-  -> You choose an action or type a custom instruction
-  -> KashinAI searches company memory
-  -> The selected LLM generates an answer with source context
-  -> Copy or insert the result back into your workflow
+Focus another app
+  -> Press Option
+  -> KashinAI reads the current visible context
+  -> It creates one short suggestion
+  -> It pastes the suggestion back into the active app
 ```
 
-Default shortcut: `Option+[`
+```txt
+Press Option + Space
+  -> Show the KashinAI floating panel
+```
 
-Older installs that still have `Option+Space` saved are migrated to
-`Option+[` at runtime.
+If KashinAI cannot read useful context, it should avoid pasting a random or
+irrelevant sentence.
 
-## Current Product Shape
+## Context Capture
 
-KashinAI is currently a local-first desktop MVP.
+KashinAI currently tries these sources:
 
-It is implemented as:
+- Accessibility Tree: visible app text, selected text, web document attributes,
+  URL/document fields, and visible children
+- Selected text / clipboard-safe capture
+- Browser page context when available
+- Screenshot and OCR fallback
+- Local Markdown memory under `brain/`
+- Optional GBrain CLI / HTTP search
 
-- Electron main process for macOS windowing, global shortcut, tray/menu-bar
-  behavior, clipboard capture, AppleScript-assisted paste, and settings
-- React + TypeScript renderer for the floating assistant, result view, and
-  settings view
-- `brain/` Markdown knowledge base for seed company, product, customer,
-  project, people, and template context
-- GBrain search adapter with three modes:
-  - `local`: keyword search over `brain/**/*.md`
-  - `cli`: call a local `gbrain` binary
-  - `http`: call a GBrain HTTP endpoint
-- LLM adapter for Anthropic, OpenAI, and Gemini
-
-The app is not a full SaaS product yet. There is no team account system,
-cloud sync, OAuth integration, background screen recording, or autonomous task
-execution in this repo.
+Accessibility permission and Screen Recording permission are recommended on
+macOS. Without them, context capture may be partial.
 
 ## Quick Start
 
@@ -79,98 +62,44 @@ Install dependencies:
 pnpm install
 ```
 
-Run the desktop app in development:
+Run in development:
 
 ```bash
 pnpm dev
 ```
 
-Then open Settings inside the app and configure:
-
-- LLM provider
-- LLM API key
-- Default model
-- GBrain mode (`local`, `cli`, or `http`)
-- GBrain CLI path or HTTP endpoint if needed
-- Default language, tone, length, and source display preference
-
-For the best macOS capture/paste experience, grant Accessibility permission to
-the process launching the app. In development this is usually your terminal or
-Electron.
-
-## Company Memory
-
-Seed memory lives in `brain/`:
-
-```txt
-brain/
-  company/      company overview, pricing, sales, security, contract policies
-  products/     product descriptions
-  customers/    customer notes
-  projects/     project overview, meetings, requirements, proposals, decisions
-  people/       people and stakeholder notes
-  templates/    reusable reply, proposal, meeting, and security templates
-```
-
-KashinAI can work without a GBrain install by using local keyword search over
-these Markdown files.
-
-If you have GBrain installed, import and embed the seed brain:
+Build the app:
 
 ```bash
-./scripts/setup-brain.sh
-./scripts/setup-brain.sh --embed
+pnpm build
+pnpm package:mac
 ```
 
-## Scripts
+## Useful Scripts
 
 ```bash
-pnpm dev             # Run Electron + React in development
-pnpm build           # Build the Electron app
-pnpm start           # Preview the built app
-pnpm typecheck       # Typecheck main and renderer projects
-pnpm typecheck:node  # Typecheck Electron/main code
-pnpm typecheck:web   # Typecheck renderer code
+pnpm dev                 # Run the desktop app in development
+pnpm build               # Build Electron + renderer
+pnpm package:mac         # Build a local macOS app bundle
+pnpm typecheck           # Typecheck main and renderer code
+pnpm smoke:live-context  # Check live-context extraction behavior
+pnpm smoke:fusion        # Check GBrain/local context fusion
 ```
 
 ## Repo Layout
 
 ```txt
-src/
-  main/              Electron main process, IPC, settings, context capture,
-                     GBrain search, LLM calls, shortcut, window management
-  preload/           Safe renderer API exposed through contextBridge
-  renderer/          React UI for assistant, results, and settings
-  shared/            Shared types and prompts
-brain/               Local seed knowledge base
-docs/                Product, setup, architecture, and security notes
-scripts/             Brain import/setup scripts
+src/main/       Electron main process, context capture, paste, IPC, LLM/GBrain
+src/renderer/   React UI for the floating assistant and settings
+src/shared/     Shared types, prompts, and live-context filtering
+scripts/        macOS helper scripts and smoke checks
+brain/          Local Markdown memory examples
+docs/           Extra product/setup/architecture notes
 ```
 
-## Privacy And Safety Model
+## Current Status
 
-KashinAI is explicit-action-first:
-
-- It captures context when opened or invoked, not continuously
-- It uses selected text and clipboard fallback instead of screen recording
-- It restores the previous clipboard after capture/insert flows
-- API keys and GBrain tokens are stored in local app settings and encrypted
-  with Electron `safeStorage` when the OS supports it
-- Generated output is never auto-sent; the user must copy or insert it
-
-## Known Gaps
-
-- The current inbox items in the assistant panel are demo/mock items mixed with
-  live captured context
-- The settings UI has navigation labels for future sections, but the active
-  implemented settings are still concentrated in one view
-- GBrain local fallback is keyword-based, not vector search
-- Accessibility permission is required for reliable global capture and paste
-- Docs under `docs/` may still use older `ContextAssistant` wording
-
-## More Detail
-
-- `docs/product.md`
-- `docs/setup.md`
-- `docs/architecture.md`
-- `docs/security.md`
+This is still a local-first MVP. The main focus is making the app read the
+current screen quickly and generate useful paste-ready text. Some websites or
+apps may not expose good Accessibility text; those cases need OCR fallback or a
+prepared demo/scenario flow.
