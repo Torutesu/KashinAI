@@ -15,6 +15,37 @@ function brainDir(): string {
   return path.join(app.getAppPath(), 'brain')
 }
 
+function buildRetrievalOnlyAnswer(params: {
+  latestUserMessage: string
+  pageUrl: string | null
+  pageTitle: string | null
+  pageText: string | null
+  sources: { source: string; title: string; content: string }[]
+}): string {
+  const sourceLines = params.sources
+    .slice(0, 5)
+    .map((source) => `- ${source.source}: ${source.title}`)
+    .join('\n')
+  const pageSummary = params.pageText
+    ? params.pageText.replace(/\s+/g, ' ').trim().slice(0, 600)
+    : '(page body not captured)'
+
+  return `LLM API key is not configured, so this is a retrieval-only backend check.
+
+User message:
+${params.latestUserMessage || '(none)'}
+
+Open page context:
+- Title: ${params.pageTitle || '(unknown)'}
+- URL: ${params.pageUrl || '(not captured)'}
+- Text preview: ${pageSummary}
+
+GBrain context used:
+${sourceLines || '- none'}
+
+The backend successfully fused the current page context with GBrain context. Add an LLM API key in Settings to generate the final natural-language response.`
+}
+
 /**
  * Full assistant:generate flow: build search query -> GBrain search (with fallback chain) ->
  * build prompt -> LLM call -> GenerateResult. Never throws: failures are returned as a
@@ -60,14 +91,22 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
 
     const { system, user } = buildPrompt(pack, request.modifier)
 
-    const output = await generate({
-      provider: settings.llm.provider,
-      apiKey: settings.llm.apiKey,
-      model: settings.llm.defaultModel,
-      temperature: settings.llm.temperature,
-      system,
-      user
-    })
+    const output = settings.llm.apiKey
+      ? await generate({
+          provider: settings.llm.provider,
+          apiKey: settings.llm.apiKey,
+          model: settings.llm.defaultModel,
+          temperature: settings.llm.temperature,
+          system,
+          user
+        })
+      : buildRetrievalOnlyAnswer({
+          latestUserMessage: request.userInstruction,
+          pageUrl: request.currentContext.pageUrl,
+          pageTitle: request.currentContext.pageTitle,
+          pageText: request.currentContext.pageText,
+          sources: results
+        })
 
     return {
       ok: true,
@@ -119,14 +158,22 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
       }
     })
 
-    const output = await generate({
-      provider: settings.llm.provider,
-      apiKey: settings.llm.apiKey,
-      model: settings.llm.defaultModel,
-      temperature: settings.llm.temperature,
-      system,
-      user
-    })
+    const output = settings.llm.apiKey
+      ? await generate({
+          provider: settings.llm.provider,
+          apiKey: settings.llm.apiKey,
+          model: settings.llm.defaultModel,
+          temperature: settings.llm.temperature,
+          system,
+          user
+        })
+      : buildRetrievalOnlyAnswer({
+          latestUserMessage,
+          pageUrl: request.currentContext.pageUrl,
+          pageTitle: request.currentContext.pageTitle,
+          pageText: request.currentContext.pageText,
+          sources: results
+        })
 
     return {
       ok: true,
