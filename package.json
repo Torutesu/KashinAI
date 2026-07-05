@@ -4,7 +4,7 @@
   "description": "Lightweight macOS desktop assistant that combines current screen context with GBrain company memory to generate replies, summaries, proposals, and next actions.",
   "private": true,
   "main": "./out/main/index.js",
-  "author": "ContextAssistant",
+  "author": "Kashin AI",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",

@@ -1,8 +1,8 @@
-# ContextAssistant
+# Kashin AI
 
 A macOS floating assistant that combines your current screen context with company memory from GBrain.
 
-> The product name is not finalized. `ContextAssistant` / `context-assistant` is used as a neutral internal name throughout the codebase and docs. See `docs/product.md` for the full concept.
+> Product name: **Kashin AI**. The codebase and internal docs still use `ContextAssistant` / `context-assistant` as a neutral internal identifier (package name, code symbols, repo layout) — only the user-facing display name (default app name, README) reflects the product name. See `docs/product.md` for the full concept.
 
 ## What it is
 
