@@ -51,7 +51,16 @@ function buildRetrievalOnlyAnswer(params: {
   if (wantsRecommendation) {
     const topSource = params.sources[0]
     const pageLabel = params.pageTitle || params.pageUrl || 'いま開いている画面'
-    const gbrainHint = topSource ? `GBrainの「${topSource.title}」` : 'GBrainの会社文脈'
+    const visibleContext = params.screenText || params.pageText
+    const visibleHint = visibleContext
+      ? visibleContext.replace(/\s+/g, ' ').trim().slice(0, 90)
+      : pageLabel
+
+    if (!topSource) {
+      return `${visibleHint}について確認しました。必要な内容をこちらで整理して、次に進められる形で対応します。`
+    }
+
+    const gbrainHint = `GBrainの「${topSource.title}」`
 
     return `${pageLabel}の内容を確認しました。${gbrainHint}に合わせて、相手に伝えるべき要点と次のアクションをこちらで整理します。`
   }
