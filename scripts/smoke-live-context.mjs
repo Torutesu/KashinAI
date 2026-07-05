@@ -137,6 +137,13 @@ if (captureStart < 0 || axCapture < 0 || browserCapture < 0 || axCapture > brows
   })
 }
 
+const axHelperSource = await readFile(path.join(process.cwd(), 'scripts/ax-context.swift'), 'utf8')
+for (const required of ['AXVisibleChildren', 'AXSelectedText', 'AXDocument', 'AXURL']) {
+  if (!axHelperSource.includes(required)) {
+    fail('AX helper must inspect web/content accessibility attributes before scenario fallback is needed', { required })
+  }
+}
+
 console.log(
   JSON.stringify(
     {
@@ -144,7 +151,8 @@ console.log(
       socialDigest,
       codeDigest,
       fastPathBeforeGBrain: true,
-      axBeforeBrowserCapture: true
+      axBeforeBrowserCapture: true,
+      axContentAttributes: true
     },
     null,
     2

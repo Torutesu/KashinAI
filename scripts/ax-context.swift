@@ -6,6 +6,31 @@ let maxLines = 180
 let maxDepth = 6
 let maxChildrenPerNode = 80
 
+struct Candidate {
+  let text: String
+  let score: Int
+  let order: Int
+}
+
+let contentAttributes: [CFString] = [
+  "AXSelectedText" as CFString,
+  "AXValue" as CFString,
+  "AXDocument" as CFString,
+  "AXURL" as CFString,
+  "AXDescription" as CFString,
+  "AXTitle" as CFString,
+  "AXHelp" as CFString,
+  "AXPlaceholderValue" as CFString
+]
+
+let childAttributes: [CFString] = [
+  "AXVisibleChildren" as CFString,
+  "AXChildren" as CFString,
+  "AXRows" as CFString,
+  "AXColumns" as CFString,
+  "AXTabs" as CFString
+]
+
 func stringValue(_ value: CFTypeRef?) -> String? {
   guard let value else { return nil }
   if CFGetTypeID(value) == CFStringGetTypeID() {
@@ -35,17 +60,49 @@ func attributeString(_ element: AXUIElement, _ attr: CFString) -> String? {
   return (text?.isEmpty == false) ? text : nil
 }
 
-func children(_ element: AXUIElement) -> [AXUIElement] {
+func attributeElements(_ element: AXUIElement, _ attr: CFString) -> [AXUIElement] {
   var value: CFTypeRef?
-  let result = AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &value)
+  let result = AXUIElementCopyAttributeValue(element, attr, &value)
   guard result == .success, let array = value as? [AXUIElement] else { return [] }
   return Array(array.prefix(maxChildrenPerNode))
 }
 
-var lines: [String] = []
-var seen = Set<String>()
+func children(_ element: AXUIElement) -> [AXUIElement] {
+  var result: [AXUIElement] = []
+  for attr in childAttributes {
+    result.append(contentsOf: attributeElements(element, attr))
+    if result.count >= maxChildrenPerNode { break }
+  }
+  return Array(result.prefix(maxChildrenPerNode))
+}
 
-func appendLine(_ text: String?) {
+func role(_ element: AXUIElement) -> String {
+  return attributeString(element, kAXRoleAttribute as CFString) ?? ""
+}
+
+func scoreFor(_ text: String, attr: CFString, role: String, depth: Int) -> Int {
+  var score = max(0, 16 - depth)
+  let length = text.count
+  if length >= 40 { score += 14 }
+  if length >= 120 { score += 10 }
+  if text.range(of: #"[。！？!?]|https?://|\.com|\.ai|\.ts|\.tsx|\.swift|error|exception|failed"#, options: [.regularExpression, .caseInsensitive]) != nil {
+    score += 8
+  }
+  let attrName = attr as String
+  if attrName == "AXSelectedText" || attrName == "AXValue" || attrName == "AXDocument" { score += 10 }
+  if attrName == "AXTitle" && length < 30 { score -= 8 }
+  if role.contains("Button") || role.contains("Menu") || role.contains("Toolbar") { score -= 16 }
+  if text.range(of: #"(⌘|⇧|⌥|⌃|command|shortcut|sidebar|workspace|show or hide|focus back|focus forward)"#, options: [.regularExpression, .caseInsensitive]) != nil {
+    score -= 40
+  }
+  return score
+}
+
+var candidates: [Candidate] = []
+var seen = Set<String>()
+var order = 0
+
+func appendLine(_ text: String?, score: Int) {
   guard let raw = text else { return }
   let normalized = raw.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
     .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -53,21 +110,24 @@ func appendLine(_ text: String?) {
   let key = normalized.lowercased()
   guard !seen.contains(key) else { return }
   seen.insert(key)
-  lines.append(normalized)
+  candidates.append(Candidate(text: normalized, score: score, order: order))
+  order += 1
 }
 
 func walk(_ element: AXUIElement, depth: Int) {
-  if lines.count >= maxLines || depth > maxDepth { return }
+  if candidates.count >= maxLines || depth > maxDepth { return }
 
-  appendLine(attributeString(element, kAXTitleAttribute as CFString))
-  appendLine(attributeString(element, kAXDescriptionAttribute as CFString))
-  appendLine(attributeString(element, kAXValueAttribute as CFString))
-  appendLine(attributeString(element, kAXPlaceholderValueAttribute as CFString))
-  appendLine(attributeString(element, kAXHelpAttribute as CFString))
+  let elementRole = role(element)
+  for attr in contentAttributes {
+    let text = attributeString(element, attr)
+    if let text {
+      appendLine(text, score: scoreFor(text, attr: attr, role: elementRole, depth: depth))
+    }
+  }
 
   for child in children(element) {
     walk(child, depth: depth + 1)
-    if lines.count >= maxLines { break }
+    if candidates.count >= maxLines { break }
   }
 }
 
@@ -76,7 +136,7 @@ guard let app = NSWorkspace.shared.frontmostApplication else {
 }
 
 let appElement = AXUIElementCreateApplication(app.processIdentifier)
-appendLine(app.localizedName)
+appendLine(app.localizedName, score: 0)
 
 var focusedWindow: CFTypeRef?
 if AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &focusedWindow) == .success,
@@ -90,8 +150,18 @@ if AXUIElementCopyAttributeValue(appElement, kAXFocusedUIElementAttribute as CFS
   walk(element as! AXUIElement, depth: 0)
 }
 
-if lines.count < 12 {
+if candidates.count < 12 {
   walk(appElement, depth: 0)
 }
 
-print(lines.joined(separator: "\n"))
+let output = candidates
+  .filter { $0.score > -20 }
+  .sorted {
+    if $0.score != $1.score { return $0.score > $1.score }
+    return $0.order < $1.order
+  }
+  .prefix(maxLines)
+  .map { $0.text }
+  .joined(separator: "\n")
+
+print(output)
