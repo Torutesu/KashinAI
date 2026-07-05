@@ -49,6 +49,9 @@ ${currentContext.pageUrl ?? '(none)'}
 Page Capture Method:
 ${currentContext.pageCaptureMethod}
 
+Accessibility Capture Method:
+${currentContext.accessibilityCaptureMethod}
+
 Screen Capture Method:
 ${currentContext.screenCaptureMethod}
 
@@ -60,6 +63,9 @@ ${currentContext.selectedText ?? '(none)'}
 
 Open Page Text:
 ${currentContext.pageText ?? '(none)'}
+
+Accessibility Text:
+${currentContext.accessibilityText ?? '(none)'}
 
 Screen OCR Text:
 ${currentContext.screenText ?? '(none)'}

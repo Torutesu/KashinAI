@@ -39,6 +39,7 @@ pageTitle: ${yamlString(params.currentContext.pageTitle)}
 pageUrl: ${yamlString(params.currentContext.pageUrl)}
 pageCaptureMethod: ${yamlString(params.currentContext.pageCaptureMethod)}
 screenCaptureMethod: ${yamlString(params.currentContext.screenCaptureMethod)}
+accessibilityCaptureMethod: ${yamlString(params.currentContext.accessibilityCaptureMethod)}
 ---
 
 # ${title}
@@ -50,6 +51,10 @@ ${params.currentContext.selectedText || '(none)'}
 ## Page Text
 
 ${params.currentContext.pageText || '(none)'}
+
+## Accessibility Text
+
+${params.currentContext.accessibilityText || '(none)'}
 
 ## Screen OCR
 

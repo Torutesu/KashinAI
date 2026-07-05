@@ -39,6 +39,11 @@ type ScreenContext = {
   screenCaptureMethod: CurrentContext['screenCaptureMethod']
 }
 
+type AccessibilityContext = {
+  accessibilityText: string | null
+  accessibilityCaptureMethod: CurrentContext['accessibilityCaptureMethod']
+}
+
 type ScreenshotCapture = {
   screenshotPath: string
   sourceKind: 'window' | 'screen'
@@ -49,6 +54,7 @@ function classifyContext(params: {
   windowTitle: string | null
   pageTitle: string | null
   pageUrl: string | null
+  accessibilityText: string | null
   screenText: string | null
 }): CurrentContext['contextKind'] {
   const haystack = [
@@ -56,6 +62,7 @@ function classifyContext(params: {
     params.windowTitle,
     params.pageTitle,
     params.pageUrl,
+    params.accessibilityText?.slice(0, 3000),
     params.screenText?.slice(0, 2000)
   ]
     .filter(Boolean)
@@ -84,11 +91,17 @@ function ocrScriptPath(): string {
   return path.join(process.resourcesPath, 'ocr.swift')
 }
 
-async function ocrHelperPath(): Promise<string> {
+function axScriptPath(): string {
+  if (process.defaultApp || process.env['ELECTRON_RENDERER_URL']) {
+    return path.join(app.getAppPath(), 'scripts/ax-context.swift')
+  }
+  return path.join(process.resourcesPath, 'ax-context.swift')
+}
+
+async function compiledHelperPath(scriptPath: string, binaryName: string): Promise<string> {
   const helpersDir = path.join(app.getPath('userData'), 'helpers')
   await mkdir(helpersDir, { recursive: true })
-  const binaryPath = path.join(helpersDir, 'kashin-ocr')
-  const scriptPath = ocrScriptPath()
+  const binaryPath = path.join(helpersDir, binaryName)
 
   try {
     const [binaryInfo, scriptInfo] = await Promise.all([stat(binaryPath), stat(scriptPath)])
@@ -99,6 +112,31 @@ async function ocrHelperPath(): Promise<string> {
 
   await execFileAsync('/usr/bin/swiftc', [scriptPath, '-o', binaryPath], { timeout: 20000 })
   return binaryPath
+}
+
+async function ocrHelperPath(): Promise<string> {
+  return compiledHelperPath(ocrScriptPath(), 'kashin-ocr')
+}
+
+async function axHelperPath(): Promise<string> {
+  return compiledHelperPath(axScriptPath(), 'kashin-ax-context')
+}
+
+async function captureAccessibilityContext(): Promise<AccessibilityContext> {
+  try {
+    const helperPath = await axHelperPath()
+    const { stdout } = await execFileAsync(helperPath, [], {
+      timeout: 2500,
+      maxBuffer: 1024 * 1024 * 3
+    })
+    const text = stdout.replace(/\s+\n/g, '\n').trim()
+    return {
+      accessibilityText: text ? text.slice(0, 12000) : null,
+      accessibilityCaptureMethod: text ? 'ax-tree' : 'none'
+    }
+  } catch {
+    return { accessibilityText: null, accessibilityCaptureMethod: 'none' }
+  }
 }
 
 function sourceScore(sourceName: string, frontmost: FrontmostAppInfo): number {
@@ -156,13 +194,13 @@ async function recognizeScreenshotText(screenshotPath: string): Promise<string |
   }
 }
 
-async function captureScreenContext(frontmost: FrontmostAppInfo): Promise<ScreenContext> {
+async function captureScreenContext(frontmost: FrontmostAppInfo, options: { skipOcr: boolean }): Promise<ScreenContext> {
   const screenshot = await captureScreenshotPng(frontmost)
   if (!screenshot) {
     return { screenshotPath: null, screenText: null, screenCaptureMethod: 'none' }
   }
 
-  const screenText = await recognizeScreenshotText(screenshot.screenshotPath)
+  const screenText = options.skipOcr ? null : await recognizeScreenshotText(screenshot.screenshotPath)
   const prefix = screenshot.sourceKind === 'window' ? 'window' : 'screen'
   return {
     screenshotPath: screenshot.screenshotPath,
@@ -472,7 +510,11 @@ export async function captureCurrentContext(frontmost: FrontmostAppInfo): Promis
         pageContext.pageText || !sessionContext.pageText ? pageContext.pageCaptureMethod : sessionContext.pageCaptureMethod
     }
   }
-  const screenContext = await captureScreenContext(frontmost)
+  const accessibilityContext = await captureAccessibilityContext()
+  const canSkipOcr = Boolean(
+    accessibilityContext.accessibilityText && accessibilityContext.accessibilityText.replace(/\s+/g, '').length > 240
+  )
+  const screenContext = await captureScreenContext(frontmost, { skipOcr: canSkipOcr })
 
   return {
     activeApp: frontmost.activeApp,
@@ -482,12 +524,15 @@ export async function captureCurrentContext(frontmost: FrontmostAppInfo): Promis
       windowTitle: frontmost.windowTitle,
       pageTitle: pageContext.pageTitle,
       pageUrl: pageContext.pageUrl,
+      accessibilityText: accessibilityContext.accessibilityText,
       screenText: screenContext.screenText
     }),
     pageTitle: pageContext.pageTitle,
     pageUrl: pageContext.pageUrl,
     pageText: pageContext.pageText,
     pageCaptureMethod: pageContext.pageCaptureMethod,
+    accessibilityText: accessibilityContext.accessibilityText,
+    accessibilityCaptureMethod: accessibilityContext.accessibilityCaptureMethod,
     screenshotPath: screenContext.screenshotPath,
     screenText: screenContext.screenText,
     screenCaptureMethod: screenContext.screenCaptureMethod,

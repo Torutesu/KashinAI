@@ -82,6 +82,8 @@ async function triggerAssistant(options: { autoInsert: boolean; showWindow: bool
     pageUrl: null,
     pageText: null,
     pageCaptureMethod: 'none' as const,
+    accessibilityText: null,
+    accessibilityCaptureMethod: 'none' as const,
     screenshotPath: null,
     screenText: null,
     screenCaptureMethod: 'none' as const,

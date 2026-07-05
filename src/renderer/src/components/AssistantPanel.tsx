@@ -81,6 +81,14 @@ function buildContextItems(context: CurrentContext | null): ContextItem[] {
     })
   }
 
+  if (context.accessibilityText) {
+    items.push({
+      title: `App text (${context.accessibilityCaptureMethod}): ${compact(context.accessibilityText)}`,
+      time: 'now',
+      instruction: context.accessibilityText
+    })
+  }
+
   if (context.screenshotPath || context.screenText) {
     items.push({
       title: `Screen (${context.screenCaptureMethod}): ${compact(context.screenText || context.screenshotPath || 'Screenshot captured')}`,

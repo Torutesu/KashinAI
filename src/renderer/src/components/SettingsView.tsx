@@ -258,6 +258,13 @@ export default function SettingsView({
                   <div>
                     Page text: {diagnostics.currentContext.pageText ? `${diagnostics.currentContext.pageText.length} chars` : 'not captured'}
                   </div>
+                  <div>Accessibility capture: {diagnostics.currentContext.accessibilityCaptureMethod}</div>
+                  <div>
+                    Accessibility text:{' '}
+                    {diagnostics.currentContext.accessibilityText
+                      ? `${diagnostics.currentContext.accessibilityText.length} chars`
+                      : 'not captured'}
+                  </div>
                   <div>Screen capture: {diagnostics.currentContext.screenCaptureMethod}</div>
                   <div>Screenshot: {diagnostics.currentContext.screenshotPath ?? 'not captured'}</div>
                   <div>

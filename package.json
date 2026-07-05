@@ -49,12 +49,17 @@
       "out/**/*",
       "brain/**/*",
       "scripts/ocr.swift",
+      "scripts/ax-context.swift",
       "package.json"
     ],
     "extraResources": [
       {
         "from": "scripts/ocr.swift",
         "to": "ocr.swift"
+      },
+      {
+        "from": "scripts/ax-context.swift",
+        "to": "ax-context.swift"
       },
       {
         "from": "scripts/option-listener.swift",

@@ -8,6 +8,8 @@ export type CurrentContext = {
   pageUrl: string | null
   pageText: string | null
   pageCaptureMethod: 'browser-automation' | 'keyboard-copy' | 'chrome-session' | 'none'
+  accessibilityText: string | null
+  accessibilityCaptureMethod: 'ax-tree' | 'none'
   screenshotPath: string | null
   screenText: string | null
   screenCaptureMethod: 'window-ocr' | 'screen-ocr' | 'window-screenshot-only' | 'screen-screenshot-only' | 'none'

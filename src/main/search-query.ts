@@ -74,6 +74,7 @@ export function buildSearchQuery(
     context.pageTitle,
     context.pageUrl,
     context.pageText,
+    context.accessibilityText,
     context.screenText
   ]
     .filter((value): value is string => Boolean(value))
