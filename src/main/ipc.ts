@@ -1,6 +1,14 @@
-import { app, clipboard, ipcMain, shell, systemPreferences } from 'electron'
+import { app, clipboard, desktopCapturer, ipcMain, shell, systemPreferences } from 'electron'
 import path from 'node:path'
-import type { ChatIpcResult, ChatRequest, ContextPack, GenerateIpcResult, GenerateRequest, SettingsUpdate } from '../shared/types'
+import type {
+  BackendDiagnostics,
+  ChatIpcResult,
+  ChatRequest,
+  ContextPack,
+  GenerateIpcResult,
+  GenerateRequest,
+  SettingsUpdate
+} from '../shared/types'
 import { buildChatPrompt, buildPrompt } from '../shared/prompts'
 import { getFrontmostAppInfo, captureCurrentContext } from './context-reader'
 import { buildSearchQuery } from './search-query'
@@ -13,6 +21,11 @@ import { getRegisteredShortcut, updateRegisteredShortcut } from './shortcut'
 
 function brainDir(): string {
   return path.join(app.getAppPath(), 'brain')
+}
+
+function getScreenCaptureStatus(): BackendDiagnostics['screenCaptureStatus'] {
+  if (process.platform !== 'darwin') return 'granted'
+  return systemPreferences.getMediaAccessStatus('screen') as BackendDiagnostics['screenCaptureStatus']
 }
 
 function buildRetrievalOnlyAnswer(params: {
@@ -288,6 +301,28 @@ export function registerIpcHandlers(): void {
     return true
   })
 
+  ipcMain.handle('system:checkScreenCapture', async () => {
+    return getScreenCaptureStatus()
+  })
+
+  ipcMain.handle('system:requestScreenCapture', async () => {
+    try {
+      await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } })
+    } catch {
+      // macOS may reject before permission is granted; opening Settings below is the recovery path.
+    }
+    const status = getScreenCaptureStatus()
+    if (status !== 'granted') {
+      await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
+    }
+    return status
+  })
+
+  ipcMain.handle('system:openScreenCaptureSettings', async () => {
+    await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
+    return true
+  })
+
   ipcMain.handle('system:runDiagnostics', async () => {
     try {
       const settings = getSettings()
@@ -299,6 +334,7 @@ export function registerIpcHandlers(): void {
         ok: true,
         data: {
           accessibilityGranted: systemPreferences.isTrustedAccessibilityClient(false),
+          screenCaptureStatus: getScreenCaptureStatus(),
           canFuseContext:
             (gbrain.contextSource === 'gbrain-cli' || gbrain.contextSource === 'gbrain-http') &&
             Boolean(currentContext.pageUrl || currentContext.pageText || currentContext.selectedText),

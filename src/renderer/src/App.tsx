@@ -22,6 +22,7 @@ function AssistantFlow() {
   const [appDisplayName, setAppDisplayName] = useState('KashinAI')
   const [showSources, setShowSources] = useState(true)
   const [accessibilityGranted, setAccessibilityGranted] = useState<boolean | null>(null)
+  const [screenCaptureStatus, setScreenCaptureStatus] = useState<'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'>('unknown')
   const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
@@ -47,6 +48,7 @@ function AssistantFlow() {
 
     window.api.getWindowState().then((state) => setCollapsed(state.collapsed))
     window.api.checkAccessibility().then(setAccessibilityGranted)
+    window.api.checkScreenCapture().then(setScreenCaptureStatus)
 
     function handleKeyDown(e: KeyboardEvent): void {
       if (e.key === 'Escape') {
@@ -148,6 +150,11 @@ function AssistantFlow() {
     setAccessibilityGranted(granted)
   }
 
+  async function requestScreenCapture(): Promise<void> {
+    const status = await window.api.requestScreenCapture()
+    setScreenCaptureStatus(status)
+  }
+
   async function regenerate(modifier: 'shorter' | 'more_polite' | null): Promise<void> {
     if (!context || !actionType) return
     setLoading(true)
@@ -226,7 +233,9 @@ function AssistantFlow() {
           onOpenSettings={() => void window.api.openSettings()}
           onClose={() => void window.api.hideWindow()}
           onRequestAccessibility={() => void requestAccessibility()}
+          onRequestScreenCapture={() => void requestScreenCapture()}
           accessibilityGranted={accessibilityGranted}
+          screenCaptureStatus={screenCaptureStatus}
         />
       )}
       {view === 'result' && result && (
@@ -250,6 +259,8 @@ function AssistantFlow() {
           onRequestAccessibility={() => void requestAccessibility()}
           onBack={() => setView('assistant')}
           onClose={() => void window.api.hideWindow()}
+          screenCaptureStatus={screenCaptureStatus}
+          onRequestScreenCapture={() => void requestScreenCapture()}
         />
       )}
     </div>

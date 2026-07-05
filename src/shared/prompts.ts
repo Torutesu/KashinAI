@@ -41,6 +41,9 @@ ${currentContext.pageTitle ?? '(none)'}
 Page URL:
 ${currentContext.pageUrl ?? '(none)'}
 
+Page Capture Method:
+${currentContext.pageCaptureMethod}
+
 Selected Text:
 ${currentContext.selectedText ?? '(none)'}
 

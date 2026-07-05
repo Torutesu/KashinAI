@@ -23,7 +23,9 @@ type Props = {
   onOpenSettings: () => void
   onClose: () => void
   onRequestAccessibility: () => void
+  onRequestScreenCapture: () => void
   accessibilityGranted: boolean | null
+  screenCaptureStatus: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'
 }
 
 type ContextItem = {
@@ -72,7 +74,7 @@ function buildContextItems(context: CurrentContext | null): ContextItem[] {
   if (context.pageTitle || context.pageUrl || context.pageText) {
     const pageLabel = [context.pageTitle, context.pageUrl].filter(Boolean).join(' / ')
     items.push({
-      title: `Open page: ${compact(pageLabel || context.pageText || 'Captured page')}`,
+      title: `Open page (${context.pageCaptureMethod}): ${compact(pageLabel || context.pageText || 'Captured page')}`,
       time: 'now',
       instruction: [context.pageTitle, context.pageUrl, context.pageText].filter(Boolean).join('\n\n')
     })
@@ -114,7 +116,9 @@ export default function AssistantPanel({
   onOpenSettings,
   onClose,
   onRequestAccessibility,
-  accessibilityGranted
+  onRequestScreenCapture,
+  accessibilityGranted,
+  screenCaptureStatus
 }: Props) {
   const items = useMemo(() => buildContextItems(context), [context])
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -286,6 +290,17 @@ export default function AssistantPanel({
                 <div className="flex items-center justify-between gap-3">
                   <span>Accessibility permission is off, so capture and paste may be partial.</span>
                   <button onClick={onRequestAccessibility} className="shrink-0 font-semibold text-amber-50 underline">
+                    Enable
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {screenCaptureStatus !== 'granted' && (
+              <div className="mb-2.5 rounded-[16px] border border-amber-300/20 bg-amber-300/10 px-3.5 py-2.5 text-[12px] text-amber-50/90">
+                <div className="flex items-center justify-between gap-3">
+                  <span>Screen Recording is {screenCaptureStatus}; page body capture may be limited.</span>
+                  <button onClick={onRequestScreenCapture} className="shrink-0 font-semibold text-amber-50 underline">
                     Enable
                   </button>
                 </div>

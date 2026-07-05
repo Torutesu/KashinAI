@@ -30,6 +30,7 @@ type BrowserPageContext = {
   pageTitle: string | null
   pageUrl: string | null
   pageText: string | null
+  pageCaptureMethod: CurrentContext['pageCaptureMethod']
 }
 
 /**
@@ -210,7 +211,8 @@ async function captureChromePageViaSession(frontmost: FrontmostAppInfo): Promise
   return {
     pageTitle: frontmost.windowTitle,
     pageUrl,
-    pageText: pageUrl ? await fetchPublicPageText(pageUrl) : null
+    pageText: pageUrl ? await fetchPublicPageText(pageUrl) : null,
+    pageCaptureMethod: pageUrl ? 'chrome-session' : 'none'
   }
 }
 
@@ -232,7 +234,8 @@ end tell`
   return {
     pageTitle: pageTitle || null,
     pageUrl: pageUrl || null,
-    pageText: textLines.join('\n').trim() || null
+    pageText: textLines.join('\n').trim() || null,
+    pageCaptureMethod: pageUrl || textLines.length > 0 ? 'browser-automation' : 'none'
   }
 }
 
@@ -254,7 +257,8 @@ end tell`
   return {
     pageTitle: pageTitle || null,
     pageUrl: pageUrl || null,
-    pageText: textLines.join('\n').trim() || null
+    pageText: textLines.join('\n').trim() || null,
+    pageCaptureMethod: pageUrl || textLines.length > 0 ? 'browser-automation' : 'none'
   }
 }
 
@@ -282,19 +286,20 @@ async function captureBrowserPageViaKeyboard(frontmost: FrontmostAppInfo, origin
   return {
     pageTitle: frontmost.windowTitle,
     pageUrl,
-    pageText
+    pageText,
+    pageCaptureMethod: pageUrl || pageText ? 'keyboard-copy' : 'none'
   }
 }
 
 async function captureBrowserPageContext(activeApp: string | null): Promise<BrowserPageContext> {
   const appName = browserScriptName(activeApp)
-  if (!appName) return { pageTitle: null, pageUrl: null, pageText: null }
+  if (!appName) return { pageTitle: null, pageUrl: null, pageText: null, pageCaptureMethod: 'none' }
 
   try {
     if (appName.toLowerCase().includes('safari')) return await captureSafariPage(appName)
     return await captureChromiumPage(appName)
   } catch {
-    return { pageTitle: null, pageUrl: null, pageText: null }
+    return { pageTitle: null, pageUrl: null, pageText: null, pageCaptureMethod: 'none' }
   }
 }
 
@@ -323,6 +328,7 @@ export async function captureCurrentContext(frontmost: FrontmostAppInfo): Promis
     pageTitle: pageContext.pageTitle,
     pageUrl: pageContext.pageUrl,
     pageText: pageContext.pageText,
+    pageCaptureMethod: pageContext.pageCaptureMethod,
     selectedText,
     clipboardText: originalClipboard || null,
     timestamp: new Date().toISOString()

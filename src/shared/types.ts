@@ -6,6 +6,7 @@ export type CurrentContext = {
   pageTitle: string | null
   pageUrl: string | null
   pageText: string | null
+  pageCaptureMethod: 'browser-automation' | 'keyboard-copy' | 'chrome-session' | 'none'
   selectedText: string | null
   clipboardText: string | null
   timestamp: string
@@ -76,6 +77,7 @@ export type ChatResult = {
 
 export type BackendDiagnostics = {
   accessibilityGranted: boolean
+  screenCaptureStatus: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'
   canFuseContext: boolean
   gbrain: {
     ok: boolean
@@ -178,6 +180,9 @@ export type ContextAssistantApi = {
   checkAccessibility: () => Promise<boolean>
   requestAccessibility: () => Promise<boolean>
   openAccessibilitySettings: () => Promise<boolean>
+  checkScreenCapture: () => Promise<BackendDiagnostics['screenCaptureStatus']>
+  requestScreenCapture: () => Promise<BackendDiagnostics['screenCaptureStatus']>
+  openScreenCaptureSettings: () => Promise<boolean>
   runDiagnostics: () => Promise<BackendDiagnosticsIpcResult>
   onContextPushed: (callback: (context: CurrentContext) => void) => () => void
   onNavigate: (callback: (view: 'assistant' | 'settings') => void) => () => void

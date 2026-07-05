@@ -57,12 +57,16 @@ function toFormState(settings: PublicAppSettings): FormState {
 
 export default function SettingsView({
   accessibilityGranted,
+  screenCaptureStatus,
   onRequestAccessibility,
+  onRequestScreenCapture,
   onBack,
   onClose
 }: {
   accessibilityGranted: boolean | null
+  screenCaptureStatus: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'
   onRequestAccessibility: () => void
+  onRequestScreenCapture: () => void
   onBack: () => void
   onClose: () => void
 }) {
@@ -179,12 +183,34 @@ export default function SettingsView({
                       }
                 }
               />
+              <PermissionRow
+                name="Screen Recording"
+                description="Needed to reliably read visible page/app content when browser automation cannot expose text."
+                status={screenCaptureStatus === 'granted' ? 'Granted' : screenCaptureStatus}
+                tone={screenCaptureStatus === 'granted' ? 'good' : 'warning'}
+                action={
+                  screenCaptureStatus === 'granted'
+                    ? undefined
+                    : {
+                        label: 'Enable',
+                        onClick: onRequestScreenCapture
+                      }
+                }
+              />
               {!accessibilityGranted && (
                 <button
                   onClick={() => void window.api.openAccessibilitySettings()}
                   className="rounded-[14px] border border-white/12 bg-white/10 px-4 py-2 text-[13px] font-semibold text-white"
                 >
                   Open macOS Settings
+                </button>
+              )}
+              {screenCaptureStatus !== 'granted' && (
+                <button
+                  onClick={() => void window.api.openScreenCaptureSettings()}
+                  className="rounded-[14px] border border-white/12 bg-white/10 px-4 py-2 text-[13px] font-semibold text-white"
+                >
+                  Open Screen Recording Settings
                 </button>
               )}
             </SettingsCard>
@@ -201,6 +227,7 @@ export default function SettingsView({
               {diagnostics && (
                 <div className="space-y-2 rounded-[14px] border border-white/10 bg-white/[0.04] px-4 py-3 text-[12px] leading-5 text-white/68">
                   <div>Accessibility: {diagnostics.accessibilityGranted ? 'granted' : 'missing'}</div>
+                  <div>Screen Recording: {diagnostics.screenCaptureStatus}</div>
                   <div>Fusion ready: {diagnostics.canFuseContext ? 'yes' : 'no'}</div>
                   <div>
                     GBrain: {diagnostics.gbrain.ok ? 'ok' : 'not ready'} / {diagnostics.gbrain.contextSource} /{' '}
@@ -218,6 +245,7 @@ export default function SettingsView({
                     {diagnostics.currentContext.windowTitle ?? 'no window title'}
                   </div>
                   <div>Page URL: {diagnostics.currentContext.pageUrl ?? 'not captured'}</div>
+                  <div>Page capture: {diagnostics.currentContext.pageCaptureMethod}</div>
                   <div>
                     Page text: {diagnostics.currentContext.pageText ? `${diagnostics.currentContext.pageText.length} chars` : 'not captured'}
                   </div>

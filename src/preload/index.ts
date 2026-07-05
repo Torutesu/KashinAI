@@ -29,6 +29,12 @@ const api: ContextAssistantApi = {
 
   openAccessibilitySettings: () => ipcRenderer.invoke('system:openAccessibilitySettings'),
 
+  checkScreenCapture: () => ipcRenderer.invoke('system:checkScreenCapture'),
+
+  requestScreenCapture: () => ipcRenderer.invoke('system:requestScreenCapture'),
+
+  openScreenCaptureSettings: () => ipcRenderer.invoke('system:openScreenCaptureSettings'),
+
   runDiagnostics: () => ipcRenderer.invoke('system:runDiagnostics'),
 
   onContextPushed: (callback: (context: CurrentContext) => void) => {
