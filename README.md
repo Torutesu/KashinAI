@@ -6,6 +6,9 @@ and suggests text you can paste right away.
 It is meant for quick writing support while you are looking at Twitter/X, a web
 page, a coding editor, docs, or any other work screen. The app tries to read the
 visible context first, then creates a short recommendation that fits that screen.
+It can also combine the original company information, counterpart/customer
+context, saved memory, and previously captured context to choose the best
+response for the moment.
 
 ## What It Does
 
@@ -16,6 +19,8 @@ visible context first, then creates a short recommendation that fits that screen
 - Pastes the suggestion with a single Option key press
 - Shows the floating assistant with Option + Space
 - Can use local Markdown memory / GBrain when the current screen actually needs it
+- Uses company, counterpart, and saved context to make recommendations more relevant
+- Saves useful context and feedback so the recommendation loop can improve over time
 
 For Twitter/X, SNS, code editors, and terminal-style screens, KashinAI avoids
 forcing company memory into the answer. It should use the visible screen context
@@ -102,3 +107,5 @@ docs/           Extra product/setup/architecture notes
 KashinAI is a local-first macOS assistant focused on fast context capture and
 paste-ready writing. It is designed to work directly with the app you are using,
 so suggestions stay tied to the visible screen instead of a generic chat flow.
+As it collects saved context and feedback, KashinAI can keep refining the
+recommendation loop around the user's actual workflow.
