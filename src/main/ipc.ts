@@ -67,13 +67,13 @@ function contextFromFallbackParams(params: {
 
 function contentAwareSocialFallback(context: ChatRequest['currentContext']): string {
   const hint = compactLiveContext(context, 120)
-  if (!hint) return 'これ、かなり気になります。もう少し詳しく教えてください。'
+  if (!hint) return ''
   return `${hint}、かなり気になります。もう少し詳しく見てみたいです。`
 }
 
 function contentAwareCodingFallback(context: ChatRequest['currentContext']): string {
   const hint = compactLiveContext(context, 140)
-  if (!hint) return 'まず再現条件、該当ファイル、直近の変更点を確認してから原因を絞り込みます。'
+  if (!hint) return ''
   if (/error|exception|failed|traceback|cannot|undefined|null|型|エラー/i.test(hint)) {
     return `${hint} の周辺から見ると、まず直近の変更点と再現条件を切り分けて原因を絞るのがよさそうです。`
   }

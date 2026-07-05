@@ -94,6 +94,18 @@ if (!/TypeError|canSkipOcr|accessibilityText/.test(codeDigest)) {
   fail('Coding digest did not retain error/code lines', { codeDigest })
 }
 
+const shortcutOnlyContext = baseContext({
+  activeApp: 'Cursor',
+  windowTitle: 'Command menu - Cursor',
+  contextKind: 'coding',
+  accessibilityText:
+    'Show or hide the sidebar (⌘B) Show notifications (⌘I) New workspace (⌘N) Focus Back (⌘[) Focus Forward (⌘])'
+})
+const shortcutDigest = buildLiveContextDigest(shortcutOnlyContext)
+if (shortcutDigest.trim()) {
+  fail('Shortcut/menu-only UI chrome should not become live context', { shortcutDigest })
+}
+
 const compact = compactLiveContext(socialContext, 80)
 if (compact.length > 80 || !compact.includes('画面の文脈')) {
   fail('Compact social context is not usable for inline recommendation', { compact })

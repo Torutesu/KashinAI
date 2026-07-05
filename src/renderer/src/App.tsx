@@ -84,7 +84,7 @@ function AssistantFlow() {
       setMessages([res.data.message])
       setLastContextSource(res.data.contextSource)
       setLastSearchQuery(res.data.searchQuery)
-      if (autoInsert) {
+      if (autoInsert && res.data.message.content.trim()) {
         await window.api.insertOutput(res.data.message.content, nextContext.activeApp)
       }
     } else {
