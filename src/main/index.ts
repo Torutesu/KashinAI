@@ -2,7 +2,7 @@ import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
 import { registerIpcHandlers } from './ipc'
 import { registerShortcut } from './shortcut'
 import { createAssistantWindow, showAssistantWindow, hideAssistantWindow, openAssistantSettings, getAssistantWindow } from './windows'
-import { getFrontmostAppInfo, captureCurrentContext } from './context-reader'
+import { getFrontmostAppInfo, captureCurrentContext, warmContextHelpers } from './context-reader'
 import { getSettings } from './settings'
 import { startOptionListener, stopOptionListener } from './option-listener'
 
@@ -28,6 +28,7 @@ if (!gotLock) {
     setupTray()
     setupShortcut()
     setupOptionListener()
+    warmContextHelpers()
 
     // Make the app visibly "on" after launch without capturing context or pasting into
     // another app. Context capture/writeback only happens from the shortcut path.

@@ -122,6 +122,10 @@ async function axHelperPath(): Promise<string> {
   return compiledHelperPath(axScriptPath(), 'kashin-ax-context')
 }
 
+export function warmContextHelpers(): void {
+  void Promise.allSettled([ocrHelperPath(), axHelperPath()])
+}
+
 async function captureAccessibilityContext(): Promise<AccessibilityContext> {
   try {
     const helperPath = await axHelperPath()

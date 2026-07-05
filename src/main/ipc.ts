@@ -37,6 +37,33 @@ function shouldSuppressMemoryForInlineRecommendation(context: ChatRequest['curre
   return wantsInlineRecommendation(message) && (context.contextKind === 'social' || context.contextKind === 'coding')
 }
 
+function compactVisibleText(value: string | null, max = 120): string {
+  if (!value) return ''
+  return value
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter((line) => line.length > 2)
+    .filter((line) => !/^(home|search|notifications|messages|profile|following|followers|for you|reply|repost|like|share)$/i.test(line))
+    .join(' ')
+    .slice(0, max)
+    .trim()
+}
+
+function contentAwareSocialFallback(visibleContext: string | null): string {
+  const hint = compactVisibleText(visibleContext, 90)
+  if (!hint) return 'これ、かなり気になります。もう少し詳しく教えてください。'
+  return `${hint}、かなり気になります。もう少し詳しく見てみたいです。`
+}
+
+function contentAwareCodingFallback(visibleContext: string | null): string {
+  const hint = compactVisibleText(visibleContext, 110)
+  if (!hint) return 'まず再現条件、該当ファイル、直近の変更点を確認してから原因を絞り込みます。'
+  if (/error|exception|failed|traceback|cannot|undefined|null|型|エラー/i.test(hint)) {
+    return `${hint} の周辺から見ると、まず直近の変更点と再現条件を切り分けて原因を絞るのがよさそうです。`
+  }
+  return `${hint} の箇所は、意図している挙動と実際の出力を先に揃えて確認すると進めやすそうです。`
+}
+
 function buildRetrievalOnlyAnswer(params: {
   latestUserMessage: string
   pageUrl: string | null
@@ -71,15 +98,11 @@ function buildRetrievalOnlyAnswer(params: {
       : pageLabel
 
     if (params.contextKind === 'social') {
-      return visibleContext
-        ? `この内容、かなり面白いですね。もう少し詳しく見てみたいです。`
-        : `これ、かなり気になります。もう少し詳しく教えてください。`
+      return contentAwareSocialFallback(visibleContext)
     }
 
     if (params.contextKind === 'coding') {
-      return visibleContext
-        ? `この箇所は、まず現在のエラー/差分を切り分けて、再現条件と影響範囲を確認するのがよさそうです。`
-        : `まず再現条件、該当ファイル、直近の変更点を確認してから原因を絞り込みます。`
+      return contentAwareCodingFallback(visibleContext)
     }
 
     if (!topSource) {

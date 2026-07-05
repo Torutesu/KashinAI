@@ -59,6 +59,12 @@ function toFormState(settings: PublicAppSettings): FormState {
   }
 }
 
+function preview(value: string | null, max = 240): string {
+  if (!value) return 'not captured'
+  const normalized = value.replace(/\s+/g, ' ').trim()
+  return normalized.length > max ? `${normalized.slice(0, max - 1)}...` : normalized
+}
+
 export default function SettingsView({
   accessibilityGranted,
   screenCaptureStatus,
@@ -265,12 +271,14 @@ export default function SettingsView({
                       ? `${diagnostics.currentContext.accessibilityText.length} chars`
                       : 'not captured'}
                   </div>
+                  <div>Accessibility preview: {preview(diagnostics.currentContext.accessibilityText)}</div>
                   <div>Screen capture: {diagnostics.currentContext.screenCaptureMethod}</div>
                   <div>Screenshot: {diagnostics.currentContext.screenshotPath ?? 'not captured'}</div>
                   <div>
                     Screen OCR:{' '}
                     {diagnostics.currentContext.screenText ? `${diagnostics.currentContext.screenText.length} chars` : 'not captured'}
                   </div>
+                  <div>Screen OCR preview: {preview(diagnostics.currentContext.screenText)}</div>
                 </div>
               )}
             </SettingsCard>
