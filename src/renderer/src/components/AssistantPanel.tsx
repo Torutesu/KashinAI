@@ -244,13 +244,13 @@ export default function AssistantPanel({
             <div className="flex items-center justify-between border-b border-white/8 px-3.5 py-2">
               <div className="text-[12px] font-semibold text-white/48">Chat with fused context</div>
               <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/34">
-                {lastContextSource ? `${lastContextSource}` : 'GBrain ready'}
+                {lastContextSource && lastContextSource !== 'none' ? `memory: ${lastContextSource}` : 'live context'}
               </div>
             </div>
             <div className="max-h-[136px] overflow-y-auto px-3.5 py-3">
               {messages.length === 0 ? (
                 <p className="text-[13px] leading-6 text-white/50">
-                  Ask about the current page. KashinAI will combine the open page context with GBrain memory.
+                  Ask about the current app. KashinAI will use the visible context first.
                 </p>
               ) : (
                 <div className="space-y-2.5">
@@ -272,7 +272,7 @@ export default function AssistantPanel({
             </div>
             {lastSearchQuery && (
               <div className="border-t border-white/8 px-3.5 py-2 text-[11px] text-white/36">
-                GBrain query: {lastSearchQuery}
+                Context query: {lastSearchQuery}
               </div>
             )}
           </section>

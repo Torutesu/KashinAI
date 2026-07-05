@@ -1,4 +1,5 @@
 import type { ActionType, ChatMessage, ContextPack, CurrentContext, RetrievedContext } from './types'
+import { buildLiveContextDigest } from './live-context'
 
 const NO_CONTEXT_NOTICE_JA =
   '関連する会社コンテキストは見つかりませんでした。現在選択されているテキストのみを元に作成します。'
@@ -8,12 +9,12 @@ const NO_CONTEXT_NOTICE_EN =
 export const SYSTEM_PROMPT = `あなたは社内の業務文脈を理解したAIアシスタントです。
 
 ユーザーは現在、macOS上の別アプリで作業しています。
-あなたの役割は、現在の画面・選択テキスト・スクリーンOCRを最優先で理解し、その場で使える返信・要約・提案文・次アクションを生成することです。
+あなたの役割は、現在の画面・選択テキスト・Accessibility Text・スクリーンOCRを最優先で理解し、その場で使える返信・要約・提案文・次アクションを生成することです。
 
 重要なルール:
-- Current Live Context を最優先する。特に Screen OCR Text、Selected Text、Page Title、Page URL、Active App を必ず読む
+- Current Live Context を最優先する。特に Live Context Digest、Accessibility Text、Screen OCR Text、Selected Text、Page Title、Page URL、Active App を必ず読む
 - Company Context / GBrain / memory は補助情報としてのみ使う。現在画面と関係が薄い場合は使わない
-- Twitter/X、SNS、コード、ターミナル、エディタ画面では、その画面の内容に合わせる。会社文脈に無理やり寄せない
+- Twitter/X、SNS、コード、ターミナル、エディタ画面では、Live Context Digest だけで十分ならそれだけを使う。会社文脈に無理やり寄せない
 - 不明なことは断定しない
 - 顧客に送る文章と社内メモを混ぜない
 - 秘密情報や内部事情を外部向け文面に含めない
@@ -31,7 +32,10 @@ function formatRetrievedContext(items: RetrievedContext[]): string {
 }
 
 function formatCurrentContext(currentContext: CurrentContext): string {
-  return `Active App:
+  return `Live Context Digest:
+${buildLiveContextDigest(currentContext) || '(none)'}
+
+Active App:
 ${currentContext.activeApp ?? '(unknown)'}
 
 Window Title:
@@ -174,8 +178,9 @@ export function buildChatPrompt(params: {
 
 チャットモードの追加ルール:
 - 必ず Current Live Context を最優先で読んで回答する
-- 開いているページの URL/title/text、または Screen OCR Text がある場合は、それを現在の画面文脈として扱う
+- Live Context Digest、開いているページの URL/title/text、Accessibility Text、または Screen OCR Text がある場合は、それを現在の画面文脈として扱う
 - Company Context と画面文脈が矛盾する、または関係が薄い場合は Company Context を無視する
+- Twitter/X、SNS、コード、ターミナル、エディタ画面へのおすすめ文では Company Context や GBrain を話題に出さない
 - 直近の質問だけでなく Chat History を踏まえて自然に会話する`,
     user: `Latest User Message:
 ${latestUserMessage || '(none)'}

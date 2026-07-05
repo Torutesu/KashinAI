@@ -10,6 +10,7 @@ import type {
   SettingsUpdate
 } from '../shared/types'
 import { buildChatPrompt, buildPrompt } from '../shared/prompts'
+import { compactLiveContext } from '../shared/live-context'
 import { getFrontmostAppInfo, captureCurrentContext } from './context-reader'
 import { buildSearchQuery } from './search-query'
 import { searchGBrain } from './gbrain'
@@ -37,26 +38,41 @@ function shouldSuppressMemoryForInlineRecommendation(context: ChatRequest['curre
   return wantsInlineRecommendation(message) && (context.contextKind === 'social' || context.contextKind === 'coding')
 }
 
-function compactVisibleText(value: string | null, max = 120): string {
-  if (!value) return ''
-  return value
-    .split('\n')
-    .map((line) => line.replace(/\s+/g, ' ').trim())
-    .filter((line) => line.length > 2)
-    .filter((line) => !/^(home|search|notifications|messages|profile|following|followers|for you|reply|repost|like|share)$/i.test(line))
-    .join(' ')
-    .slice(0, max)
-    .trim()
+function contextFromFallbackParams(params: {
+  pageTitle: string | null
+  pageUrl: string | null
+  pageText: string | null
+  accessibilityText: string | null
+  screenText: string | null
+  contextKind: ChatRequest['currentContext']['contextKind']
+}): ChatRequest['currentContext'] {
+  return {
+    activeApp: null,
+    windowTitle: params.pageTitle,
+    contextKind: params.contextKind,
+    pageTitle: params.pageTitle,
+    pageUrl: params.pageUrl,
+    pageText: params.pageText,
+    pageCaptureMethod: 'none',
+    accessibilityText: params.accessibilityText,
+    accessibilityCaptureMethod: params.accessibilityText ? 'ax-tree' : 'none',
+    screenshotPath: null,
+    screenText: params.screenText,
+    screenCaptureMethod: params.screenText ? 'screen-ocr' : 'none',
+    selectedText: null,
+    clipboardText: null,
+    timestamp: new Date().toISOString()
+  }
 }
 
-function contentAwareSocialFallback(visibleContext: string | null): string {
-  const hint = compactVisibleText(visibleContext, 90)
+function contentAwareSocialFallback(context: ChatRequest['currentContext']): string {
+  const hint = compactLiveContext(context, 120)
   if (!hint) return 'これ、かなり気になります。もう少し詳しく教えてください。'
   return `${hint}、かなり気になります。もう少し詳しく見てみたいです。`
 }
 
-function contentAwareCodingFallback(visibleContext: string | null): string {
-  const hint = compactVisibleText(visibleContext, 110)
+function contentAwareCodingFallback(context: ChatRequest['currentContext']): string {
+  const hint = compactLiveContext(context, 140)
   if (!hint) return 'まず再現条件、該当ファイル、直近の変更点を確認してから原因を絞り込みます。'
   if (/error|exception|failed|traceback|cannot|undefined|null|型|エラー/i.test(hint)) {
     return `${hint} の周辺から見ると、まず直近の変更点と再現条件を切り分けて原因を絞るのがよさそうです。`
@@ -93,16 +109,17 @@ function buildRetrievalOnlyAnswer(params: {
     const topSource = params.sources[0]
     const pageLabel = params.pageTitle || params.pageUrl || 'いま開いている画面'
     const visibleContext = params.accessibilityText || params.screenText || params.pageText
+    const fallbackContext = contextFromFallbackParams(params)
     const visibleHint = visibleContext
       ? visibleContext.replace(/\s+/g, ' ').trim().slice(0, 90)
       : pageLabel
 
     if (params.contextKind === 'social') {
-      return contentAwareSocialFallback(visibleContext)
+      return contentAwareSocialFallback(fallbackContext)
     }
 
     if (params.contextKind === 'coding') {
-      return contentAwareCodingFallback(visibleContext)
+      return contentAwareCodingFallback(fallbackContext)
     }
 
     if (!topSource) {
