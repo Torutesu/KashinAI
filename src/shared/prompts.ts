@@ -1,0 +1,116 @@
+import type { ActionType, ContextPack, RetrievedContext } from './types'
+
+const NO_CONTEXT_NOTICE_JA =
+  '関連する会社コンテキストは見つかりませんでした。現在選択されているテキストのみを元に作成します。'
+const NO_CONTEXT_NOTICE_EN =
+  'No relevant company context was found. This was generated using only the currently selected text.'
+
+export const SYSTEM_PROMPT = `あなたは社内の業務文脈を理解したAIアシスタントです。
+
+ユーザーは現在、macOS上の別アプリで作業しています。
+あなたの役割は、現在の作業文脈と会社コンテキストを踏まえて、すぐに使える返信・要約・提案文・次アクションを生成することです。
+
+重要なルール:
+- 会社コンテキストを優先する
+- 不明なことは断定しない
+- 顧客に送る文章と社内メモを混ぜない
+- 秘密情報や内部事情を外部向け文面に含めない
+- 生成物はすぐ使える形にする
+- 長すぎず、自然な文章にする
+- 必要なら根拠や参照ソースを簡潔に示す
+- ソースにない事実は作らない
+- 会社コンテキストが1件も見つからなかった場合は、出力の冒頭で「${NO_CONTEXT_NOTICE_JA}」（英語出力の場合は "${NO_CONTEXT_NOTICE_EN}"）と明示すること`
+
+function formatRetrievedContext(items: RetrievedContext[]): string {
+  if (items.length === 0) return '(none found)'
+  return items
+    .map((item) => `[${item.source}] ${item.title}\n${item.content}`)
+    .join('\n\n---\n\n')
+}
+
+const ACTION_INSTRUCTIONS: Record<ActionType, string> = {
+  reply: `以下の現在文脈と会社コンテキストを踏まえて、相手に送れる返信文を作成してください。
+
+出力条件:
+- 丁寧だが長すぎない
+- 顧客にそのまま送れる
+- 内部情報は出さない
+- 必要なら次の確認事項を自然に入れる`,
+  summarize: `以下のテキストを、会社コンテキストを踏まえて要約してください。
+
+出力形式:
+- 要点
+- 背景
+- 論点
+- 次アクション
+- 注意点`,
+  next_actions: `以下の現在文脈と会社コンテキストを踏まえて、次に取るべきアクションを箇条書きで抽出してください。
+
+出力条件:
+- 具体的で実行可能なタスクにする
+- 優先度が分かる順序で並べる
+- 不明確な点は「要確認」として明示する`,
+  proposal: `以下の顧客要望と会社コンテキストを踏まえて、提案書に使える文章を作成してください。
+
+条件:
+- 顧客課題に紐づける
+- 自社サービスの価値を明確にする
+- PoCとして実行しやすい範囲にする
+- 価格や条件は断定しすぎない
+- 営業資料に貼れる文章にする`,
+  translate: `以下のテキストを英語に翻訳してください。会社コンテキストは、専門用語や固有名詞の訳を正確にするための参考として使ってください。
+
+出力条件:
+- 自然な英語にする
+- 原文のトーンとニュアンスを保つ
+- 固有名詞（会社名・製品名・人名）は正確に扱う`,
+  custom: `以下の現在文脈と会社コンテキストを踏まえて、ユーザーの指示に従って文章を生成してください。
+
+User Instruction:
+{{user_instruction}}`
+}
+
+export function buildActionPrompt(pack: ContextPack, modifier?: 'shorter' | 'more_polite' | null): string {
+  const { currentContext, userInstruction, actionType, retrievedContext, outputPreferences } = pack
+
+  const instructionBlock = ACTION_INSTRUCTIONS[actionType].replace(
+    '{{user_instruction}}',
+    userInstruction || '(none provided)'
+  )
+
+  const modifierLine =
+    modifier === 'shorter'
+      ? '\n\n追加指示: 前回よりも大幅に短く、要点だけにしてください。'
+      : modifier === 'more_polite'
+        ? '\n\n追加指示: 前回よりも丁寧で、フォーマルな敬語表現にしてください。'
+        : ''
+
+  return `${instructionBlock}${modifierLine}
+
+Active App:
+${currentContext.activeApp ?? '(unknown)'}
+
+Window Title:
+${currentContext.windowTitle ?? '(unknown)'}
+
+Selected Text:
+${currentContext.selectedText ?? currentContext.clipboardText ?? '(none)'}
+
+User Instruction:
+${userInstruction || '(none provided)'}
+
+Company Context:
+${formatRetrievedContext(retrievedContext)}
+
+出力条件:
+- 言語: ${outputPreferences.language === 'en' ? 'English' : '日本語'}
+- トーン: ${outputPreferences.tone}
+- 長さ: ${outputPreferences.length}`
+}
+
+export function buildPrompt(pack: ContextPack, modifier?: 'shorter' | 'more_polite' | null): { system: string; user: string } {
+  return {
+    system: SYSTEM_PROMPT,
+    user: buildActionPrompt(pack, modifier)
+  }
+}
