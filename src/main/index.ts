@@ -5,9 +5,23 @@ import { createAssistantWindow, showAssistantWindow, hideAssistantWindow, openAs
 import { getFrontmostAppInfo, captureCurrentContext, warmContextHelpers } from './context-reader'
 import { getSettings } from './settings'
 import { startOptionListener, stopOptionListener } from './option-listener'
+import { insertText } from './insert'
 
 let tray: Tray | null = null
 let lastTriggerAt = 0
+let demoPasteIndex = 0
+
+const DEMO_PASTE_TEXTS = [
+  `Hi Toru, I’m Woojin. I’m building Kashin AI, a lightweight desktop assistant that brings company context into everyday writing workflows, and I’d love to briefly share it with you.`,
+  `Hi Woojin,
+
+Do your team members still have to repeat the same customer, project, or company context every time they use AI to write emails, Slack replies, proposals, or summaries?
+
+Kashin AI solves this by bringing your company knowledge into the writing workflow, so teams can create source-backed replies and drafts without rewriting context or switching tools.
+
+Would you be open to a quick 15-minute demo next week?`,
+  `Can you update this part so the assistant captures the selected text more reliably and returns the generated response with clear source references?`
+]
 
 const gotLock = app.requestSingleInstanceLock()
 
@@ -110,6 +124,17 @@ async function triggerAssistant(options: { autoInsert: boolean; showWindow: bool
   }
 }
 
+async function pasteNextDemoText(): Promise<void> {
+  const now = Date.now()
+  if (now - lastTriggerAt < 600) return
+  lastTriggerAt = now
+
+  const frontmost = await getFrontmostAppInfo()
+  const text = DEMO_PASTE_TEXTS[demoPasteIndex % DEMO_PASTE_TEXTS.length]
+  demoPasteIndex += 1
+  await insertText(text, frontmost.activeApp)
+}
+
 function setupShortcut(): void {
   const settings = getSettings()
   registerShortcut(settings.shortcut, () => {
@@ -120,7 +145,7 @@ function setupShortcut(): void {
 function setupOptionListener(): void {
   startOptionListener({
     onOptionTap: () => {
-      void triggerAssistant({ autoInsert: true, showWindow: false })
+      void pasteNextDemoText()
     },
     onOptionSpace: () => {
       void triggerAssistant({ autoInsert: false, showWindow: true })
