@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { ActionType, AppError, CurrentContext } from '@shared/types'
+import type { ActionType, AppError, ChatMessage, ContextSource, CurrentContext } from '@shared/types'
 
 const ACTIONS: { type: ActionType; label: string }[] = [
   { type: 'reply', label: 'Find loose ends' },
@@ -11,6 +11,9 @@ type Props = {
   appDisplayName: string
   context: CurrentContext | null
   customInstruction: string
+  messages: ChatMessage[]
+  lastContextSource: ContextSource | null
+  lastSearchQuery: string
   onCustomInstructionChange: (value: string) => void
   onSelectAction: (actionType: ActionType) => void
   onGenerateCustom: () => void
@@ -66,6 +69,15 @@ function buildContextItems(context: CurrentContext | null): ContextItem[] {
     })
   }
 
+  if (context.pageTitle || context.pageUrl || context.pageText) {
+    const pageLabel = [context.pageTitle, context.pageUrl].filter(Boolean).join(' / ')
+    items.push({
+      title: `Open page: ${compact(pageLabel || context.pageText || 'Captured page')}`,
+      time: 'now',
+      instruction: [context.pageTitle, context.pageUrl, context.pageText].filter(Boolean).join('\n\n')
+    })
+  }
+
   if (!context.selectedText && context.clipboardText) {
     items.push({
       title: `Clipboard fallback: ${compact(context.clipboardText)}`,
@@ -90,6 +102,9 @@ export default function AssistantPanel({
   appDisplayName,
   context,
   customInstruction,
+  messages,
+  lastContextSource,
+  lastSearchQuery,
   onCustomInstructionChange,
   onSelectAction,
   onGenerateCustom,
@@ -193,6 +208,43 @@ export default function AssistantPanel({
         </header>
 
         <main className="mx-auto flex w-full max-w-[560px] flex-1 flex-col justify-between">
+          <section className="drop-in mt-2.5 overflow-hidden rounded-[18px] border border-white/12 bg-[rgba(36,28,28,0.66)] shadow-[0_10px_28px_rgba(0,0,0,0.12)] backdrop-blur-md">
+            <div className="flex items-center justify-between border-b border-white/8 px-3.5 py-2">
+              <div className="text-[12px] font-semibold text-white/48">Chat with fused context</div>
+              <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/34">
+                {lastContextSource ? `${lastContextSource}` : 'GBrain ready'}
+              </div>
+            </div>
+            <div className="max-h-[136px] overflow-y-auto px-3.5 py-3">
+              {messages.length === 0 ? (
+                <p className="text-[13px] leading-6 text-white/50">
+                  Ask about the current page. KashinAI will combine the open page context with GBrain memory.
+                </p>
+              ) : (
+                <div className="space-y-2.5">
+                  {messages.map((message, index) => (
+                    <div
+                      key={`${message.role}-${index}`}
+                      className={`rounded-[14px] px-3 py-2 text-[13px] leading-5 ${
+                        message.role === 'user' ? 'bg-white/[0.08] text-white/82' : 'bg-orange-400/10 text-white/88'
+                      }`}
+                    >
+                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">
+                        {message.role === 'user' ? 'You' : 'KashinAI'}
+                      </div>
+                      <div className="whitespace-pre-wrap">{message.content}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {lastSearchQuery && (
+              <div className="border-t border-white/8 px-3.5 py-2 text-[11px] text-white/36">
+                GBrain query: {lastSearchQuery}
+              </div>
+            )}
+          </section>
+
           <section className="drop-in mt-2.5 overflow-hidden rounded-[18px] border border-white/12 bg-[rgba(36,28,28,0.66)] shadow-[0_10px_28px_rgba(0,0,0,0.12)] backdrop-blur-md">
             <div className="flex items-center justify-between border-b border-white/8 px-3.5 py-2">
               <div className="text-[12px] font-semibold text-white/48">⌕&nbsp;&nbsp;Live context</div>

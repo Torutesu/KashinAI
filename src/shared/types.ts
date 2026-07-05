@@ -3,6 +3,9 @@ export type ActionType = 'reply' | 'summarize' | 'next_actions' | 'proposal' | '
 export type CurrentContext = {
   activeApp: string | null
   windowTitle: string | null
+  pageTitle: string | null
+  pageUrl: string | null
+  pageText: string | null
   selectedText: string | null
   clipboardText: string | null
   timestamp: string
@@ -51,6 +54,24 @@ export type GenerateResult = {
   sources: RetrievedContext[]
   searchQuery: string
   contextSource: ContextSource
+}
+
+export type ChatMessage = {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export type ChatRequest = {
+  currentContext: CurrentContext
+  messages: ChatMessage[]
+}
+
+export type ChatResult = {
+  message: ChatMessage
+  sources: RetrievedContext[]
+  searchQuery: string
+  contextSource: ContextSource
+  currentContext: CurrentContext
 }
 
 export type ErrorCode =
@@ -115,12 +136,15 @@ export type SettingsUpdate = {
 
 export type GenerateIpcResult = { ok: true; data: GenerateResult } | { ok: false; error: AppError }
 
+export type ChatIpcResult = { ok: true; data: ChatResult } | { ok: false; error: AppError }
+
 /** The typed contract exposed on window.api by the preload script. Declared here (not in
  * src/preload) so both the main-process tsconfig and the renderer tsconfig can reference it
  * without one composite TS project reaching into the other's file set. */
 export type ContextAssistantApi = {
   captureContext: () => Promise<CurrentContext>
   generate: (request: GenerateRequest) => Promise<GenerateIpcResult>
+  chat: (request: ChatRequest) => Promise<ChatIpcResult>
   copyOutput: (text: string) => Promise<boolean>
   insertOutput: (text: string, activeApp: string | null) => Promise<boolean>
   getSettings: () => Promise<PublicAppSettings>

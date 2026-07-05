@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { ActionType, AppError, CurrentContext, GenerateResult } from '@shared/types'
+import type { ActionType, AppError, ChatMessage, ContextSource, CurrentContext, GenerateResult } from '@shared/types'
 import AssistantPanel from './components/AssistantPanel'
 import ResultView from './components/ResultView'
 import SettingsView from './components/SettingsView'
@@ -13,6 +13,9 @@ function AssistantFlow() {
   const [userInstruction, setUserInstruction] = useState('')
   const [customInstruction, setCustomInstruction] = useState('')
   const [result, setResult] = useState<GenerateResult | null>(null)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [lastContextSource, setLastContextSource] = useState<ContextSource | null>(null)
+  const [lastSearchQuery, setLastSearchQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<AppError | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle')
@@ -76,6 +79,31 @@ function AssistantFlow() {
     }
   }
 
+  async function triggerChat(nextInstruction: string): Promise<void> {
+    if (!context || !nextInstruction.trim()) return
+
+    const userMessage: ChatMessage = { role: 'user', content: nextInstruction.trim() }
+    const nextMessages = [...messages, userMessage]
+    setMessages(nextMessages)
+    setLoading(true)
+    setError(null)
+
+    const res = await window.api.chat({
+      currentContext: context,
+      messages: nextMessages
+    })
+
+    setLoading(false)
+    if (res.ok) {
+      setMessages((prev) => [...prev, res.data.message])
+      setLastContextSource(res.data.contextSource)
+      setLastSearchQuery(res.data.searchQuery)
+      setCustomInstruction('')
+    } else {
+      setError(res.error)
+    }
+  }
+
   async function refreshContext(): Promise<void> {
     const ctx = await window.api.captureContext()
     setContext(ctx)
@@ -129,9 +157,22 @@ function AssistantFlow() {
           appDisplayName={appDisplayName}
           context={context}
           customInstruction={customInstruction}
+          messages={messages}
+          lastContextSource={lastContextSource}
+          lastSearchQuery={lastSearchQuery}
           onCustomInstructionChange={setCustomInstruction}
-          onSelectAction={(type) => void triggerGenerate(type, '')}
-          onGenerateCustom={() => void triggerGenerate('custom', customInstruction)}
+          onSelectAction={(type) => {
+            const instructionByAction: Record<ActionType, string> = {
+              reply: 'Find loose ends and suggest the best reply using the current page and GBrain context.',
+              proposal: 'Draft an update using the current page and GBrain context.',
+              summarize: 'Catch me up on the current page using GBrain context.',
+              next_actions: 'Extract next actions from the current page using GBrain context.',
+              translate: 'Translate the current page context using GBrain terminology.',
+              custom: customInstruction
+            }
+            void triggerChat(instructionByAction[type])
+          }}
+          onGenerateCustom={() => void triggerChat(customInstruction)}
           onRefreshContext={() => void refreshContext()}
           loading={loading}
           error={error}

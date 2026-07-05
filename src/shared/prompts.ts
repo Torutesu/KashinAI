@@ -1,4 +1,4 @@
-import type { ActionType, ContextPack, RetrievedContext } from './types'
+import type { ActionType, ChatMessage, ContextPack, CurrentContext, RetrievedContext } from './types'
 
 const NO_CONTEXT_NOTICE_JA =
   '関連する会社コンテキストは見つかりませんでした。現在選択されているテキストのみを元に作成します。'
@@ -26,6 +26,34 @@ function formatRetrievedContext(items: RetrievedContext[]): string {
   return items
     .map((item) => `[${item.source}] ${item.title}\n${item.content}`)
     .join('\n\n---\n\n')
+}
+
+function formatCurrentContext(currentContext: CurrentContext): string {
+  return `Active App:
+${currentContext.activeApp ?? '(unknown)'}
+
+Window Title:
+${currentContext.windowTitle ?? '(unknown)'}
+
+Page Title:
+${currentContext.pageTitle ?? '(none)'}
+
+Page URL:
+${currentContext.pageUrl ?? '(none)'}
+
+Selected Text:
+${currentContext.selectedText ?? '(none)'}
+
+Open Page Text:
+${currentContext.pageText ?? '(none)'}
+
+Clipboard Fallback:
+${currentContext.clipboardText ?? '(none)'}`
+}
+
+function formatChatHistory(messages: ChatMessage[]): string {
+  if (messages.length === 0) return '(none)'
+  return messages.map((message) => `${message.role.toUpperCase()}: ${message.content}`).join('\n\n')
 }
 
 const ACTION_INSTRUCTIONS: Record<ActionType, string> = {
@@ -87,14 +115,8 @@ export function buildActionPrompt(pack: ContextPack, modifier?: 'shorter' | 'mor
 
   return `${instructionBlock}${modifierLine}
 
-Active App:
-${currentContext.activeApp ?? '(unknown)'}
-
-Window Title:
-${currentContext.windowTitle ?? '(unknown)'}
-
-Selected Text:
-${currentContext.selectedText ?? currentContext.clipboardText ?? '(none)'}
+Current Live Context:
+${formatCurrentContext(currentContext)}
 
 User Instruction:
 ${userInstruction || '(none provided)'}
@@ -112,5 +134,44 @@ export function buildPrompt(pack: ContextPack, modifier?: 'shorter' | 'more_poli
   return {
     system: SYSTEM_PROMPT,
     user: buildActionPrompt(pack, modifier)
+  }
+}
+
+export function buildChatPrompt(params: {
+  currentContext: CurrentContext
+  messages: ChatMessage[]
+  retrievedContext: RetrievedContext[]
+  searchQuery: string
+  outputPreferences: ContextPack['outputPreferences']
+}): { system: string; user: string } {
+  const latestUserMessage = [...params.messages].reverse().find((message) => message.role === 'user')?.content ?? ''
+
+  return {
+    system: `${SYSTEM_PROMPT}
+
+チャットモードの追加ルール:
+- 必ず Company Context と Current Live Context の両方を読んで回答する
+- 開いているページの URL/title/text がある場合は、それを現在の画面文脈として扱う
+- GBrain 由来の Company Context と画面文脈が矛盾する場合は、断定せず確認すべき差分を示す
+- 直近の質問だけでなく Chat History を踏まえて自然に会話する`,
+    user: `Latest User Message:
+${latestUserMessage || '(none)'}
+
+Chat History:
+${formatChatHistory(params.messages)}
+
+Current Live Context:
+${formatCurrentContext(params.currentContext)}
+
+Company Context from GBrain:
+${formatRetrievedContext(params.retrievedContext)}
+
+GBrain Search Query:
+${params.searchQuery || '(empty)'}
+
+出力条件:
+- 言語: ${params.outputPreferences.language === 'en' ? 'English' : '日本語'}
+- トーン: ${params.outputPreferences.tone}
+- 長さ: ${params.outputPreferences.length}`
   }
 }

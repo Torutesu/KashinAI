@@ -1,7 +1,7 @@
 import { app, clipboard, ipcMain, systemPreferences } from 'electron'
 import path from 'node:path'
-import type { ContextPack, GenerateIpcResult, GenerateRequest, SettingsUpdate } from '../shared/types'
-import { buildPrompt } from '../shared/prompts'
+import type { ChatIpcResult, ChatRequest, ContextPack, GenerateIpcResult, GenerateRequest, SettingsUpdate } from '../shared/types'
+import { buildChatPrompt, buildPrompt } from '../shared/prompts'
 import { getFrontmostAppInfo, captureCurrentContext } from './context-reader'
 import { buildSearchQuery } from './search-query'
 import { searchGBrain } from './gbrain'
@@ -84,6 +84,71 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
   }
 }
 
+async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
+  try {
+    const latestUserMessage = [...request.messages].reverse().find((message) => message.role === 'user')?.content ?? ''
+    const hasAnyInput = Boolean(
+      latestUserMessage ||
+        request.currentContext.selectedText ||
+        request.currentContext.pageText ||
+        request.currentContext.clipboardText
+    )
+
+    if (!hasAnyInput) {
+      return {
+        ok: false,
+        error: {
+          code: 'no_selection',
+          message: 'No chat message or page context was captured. Open a page, select text, or type a message.'
+        }
+      }
+    }
+
+    const settings = getSettings()
+    const { searchQuery } = buildSearchQuery(request.currentContext, 'custom', latestUserMessage)
+    const { results, contextSource } = await searchGBrain(searchQuery, settings, brainDir())
+    const { system, user } = buildChatPrompt({
+      currentContext: request.currentContext,
+      messages: request.messages,
+      retrievedContext: results,
+      searchQuery,
+      outputPreferences: {
+        language: settings.defaults.language,
+        tone: settings.defaults.tone,
+        length: settings.defaults.length
+      }
+    })
+
+    const output = await generate({
+      provider: settings.llm.provider,
+      apiKey: settings.llm.apiKey,
+      model: settings.llm.defaultModel,
+      temperature: settings.llm.temperature,
+      system,
+      user
+    })
+
+    return {
+      ok: true,
+      data: {
+        message: { role: 'assistant', content: output },
+        sources: results,
+        searchQuery,
+        contextSource,
+        currentContext: request.currentContext
+      }
+    }
+  } catch (err) {
+    if (err instanceof LlmError) {
+      return { ok: false, error: { code: err.code, message: err.message } }
+    }
+    return {
+      ok: false,
+      error: { code: 'unknown', message: err instanceof Error ? err.message : 'Unknown error' }
+    }
+  }
+}
+
 export function registerIpcHandlers(): void {
   ipcMain.handle('context:capture', async () => {
     const frontmost = await getFrontmostAppInfo()
@@ -92,6 +157,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('assistant:generate', async (_event, request: GenerateRequest) => {
     return handleGenerate(request)
+  })
+
+  ipcMain.handle('assistant:chat', async (_event, request: ChatRequest) => {
+    return handleChat(request)
   })
 
   ipcMain.handle('output:copy', async (_event, text: string) => {

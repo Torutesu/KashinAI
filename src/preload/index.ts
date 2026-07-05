@@ -6,6 +6,8 @@ const api: ContextAssistantApi = {
 
   generate: (request) => ipcRenderer.invoke('assistant:generate', request),
 
+  chat: (request) => ipcRenderer.invoke('assistant:chat', request),
+
   copyOutput: (text) => ipcRenderer.invoke('output:copy', text),
 
   insertOutput: (text, activeApp) => ipcRenderer.invoke('output:insert', { text, activeApp }),
