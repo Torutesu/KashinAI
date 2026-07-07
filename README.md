@@ -16,8 +16,8 @@ response for the moment.
 - Uses Accessibility API first to collect visible text
 - Falls back to screenshot/OCR or browser context when needed
 - Creates a short ready-to-paste suggestion
-- Pastes the suggestion with a single Option key press
-- Shows the floating assistant with Option + Space
+- Pastes the suggestion with a single `Option` key press
+- Shows the floating assistant with `Option + Space`
 - Can use local Markdown memory / GBrain when the current screen actually needs it
 - Uses company, counterpart, and saved context to make recommendations more relevant
 - Saves useful context and feedback so the recommendation loop can improve over time
@@ -80,6 +80,8 @@ pnpm build
 pnpm package:mac
 ```
 
+Full setup instructions: `docs/setup.md`.
+
 ## Useful Scripts
 
 ```bash
@@ -90,6 +92,23 @@ pnpm typecheck           # Typecheck main and renderer code
 pnpm smoke:live-context  # Check live-context extraction behavior
 pnpm smoke:fusion        # Check GBrain/local context fusion
 ```
+
+### Memory / GBrain Setup
+
+```bash
+./scripts/setup-brain.sh         # import brain/ into GBrain
+./scripts/setup-brain.sh --embed # import and embed stale documents
+./scripts/setup-brain.sh --help  # show options
+```
+
+```bash
+gbrain init --pglite
+gbrain import ./brain --no-embed
+gbrain embed --stale
+gbrain search "customer_a project status"
+```
+
+The setup script is safe to re-run after editing files under `brain/`.
 
 ## Repo Layout
 
