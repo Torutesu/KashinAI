@@ -1,0 +1,19 @@
+{
+  "activeApp": "Google Chrome",
+  "windowTitle": "Town - 固定済み - Google Chrome - dev",
+  "contextKind": "social",
+  "primaryContentSource": "page-text",
+  "pageTitle": "Town - 固定済み - Google Chrome - dev",
+  "pageUrl": "https://www.google.com/search?q=%E5%BA%83%E5%B3%B6+%E3%83%81%E3%83%A3%E3%83%AC%E3%83%B3%E3%82%B8%E8%A3%9C%E5%8A%A9%E9%87%91&rlz=1C5MACD_enJP1157JP1157&oq=%E5%BA%83%E5%B3%B6%E3%80%80%E3%83%81%E3%83%A3%E3%83%AC%E3%83%B3%E3%82%B8%E8%A3%9C%E5%8A%A9%E9%87%91&gs_lcrp=EgZjaHJvbWUyCQgAEEUYORiABDIHCAEQABjvBTIHCAIQABjvBagCALACAA&sourceid=chrome&source=chrome.ob&ie=UTF-8",
+  "pageText": "Google Search &#25968;&#31186;&#12383;&#12387;&#12390;&#12418;&#12522;&#12480;&#12452;&#12524;&#12463;&#12488;&#12373;&#12428;&#12394;&#12356;&#22580;&#21512;&#12399;&#12289; &#12371;&#12371;&#12434;&#12463;&#12522;&#12483;&#12463; &#12375;&#12390;&#12367;&#12384;&#12373;&#12356;&#12290; Google &#26908;&#32034;&#12395;&#12450;&#12463;&#12475;&#12473;&#12391;&#12365;&#12394;&#12356;&#22580;&#21512;&#12399;&#12289; &#12371;&#12371;&#12434;&#12463;&#12522;&#12483;&#12463; &#12377;&#12427;&#12363;&#12289; &#12501;&#12451;&#12540;&#12489;&#12496;&#12483;&#12463; &#12434;&#36865;&#20449;&#12375;&#12390;&#12367;&#12384;&#12373;&#12356;&#12290;",
+  "pageCaptureMethod": "chrome-session",
+  "accessibilityText": "https://www.town.com アドレス検索バー https://www.town.com/ Google 翻訳 左クリックで翻訳。 右クリックでオプションを表示。 このサイトへのアクセスが許可されています Tab キーを押してから Enter キーを押すと、AI モードに質問できます IIIF manifest not found このサイトへのアクセスが許可されています Gyazo - Webページのスクリーンショットを保存 このサイトへのアクセスが許可されています サイト情報を表示 このタブのブックマークを編集します Wappalyzer このサイトへのアクセスが許可されています Merlin AI このサイトへのアクセスが許可されています html.to.design このサイトへのアクセスが許可されています SuperX (Twitter Analytics) Open Claude このサイトへのアクセスが許可されています Dex このサイトへのアクセスが許可されています 拡張機能 dev",
+  "accessibilityCaptureMethod": "ax-tree",
+  "screenshotPath": null,
+  "screenText": null,
+  "screenCaptureMethod": "none",
+  "selectedText": "https://www.town.com",
+  "selectedTextSource": "top-level-selected-text",
+  "clipboardText": null,
+  "timestamp": "FIXTURE_TIMESTAMP"
+}

@@ -1,0 +1,35 @@
+{
+  "appName": "Slack",
+  "windowTitle": "mk-biz (Channel) - aisaac - Slack",
+  "focusedRole": "AXTextArea",
+  "selectedText": null,
+  "valueText": null,
+  "document": null,
+  "url": null,
+  "title": "mk-biz (Channel) - aisaac - Slack",
+  "focusChain": [
+    {
+      "role": "AXTextArea",
+      "title": "Message field",
+      "value": null,
+      "visibleText": "比較のために12日文金はおじので行こうかなと考えています！\n画面文脈で見ると、先に営業導線の詰まりを解くのがよさそうです。",
+      "selectedMarkerText": null,
+      "description": null,
+      "help": null,
+      "placeholder": "Message #mk-biz",
+      "selectedText": null,
+      "document": null,
+      "url": null,
+      "childCount": 2
+    }
+  ],
+  "lines": [
+    "mk-biz (Channel) - aisaac - Slack",
+    "Message to mk-biz",
+    "Bold",
+    "Schedule for later",
+    "比較のために12日文金はおじので行こうかなと考えています！",
+    "画面文脈で見ると、先に営業導線の詰まりを解くのがよさそうです。",
+    "Slack"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "activeApp": "Mail",
+  "windowTitle": "Re: KashinAI launch plan - Mail",
+  "contextKind": "social",
+  "primaryContentSource": "accessibility-text",
+  "pageTitle": "Re: KashinAI launch plan",
+  "pageUrl": null,
+  "pageText": "先方には来週火曜までに初回の提案を返します。 今回は価格ではなく、まずは画面文脈の精度改善を主眼に進めたいです。 必要なら実機ログも合わせて共有します。",
+  "pageCaptureMethod": "accessibility",
+  "accessibilityText": "先方には来週火曜までに初回の提案を返します。 今回は価格ではなく、まずは画面文脈の精度改善を主眼に進めたいです。 必要なら実機ログも合わせて共有します。",
+  "accessibilityCaptureMethod": "ax-tree",
+  "screenshotPath": null,
+  "screenText": null,
+  "screenCaptureMethod": "none",
+  "selectedText": null,
+  "clipboardText": null,
+  "timestamp": "FIXTURE_TIMESTAMP"
+}

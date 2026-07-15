@@ -10,8 +10,24 @@ import type {
   SettingsUpdate
 } from '../shared/types'
 import { buildChatPrompt, buildPrompt } from '../shared/prompts'
-import { compactLiveContext } from '../shared/live-context'
-import { getFrontmostAppInfo, captureCurrentContext } from './context-reader'
+import { getFrontmostAppInfo, captureCurrentContext, captureCurrentContextDetailed } from './context-reader'
+import {
+  buildBackendDiagnostics,
+  buildInlineFallbackChatResult,
+  buildRetrievalOnlyAnswer,
+  buildRetrievalOnlyAnswerParams,
+  getScreenCaptureStatusForPlatform,
+  normalizeGBrainLookup,
+  resolveChatExecutionPlan,
+  resolveDiagnosticsRequestPlan,
+  resolveDiagnosticsSearchExecutionPlan,
+  resolveChatRequestPlan,
+  resolveGenerateExecutionPlan,
+  resolveGenerateRequestPlan,
+  resolveScreenCapturePermissionRequest,
+  resolveShortcutUpdateFlowResolution,
+  resolveShortcutUpdateResolution
+} from './ipc-utils'
 import { buildSearchQuery } from './search-query'
 import { searchGBrain } from './gbrain'
 import { generate, LlmError } from './llm'
@@ -26,127 +42,10 @@ function brainDir(): string {
 }
 
 function getScreenCaptureStatus(): BackendDiagnostics['screenCaptureStatus'] {
-  if (process.platform !== 'darwin') return 'granted'
-  return systemPreferences.getMediaAccessStatus('screen') as BackendDiagnostics['screenCaptureStatus']
-}
-
-function wantsInlineRecommendation(message: string): boolean {
-  return /おすすめ文|recommended|ready-to-send|貼り付けて使える/i.test(message)
-}
-
-function shouldSuppressMemoryForInlineRecommendation(context: ChatRequest['currentContext'], message: string): boolean {
-  return wantsInlineRecommendation(message) && (context.contextKind === 'social' || context.contextKind === 'coding')
-}
-
-function contextFromFallbackParams(params: {
-  pageTitle: string | null
-  pageUrl: string | null
-  pageText: string | null
-  accessibilityText: string | null
-  screenText: string | null
-  contextKind: ChatRequest['currentContext']['contextKind']
-}): ChatRequest['currentContext'] {
-  return {
-    activeApp: null,
-    windowTitle: params.pageTitle,
-    contextKind: params.contextKind,
-    pageTitle: params.pageTitle,
-    pageUrl: params.pageUrl,
-    pageText: params.pageText,
-    pageCaptureMethod: 'none',
-    accessibilityText: params.accessibilityText,
-    accessibilityCaptureMethod: params.accessibilityText ? 'ax-tree' : 'none',
-    screenshotPath: null,
-    screenText: params.screenText,
-    screenCaptureMethod: params.screenText ? 'screen-ocr' : 'none',
-    selectedText: null,
-    clipboardText: null,
-    timestamp: new Date().toISOString()
-  }
-}
-
-function contentAwareSocialFallback(context: ChatRequest['currentContext']): string {
-  const hint = compactLiveContext(context, 120)
-  if (!hint) return ''
-  return `${hint}、かなり気になります。もう少し詳しく見てみたいです。`
-}
-
-function contentAwareCodingFallback(context: ChatRequest['currentContext']): string {
-  const hint = compactLiveContext(context, 140)
-  if (!hint) return ''
-  if (/error|exception|failed|traceback|cannot|undefined|null|型|エラー/i.test(hint)) {
-    return `${hint} の周辺から見ると、まず直近の変更点と再現条件を切り分けて原因を絞るのがよさそうです。`
-  }
-  return `${hint} の箇所は、意図している挙動と実際の出力を先に揃えて確認すると進めやすそうです。`
-}
-
-function buildRetrievalOnlyAnswer(params: {
-  latestUserMessage: string
-  pageUrl: string | null
-  pageTitle: string | null
-  pageText: string | null
-  accessibilityText: string | null
-  screenText: string | null
-  contextKind: ChatRequest['currentContext']['contextKind']
-  sources: { source: string; title: string; content: string }[]
-}): string {
-  const sourceLines = params.sources
-    .slice(0, 5)
-    .map((source) => `- ${source.source}: ${source.title}`)
-    .join('\n')
-  const pageSummary = params.pageText
-    ? params.pageText.replace(/\s+/g, ' ').trim().slice(0, 600)
-    : '(page body not captured)'
-  const accessibilitySummary = params.accessibilityText
-    ? params.accessibilityText.replace(/\s+/g, ' ').trim().slice(0, 600)
-    : '(accessibility text not captured)'
-  const screenSummary = params.screenText
-    ? params.screenText.replace(/\s+/g, ' ').trim().slice(0, 600)
-    : '(screen OCR not captured)'
-  const wantsRecommendation = wantsInlineRecommendation(params.latestUserMessage)
-
-  if (wantsRecommendation) {
-    const topSource = params.sources[0]
-    const pageLabel = params.pageTitle || params.pageUrl || 'いま開いている画面'
-    const visibleContext = params.accessibilityText || params.screenText || params.pageText
-    const fallbackContext = contextFromFallbackParams(params)
-    const visibleHint = visibleContext
-      ? visibleContext.replace(/\s+/g, ' ').trim().slice(0, 90)
-      : pageLabel
-
-    if (params.contextKind === 'social') {
-      return contentAwareSocialFallback(fallbackContext)
-    }
-
-    if (params.contextKind === 'coding') {
-      return contentAwareCodingFallback(fallbackContext)
-    }
-
-    if (!topSource) {
-      return `${visibleHint}について確認しました。必要な内容をこちらで整理して、次に進められる形で対応します。`
-    }
-
-    const gbrainHint = `GBrainの「${topSource.title}」`
-
-    return `${pageLabel}の内容を確認しました。${gbrainHint}に合わせて、相手に伝えるべき要点と次のアクションをこちらで整理します。`
-  }
-
-  return `LLM API key is not configured, so this is a retrieval-only backend check.
-
-User message:
-${params.latestUserMessage || '(none)'}
-
-Open page context:
-- Title: ${params.pageTitle || '(unknown)'}
-- URL: ${params.pageUrl || '(not captured)'}
-- Text preview: ${pageSummary}
-- Accessibility preview: ${accessibilitySummary}
-- Screen OCR preview: ${screenSummary}
-
-GBrain context used:
-${sourceLines || '- none'}
-
-The backend successfully fused the current page context with GBrain context. Add an LLM API key in Settings to generate the final natural-language response.`
+  return getScreenCaptureStatusForPlatform({
+    platform: process.platform,
+    mediaAccessStatus: systemPreferences.getMediaAccessStatus('screen') as BackendDiagnostics['screenCaptureStatus']
+  })
 }
 
 /**
@@ -156,31 +55,27 @@ The backend successfully fused the current page context with GBrain context. Add
  */
 async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResult> {
   try {
-    const hasAnyInput = Boolean(
-      request.currentContext.selectedText || request.currentContext.clipboardText || request.userInstruction
-        || request.currentContext.accessibilityText || request.currentContext.screenText
-    )
-    if (!hasAnyInput) {
+    const requestPlan = resolveGenerateRequestPlan(request)
+    if (!requestPlan.canProceed) {
       return {
         ok: false,
-        error: {
-          code: 'no_selection',
-          message: 'No text selected and clipboard is empty. Select some text and try again, or type a custom instruction.'
-        }
+        error: requestPlan.error!
       }
     }
 
     const settings = getSettings()
+    const executionPlan = resolveGenerateExecutionPlan({
+      requestPlan,
+      hasApiKey: Boolean(settings.llm.apiKey)
+    })
     const { searchQuery, detectedEntities } = buildSearchQuery(
       request.currentContext,
       request.actionType,
       request.userInstruction
     )
 
-    const suppressMemory = shouldSuppressMemoryForInlineRecommendation(request.currentContext, request.userInstruction)
-    const gbrain = suppressMemory ? null : await searchGBrain(searchQuery, settings, brainDir())
-    const results = gbrain?.results ?? []
-    const contextSource = gbrain?.contextSource ?? 'none'
+    const gbrain = executionPlan.shouldSearchGBrain ? await searchGBrain(searchQuery, settings, brainDir()) : null
+    const { results, contextSource } = normalizeGBrainLookup(gbrain)
 
     const pack: ContextPack = {
       currentContext: request.currentContext,
@@ -198,7 +93,7 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
 
     const { system, user } = buildPrompt(pack, request.modifier)
 
-    const output = settings.llm.apiKey
+    const output = executionPlan.executionMode === 'llm'
       ? await generate({
           provider: settings.llm.provider,
           apiKey: settings.llm.apiKey,
@@ -207,16 +102,13 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
           system,
           user
         })
-      : buildRetrievalOnlyAnswer({
-          latestUserMessage: request.userInstruction,
-          pageUrl: request.currentContext.pageUrl,
-          pageTitle: request.currentContext.pageTitle,
-          pageText: request.currentContext.pageText,
-          accessibilityText: request.currentContext.accessibilityText,
-          screenText: request.currentContext.screenText,
-          contextKind: request.currentContext.contextKind,
-          sources: results
-        })
+      : buildRetrievalOnlyAnswer(
+          buildRetrievalOnlyAnswerParams({
+            currentContext: request.currentContext,
+            latestUserMessage: request.userInstruction,
+            sources: results
+          })
+        )
 
     return {
       ok: true,
@@ -235,49 +127,33 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
 
 async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
   try {
-    const latestUserMessage = [...request.messages].reverse().find((message) => message.role === 'user')?.content ?? ''
-    const hasAnyInput = Boolean(
-      latestUserMessage ||
-        request.currentContext.selectedText ||
-        request.currentContext.pageText ||
-        request.currentContext.accessibilityText ||
-        request.currentContext.screenText ||
-        request.currentContext.clipboardText
-    )
-
-    if (!hasAnyInput) {
+    const requestPlan = resolveChatRequestPlan(request)
+    if (!requestPlan.canProceed) {
       return {
         ok: false,
-        error: {
-          code: 'no_selection',
-          message: 'No chat message or page context was captured. Open a page, select text, or type a message.'
-        }
+        error: requestPlan.error!
       }
     }
+    const latestMessage = requestPlan.latestMessage
 
     const settings = getSettings()
-    const { searchQuery } = buildSearchQuery(request.currentContext, 'custom', latestUserMessage)
-    const suppressMemory = shouldSuppressMemoryForInlineRecommendation(request.currentContext, latestUserMessage)
-    if (suppressMemory) {
-      const output =
-        request.currentContext.contextKind === 'social'
-          ? contentAwareSocialFallback(request.currentContext)
-          : contentAwareCodingFallback(request.currentContext)
+    const executionPlan = resolveChatExecutionPlan({
+      requestPlan,
+      hasApiKey: Boolean(settings.llm.apiKey)
+    })
+    const { searchQuery } = buildSearchQuery(request.currentContext, 'custom', latestMessage)
+    if (executionPlan.executionMode === 'inline-fallback') {
       return {
         ok: true,
-        data: {
-          message: { role: 'assistant', content: output },
-          sources: [],
-          searchQuery: compactLiveContext(request.currentContext, 160),
-          contextSource: 'none',
-          currentContext: request.currentContext
-        }
+        data: buildInlineFallbackChatResult({
+          currentContext: request.currentContext,
+          latestUserMessage: latestMessage
+        })
       }
     }
 
-    const gbrain = await searchGBrain(searchQuery, settings, brainDir())
-    const results = gbrain?.results ?? []
-    const contextSource = gbrain?.contextSource ?? 'none'
+    const gbrain = executionPlan.shouldSearchGBrain ? await searchGBrain(searchQuery, settings, brainDir()) : null
+    const { results, contextSource } = normalizeGBrainLookup(gbrain)
     const { system, user } = buildChatPrompt({
       currentContext: request.currentContext,
       messages: request.messages,
@@ -290,7 +166,7 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
       }
     })
 
-    const output = settings.llm.apiKey
+    const output = executionPlan.executionMode === 'llm'
       ? await generate({
           provider: settings.llm.provider,
           apiKey: settings.llm.apiKey,
@@ -299,16 +175,13 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
           system,
           user
         })
-      : buildRetrievalOnlyAnswer({
-          latestUserMessage,
-          pageUrl: request.currentContext.pageUrl,
-          pageTitle: request.currentContext.pageTitle,
-          pageText: request.currentContext.pageText,
-          accessibilityText: request.currentContext.accessibilityText,
-          screenText: request.currentContext.screenText,
-          contextKind: request.currentContext.contextKind,
-          sources: results
-        })
+      : buildRetrievalOnlyAnswer(
+          buildRetrievalOnlyAnswerParams({
+            currentContext: request.currentContext,
+            latestUserMessage: latestMessage,
+            sources: results
+          })
+        )
 
     return {
       ok: true,
@@ -362,13 +235,36 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('settings:set', async (_event, update: SettingsUpdate) => {
     const previousSettings = getSettings()
     const updated = updateSettings(update)
+    const initialShortcutFlow = resolveShortcutUpdateFlowResolution({
+      requestedShortcut: update.shortcut,
+      previousShortcut: previousSettings.shortcut,
+      swapped: false,
+      restored: false,
+      registeredShortcutAfterRestore: null
+    })
 
-    if (update.shortcut && update.shortcut !== previousSettings.shortcut) {
-      const swapped = updateRegisteredShortcut(update.shortcut)
-      if (!swapped) {
-        updateSettings({ shortcut: previousSettings.shortcut })
-        const restored = updateRegisteredShortcut(previousSettings.shortcut)
-        if (!restored && getRegisteredShortcut() !== previousSettings.shortcut) {
+    if (initialShortcutFlow.attemptPlan.shouldAttemptShortcutSwap && initialShortcutFlow.attemptPlan.requestedShortcut) {
+      const swapped = updateRegisteredShortcut(initialShortcutFlow.attemptPlan.requestedShortcut)
+      const shortcutResolution = resolveShortcutUpdateResolution({
+        requestedShortcut: initialShortcutFlow.attemptPlan.requestedShortcut,
+        previousShortcut: previousSettings.shortcut,
+        swapped,
+        restored: false,
+        registeredShortcutAfterRestore: null
+      })
+
+      if (shortcutResolution.shouldRollbackSettings && initialShortcutFlow.attemptPlan.rollbackShortcut) {
+        updateSettings({ shortcut: initialShortcutFlow.attemptPlan.rollbackShortcut })
+        const restored = updateRegisteredShortcut(initialShortcutFlow.attemptPlan.rollbackShortcut)
+        const rollbackFlow = resolveShortcutUpdateFlowResolution({
+          requestedShortcut: update.shortcut,
+          previousShortcut: previousSettings.shortcut,
+          swapped,
+          restored,
+          registeredShortcutAfterRestore: getRegisteredShortcut()
+        })
+
+        if (rollbackFlow.resolution.shouldReturnEarly) {
           return getPublicSettings()
         }
         return getPublicSettings()
@@ -434,7 +330,8 @@ export function registerIpcHandlers(): void {
       // macOS may reject before permission is granted; opening Settings below is the recovery path.
     }
     const status = getScreenCaptureStatus()
-    if (status !== 'granted') {
+    const resolution = resolveScreenCapturePermissionRequest(status)
+    if (resolution.shouldOpenSystemSettings) {
       await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
     }
     return status
@@ -449,32 +346,35 @@ export function registerIpcHandlers(): void {
     try {
       const settings = getSettings()
       const frontmost = await getFrontmostAppInfo()
-      const currentContext = await captureCurrentContext(frontmost)
-      const gbrain = await searchGBrain('価格', settings, brainDir())
+      const { context: currentContext, captureTrace, accessibilityDiagnostics } = await captureCurrentContextDetailed(frontmost)
+      const diagnosticsRequestPlan = resolveDiagnosticsRequestPlan(currentContext)
+      const rawSearchQuery = diagnosticsRequestPlan.searchQueryPlan.shouldBuildSearchQuery
+        ? buildSearchQuery(
+            currentContext,
+            diagnosticsRequestPlan.searchQueryPlan.actionType,
+            diagnosticsRequestPlan.searchQueryPlan.userInstruction
+          ).searchQuery
+        : ''
+      const diagnosticsSearchPlan = resolveDiagnosticsSearchExecutionPlan({
+        currentContext,
+        searchQuery: rawSearchQuery
+      })
+      const gbrain =
+        diagnosticsSearchPlan.shouldLookupGBrain
+          ? await searchGBrain(diagnosticsSearchPlan.normalizedSearchQuery, settings, brainDir())
+          : null
+      const diagnostics = buildBackendDiagnostics({
+        accessibilityGranted: systemPreferences.isTrustedAccessibilityClient(false),
+        screenCaptureStatus: getScreenCaptureStatus(),
+        currentContext,
+        gbrain,
+        captureTrace,
+        accessibilityDiagnostics
+      })
 
       return {
         ok: true,
-        data: {
-          accessibilityGranted: systemPreferences.isTrustedAccessibilityClient(false),
-          screenCaptureStatus: getScreenCaptureStatus(),
-          canFuseContext:
-            (gbrain.contextSource === 'gbrain-cli' || gbrain.contextSource === 'gbrain-http') &&
-            Boolean(currentContext.pageUrl || currentContext.pageText || currentContext.accessibilityText || currentContext.screenText || currentContext.selectedText),
-          gbrain: {
-            ok: gbrain.contextSource === 'gbrain-cli' || gbrain.contextSource === 'gbrain-http',
-            contextSource: gbrain.contextSource,
-            resultCount: gbrain.results.length,
-            sampleSources: gbrain.results.slice(0, 5).map((result) => result.source)
-          },
-          fusionInputs: {
-            hasGBrainContext: gbrain.results.length > 0,
-            hasPageContext: Boolean(currentContext.pageUrl || currentContext.pageText),
-            hasScreenContext: Boolean(currentContext.accessibilityText || currentContext.screenshotPath || currentContext.screenText),
-            hasSelectedText: Boolean(currentContext.selectedText),
-            hasClipboardFallback: Boolean(currentContext.clipboardText)
-          },
-          currentContext
-        }
+        data: diagnostics
       }
     } catch (err) {
       return {

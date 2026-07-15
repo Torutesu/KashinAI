@@ -1,0 +1,19 @@
+{
+  "expectDiagnostics": {
+    "lowSignal": true,
+    "lowSignalReason": "social-chrome-only",
+    "pageUrlCandidate": null,
+    "appResolutionSource": "helper-frontmost",
+    "windowTitleResolutionSource": "window-title"
+  },
+  "rankedLineIncludes": [
+    "mk-biz (Channel) - aisaac - Slack",
+    "Message to mk-biz"
+  ],
+  "rankedLineExcludes": [],
+  "extractionIncludes": [],
+  "extractionExcludes": [
+    "Message to mk-biz",
+    "Bold"
+  ]
+}

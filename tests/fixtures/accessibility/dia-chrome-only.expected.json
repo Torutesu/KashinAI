@@ -1,0 +1,19 @@
+{
+  "expectDiagnostics": {
+    "lowSignal": true,
+    "lowSignalReason": "browser-chrome-only",
+    "pageUrlCandidate": null
+  },
+  "rankedLineIncludes": [
+    "HN Top Links - Popular Stories from Hacker News、タブ",
+    "Forward"
+  ],
+  "rankedLineExcludes": [],
+  "extractionIncludes": [],
+  "extractionExcludes": [
+    "HN Top Links - Popular Stories from Hacker News",
+    "Slack | Internal updates",
+    "Back",
+    "Forward"
+  ]
+}

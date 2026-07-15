@@ -1,0 +1,27 @@
+{
+  "userInstruction": "このエラーの原因を調べたい",
+  "actionType": "custom",
+  "expectContext": {
+    "contextKind": "coding",
+    "primaryContentSource": "accessibility-text"
+  },
+  "digestIncludes": [
+    "struct CapturePlan",
+    "throw ContextError.captureFailed",
+    "Type 'CurrentContext' has no member 'captureMethod'"
+  ],
+  "digestExcludes": [
+    "Navigator",
+    "^Search$",
+    "^Issues$"
+  ],
+  "searchQueryIncludes": [
+    "CapturePlan.swift",
+    "ContextError captureFailed",
+    "has no member 'captureMethod'"
+  ],
+  "searchQueryExcludes": [
+    "Navigator",
+    "Issues"
+  ]
+}

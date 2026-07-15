@@ -1,0 +1,19 @@
+{
+  "activeApp": "ChatGPT",
+  "windowTitle": "ChatGPT",
+  "contextKind": "social",
+  "primaryContentSource": "screen-ocr",
+  "pageTitle": "ChatGPT",
+  "pageUrl": null,
+  "pageText": null,
+  "pageCaptureMethod": "none",
+  "accessibilityText": null,
+  "accessibilityCaptureMethod": "none",
+  "screenshotPath": null,
+  "screenText": "D\n←→\nChatGPT Codex\nQ\nビ 新しいタスク\n◎ スケジュール\n＠ プラグイン\ng サイト\n① チャット\nピン留め\nNevermined Clone - Product Requirel\nShogunAI3を進める\n88l\nリリース不足項目を洗い出す\n88l\nグリードアイランド風企画整理\nこの指示通りに設計をまず進めてく！！\nKashinAIで開発を進める\nプロジェクト\nE Japn\nこの要件のプロダクトを作りたい。\nPencilでUIを作っていって\nO New=WORKAI\nGlean.comを完全に上回るエンター\nE A2A\nファイルの中身確認して実装始めて\nB SLCTLABS\nSLCT - AI協調型ソフトウェア開発\nG SHINRA AI\nPM向けの為替のようなプロダクト\nもっと表示する\nタスク\nAI経営基盤サイト作成\nセットアップする\nミニマルなデザインシステム作成\nselectdev\n＝ KashinAIで開発を進める\ntests/unit/lrve-context.test.ts\n+2-0\n1m 40s作業しました＞\nDiscord の live fallback を、その場しのぎではなく正式なregression に乗せました。（\ntests/fixtures/context/discord-merged-ocr.json と （） tests/fixtures/context/discord-merged-ocr.expected.json\nを追加して、socialのscreen-ocr文脈として「会話本文は残る」「sidebar / preview/ send box ノイズは入らな\nい」「検索クエリも会話語彙を拾う」を固定しています。\n確認はcontext-fixture-expectationsも含めて通していて、全体のpnpm test:unitは今186 passedで\nす。いまのパイプラインは Discord についてはかなり実画面寄りに守られる状態になったので、次にやるなら同じや\nり方で\"AXが弱い native/Electron アプリをもう1つ増やすのが一番効きます。候補としては Codex 自体、Discord\nの別 view、あるいは別の chat surface です。\ndiscord-merged-ocr.expected.json を編集しました\n+18-3\n元に戻すの\nレビューする\n1m 38s作業中\n次は Electron/native 系の別面を1つ増やします。Discord だけだとるので、同じく AXが弱くなりやすい画面を\nfixture 化して、fallback 全体の横持ち耐性を上げます。\n図 コマンドを実行しました\n前面はまだ Discord だったので、次の候補をこちらで切り替えて見ます。Electron/native 系の代表としてCodex\nを\n直接開いて、AXとmerged context がどう見えるかを Iive で採ります。\n図 コマンドを実行しました\nCodex/ChatGPT 系はAXが完全に title-onlyで、いまはOCRfallback が本体です。ここは実際にhigh-value なの\nで、まず digest と query がどこまでまともに出ているかを見て、必要なら fixture と一緒に微調整します。\n1ファイルを読み取りましたコマンドを実行しました\nChatGPT / Codex面は、本文は取れているけど sidebar/作業UIの混入がまだあります。ここは regression にしなが\nら、Codex 固有の OCR chrome を少しだけ落として、現在のtask 本文がもっと前に出るようにします。\n図 TARGET_APP='Codex' pnpm debug:context:fixture chatgpt-codex-thread-ocr >/tmp/kashin-save-codex-fi\n◎ ステップ1/3\n●進行中の目標 いろんなアプリとのコネクトやアクセシビリティAPI..5h 23m 13s\nフォローアップの変更を求める\n+\n◎ フルアクセス\n© 目標\n5.4 軽く\n■\n■♥\n81l\n+\n+9,312-472\n環境\n図 変更\nローカル\nmain\n•コミットまたはプッシュ\n● ブランチを比較\n情報源\n+\n図 スクリーンショット 2026-07-05 12.4\nスクリーンショット 2026-07-05 12.4\nスクリーンショット 2026-07-05 12.4\n2。\nすべて表示",
+  "screenCaptureMethod": "window-ocr",
+  "selectedText": null,
+  "selectedTextSource": "none",
+  "clipboardText": null,
+  "timestamp": "FIXTURE_TIMESTAMP"
+}

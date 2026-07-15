@@ -1,0 +1,19 @@
+{
+  "userInstruction": "この文脈を確認したい",
+  "actionType": "custom",
+  "expectContext": {
+    "contextKind": "social",
+    "primaryContentSource": "screen-ocr",
+    "pageCaptureMethod": "none",
+    "screenCaptureMethod": "screen-ocr",
+    "selectedTextSource": "none",
+    "selectedText": null
+  },
+  "digestIncludes": [
+    "＆セキュリティのため、Claudeを引き続きご利用いただくには再度サインインしてください。",
+    "6= Fix subsidy application document format"
+  ],
+  "digestExcludes": [],
+  "searchQueryIncludes": [],
+  "searchQueryExcludes": []
+}

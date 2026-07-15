@@ -12,12 +12,12 @@ let lastTriggerAt = 0
 let demoPasteIndex = 0
 
 const DEMO_PASTE_TEXTS = [
-  `Hi Toru, I’m Woojin. I’m building Kashin AI, a lightweight desktop assistant that brings company context into everyday writing workflows, and I’d love to briefly share it with you.`,
+  `Hi Toru, I’m Woojin. I’m building KashinAI, a lightweight desktop assistant that brings company context into everyday writing workflows, and I’d love to briefly share it with you.`,
   `Hi Woojin,
 
 Do your team members still have to repeat the same customer, project, or company context every time they use AI to write emails, Slack replies, proposals, or summaries?
 
-Kashin AI solves this by bringing your company knowledge into the writing workflow, so teams can create source-backed replies and drafts without rewriting context or switching tools.
+KashinAI solves this by bringing your company knowledge into the writing workflow, so teams can create source-backed replies and drafts without rewriting context or switching tools.
 
 Would you be open to a quick 15-minute demo next week?`,
   `Can you update this part so the assistant captures the selected text more reliably and returns the generated response with clear source references?`
@@ -93,6 +93,7 @@ async function triggerAssistant(options: { autoInsert: boolean; showWindow: bool
     activeApp: null,
     windowTitle: null,
     contextKind: 'general' as const,
+    primaryContentSource: 'none' as const,
     pageTitle: null,
     pageUrl: null,
     pageText: null,
@@ -103,6 +104,7 @@ async function triggerAssistant(options: { autoInsert: boolean; showWindow: bool
     screenText: null,
     screenCaptureMethod: 'none' as const,
     selectedText: null,
+    selectedTextSource: 'none' as const,
     clipboardText: null,
     timestamp: new Date().toISOString()
   }

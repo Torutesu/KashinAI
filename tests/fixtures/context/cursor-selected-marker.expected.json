@@ -1,0 +1,27 @@
+{
+  "userInstruction": "この選択範囲を前提に修正方針を考えて",
+  "actionType": "next_actions",
+  "expectContext": {
+    "contextKind": "coding",
+    "primaryContentSource": "selected-text",
+    "selectedTextSource": "focus-chain-selected-marker-text",
+    "selectedText": "const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)"
+  },
+  "digestIncludes": [
+    "const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)"
+  ],
+  "digestExcludes": [
+    "Explorer",
+    "Settings"
+  ],
+  "searchQueryIncludes": [
+    "const",
+    "canSkipOcr",
+    "context-reader",
+    "accessibilityContext"
+  ],
+  "searchQueryExcludes": [
+    "Explorer",
+    "Settings"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "expectDiagnostics": {
+    "lowSignal": false,
+    "lowSignalReason": null,
+    "pageUrlCandidate": null
+  },
+  "rankedLineIncludes": [
+    "const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)",
+    "if (!options.skipOcr && !screenText && screenshot.sourceKind === \"window\") {"
+  ],
+  "rankedLineExcludes": [
+    "Explorer",
+    "Settings"
+  ],
+  "extractionIncludes": [
+    "const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)",
+    "if (!options.skipOcr && !screenText && screenshot.sourceKind === \"window\") {"
+  ],
+  "extractionExcludes": [
+    "Explorer",
+    "Settings"
+  ]
+}

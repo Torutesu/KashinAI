@@ -1,14 +1,24 @@
 import { app } from 'electron'
 import { spawn, type ChildProcess } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 
 let listener: ChildProcess | null = null
 
 function listenerScriptPath(): string {
-  if (process.defaultApp || process.env['ELECTRON_RENDERER_URL']) {
-    return path.join(app.getAppPath(), 'scripts/option-listener.swift')
+  const candidates = app.isPackaged
+    ? [path.join(process.resourcesPath, 'option-listener.swift')]
+    : [
+        path.join(process.cwd(), 'scripts/option-listener.swift'),
+        path.join(app.getAppPath(), 'scripts/option-listener.swift'),
+        path.join(process.resourcesPath, 'option-listener.swift')
+      ]
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate
   }
-  return path.join(process.resourcesPath, 'option-listener.swift')
+
+  return candidates[0]
 }
 
 export function startOptionListener(handlers: {

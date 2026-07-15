@@ -1,0 +1,19 @@
+{
+  "activeApp": "Cursor",
+  "windowTitle": "context-reader.ts",
+  "contextKind": "coding",
+  "primaryContentSource": "selected-text",
+  "pageTitle": "context-reader.ts",
+  "pageUrl": null,
+  "pageText": "const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)\nif (!options.skipOcr && !screenText && screenshot.sourceKind === \"window\") {",
+  "pageCaptureMethod": "accessibility",
+  "accessibilityText": "const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)\nif (!options.skipOcr && !screenText && screenshot.sourceKind === \"window\") {",
+  "accessibilityCaptureMethod": "ax-tree",
+  "screenshotPath": null,
+  "screenText": null,
+  "screenCaptureMethod": "none",
+  "selectedText": "const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)",
+  "selectedTextSource": "focus-chain-selected-marker-text",
+  "clipboardText": null,
+  "timestamp": "FIXTURE_TIMESTAMP"
+}

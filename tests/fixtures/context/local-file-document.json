@@ -1,0 +1,18 @@
+{
+  "activeApp": "Preview",
+  "windowTitle": "LaunchPlan.html",
+  "contextKind": "document",
+  "primaryContentSource": "page-text",
+  "pageTitle": "file:///Users/toru/Documents/LaunchPlan.html",
+  "pageUrl": "file:///Users/toru/Documents/LaunchPlan.html",
+  "pageText": "/Users/toru/Documents/LaunchPlan.html\nNext customer sync agenda\nPricing risks and open questions",
+  "pageCaptureMethod": "accessibility",
+  "accessibilityText": "LaunchPlan.html\nNext customer sync agenda\nPricing risks and open questions",
+  "accessibilityCaptureMethod": "ax-tree",
+  "screenshotPath": null,
+  "screenText": null,
+  "screenCaptureMethod": "none",
+  "selectedText": null,
+  "clipboardText": null,
+  "timestamp": "FIXTURE_TIMESTAMP"
+}

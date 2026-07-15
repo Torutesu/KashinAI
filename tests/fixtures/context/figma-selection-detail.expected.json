@@ -1,0 +1,28 @@
+{
+  "userInstruction": "このデザインの意図を整理したい",
+  "actionType": "summarize",
+  "expectContext": {
+    "contextKind": "document",
+    "primaryContentSource": "accessibility-text"
+  },
+  "digestIncludes": [
+    "Frame: Hero / Pricing",
+    "Button label: Start free trial",
+    "pricing comparison and social proof need tighter hierarchy"
+  ],
+  "digestExcludes": [
+    "^Layers$",
+    "^Assets$",
+    "^Inspect$"
+  ],
+  "searchQueryIncludes": [
+    "Marketing Site",
+    "Hero Pricing",
+    "Primary CTA",
+    "social proof"
+  ],
+  "searchQueryExcludes": [
+    "Layers",
+    "Assets"
+  ]
+}

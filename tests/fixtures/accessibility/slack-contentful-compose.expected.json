@@ -1,0 +1,21 @@
+{
+  "expectDiagnostics": {
+    "lowSignal": false,
+    "lowSignalReason": null,
+    "pageUrlCandidate": null
+  },
+  "rankedLineIncludes": [
+    "比較のために12日文金はおじので行こうかなと考えています！",
+    "画面文脈で見ると、先に営業導線の詰まりを解くのがよさそうです。"
+  ],
+  "rankedLineExcludes": [],
+  "extractionIncludes": [
+    "比較のために12日文金はおじので行こうかなと考えています！",
+    "営業導線の詰まりを解くのがよさそうです。"
+  ],
+  "extractionExcludes": [
+    "Bold",
+    "Schedule for later",
+    "Message to mk-biz"
+  ]
+}

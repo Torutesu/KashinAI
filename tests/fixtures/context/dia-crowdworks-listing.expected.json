@@ -1,0 +1,25 @@
+{
+  "userInstruction": "この文脈を確認したい",
+  "actionType": "custom",
+  "expectContext": {
+    "contextKind": "document",
+    "primaryContentSource": "page-text"
+  },
+  "digestIncludes": [
+    "【急募】コーダー募集｜広告LPのコーディング／継続依頼あり",
+    "ホームページ制作・Webデザインの仕事・求人を探す",
+    "324件のうち、1〜50件を表示"
+  ],
+  "digestExcludes": [
+    "this button also has an action to zoom the window"
+  ],
+  "searchQueryIncludes": [
+    "crowdworks",
+    "ホームページ制作",
+    "Webデザイン",
+    "コーダー募集"
+  ],
+  "searchQueryExcludes": [
+    "zoom the window"
+  ]
+}

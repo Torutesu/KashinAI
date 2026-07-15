@@ -1,0 +1,21 @@
+{
+  "expectDiagnostics": {
+    "lowSignal": false,
+    "lowSignalReason": null,
+    "pageUrlCandidate": null
+  },
+  "rankedLineIncludes": [
+    "来週の提案ではまずアクセシビリティ経由の文脈取得精度を上げる方針で揃えたいです。",
+    "営業側の比較材料はそのあとにまとめれば十分だと思います。"
+  ],
+  "rankedLineExcludes": [],
+  "extractionIncludes": [
+    "アクセシビリティ経由の文脈取得精度を上げる方針",
+    "比較材料はそのあとにまとめれば十分"
+  ],
+  "extractionExcludes": [
+    "Type a new message",
+    "Delivery options",
+    "Loop components"
+  ]
+}

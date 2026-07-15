@@ -1,0 +1,27 @@
+{
+  "expectDiagnostics": {
+    "lowSignal": false,
+    "lowSignalReason": null,
+    "pageUrlCandidate": "https://zoom.us/j/1234567890"
+  },
+  "rankedLineIncludes": [
+    "KashinAI context review",
+    "議題: アクセシビリティ経由で取れている文脈の精度確認",
+    "https://zoom.us/j/1234567890"
+  ],
+  "rankedLineExcludes": [
+    "Today",
+    "Inbox",
+    "Search"
+  ],
+  "extractionIncludes": [
+    "KashinAI context review",
+    "参加者: toru@example.com, pm@example.com",
+    "議題: アクセシビリティ経由で取れている文脈の精度確認"
+  ],
+  "extractionExcludes": [
+    "Today",
+    "Inbox",
+    "Search"
+  ]
+}

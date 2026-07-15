@@ -1,0 +1,41 @@
+{
+  "appName": "Mail",
+  "windowTitle": "Re: KashinAI launch plan - Mail",
+  "focusedRole": "AXTextArea",
+  "selectedText": null,
+  "valueText": null,
+  "document": null,
+  "url": null,
+  "title": "Re: KashinAI launch plan",
+  "focusChain": [
+    {
+      "role": "AXTextArea",
+      "title": "Message Body",
+      "value": null,
+      "visibleText": "先方には来週火曜までに初回の提案を返します。\n今回は価格ではなく、まずは画面文脈の精度改善を主眼に進めたいです。\n必要なら実機ログも合わせて共有します。",
+      "selectedMarkerText": null,
+      "description": null,
+      "help": null,
+      "placeholder": "Message Body",
+      "selectedText": null,
+      "document": null,
+      "url": null,
+      "childCount": 3
+    }
+  ],
+  "lines": [
+    "Re: KashinAI launch plan",
+    "From",
+    "pm@example.com",
+    "To",
+    "team@example.com",
+    "Subject",
+    "Re: KashinAI launch plan",
+    "Reply",
+    "Send later",
+    "先方には来週火曜までに初回の提案を返します。",
+    "今回は価格ではなく、まずは画面文脈の精度改善を主眼に進めたいです。",
+    "必要なら実機ログも合わせて共有します。",
+    "Mail"
+  ]
+}

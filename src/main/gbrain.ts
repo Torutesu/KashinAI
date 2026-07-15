@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { AppSettings, ContextSource, RetrievedContext } from '../shared/types'
+import type { AppSettings, ContextSource, GBrainTrace, RetrievedContext } from '../shared/types'
 
 const execFileAsync = promisify(execFile)
 const BASELINE_GBRAIN_SLUGS = [
@@ -18,6 +18,7 @@ const BASELINE_GBRAIN_SLUGS = [
 export type GBrainSearchResult = {
   results: RetrievedContext[]
   contextSource: ContextSource
+  trace: GBrainTrace
 }
 
 function normalizeTypeFromSource(source: string): RetrievedContext['type'] {
@@ -112,11 +113,11 @@ async function searchViaCli(
   query: string,
   cliPath: string,
   timeoutMs: number
-): Promise<RetrievedContext[] | null> {
+): Promise<{ results: RetrievedContext[] | null; failureReason: 'none' | 'cli-empty' | 'cli-failed' }> {
   try {
     const { stdout } = await execFileAsync(cliPath, ['search', query], { timeout: timeoutMs })
     const parsed = parseCliPlaintext(stdout)
-    if (parsed.length > 0) return parsed
+    if (parsed.length > 0) return { results: parsed, failureReason: 'none' }
   } catch {
     // Fall through to hybrid query and baseline docs.
   }
@@ -125,17 +126,27 @@ async function searchViaCli(
     const { stdout } = await execFileAsync(cliPath, ['query', query, '--json'], { timeout: timeoutMs })
     try {
       const parsed: unknown = JSON.parse(stdout)
-      return normalizeResults(parsed)
+      const normalized = normalizeResults(parsed)
+      return {
+        results: normalized.length > 0 ? normalized : null,
+        failureReason: normalized.length > 0 ? 'none' : 'cli-empty'
+      }
     } catch {
       const parsed = parseCliPlaintext(stdout)
-      return parsed.length > 0 ? parsed : null
+      return {
+        results: parsed.length > 0 ? parsed : null,
+        failureReason: parsed.length > 0 ? 'none' : 'cli-empty'
+      }
     }
   } catch {
     // Fall through to baseline docs.
   }
 
   const baseline = await getBaselineViaCli(cliPath, timeoutMs)
-  return baseline.length > 0 ? baseline : null
+  return {
+    results: baseline.length > 0 ? baseline : null,
+    failureReason: baseline.length > 0 ? 'none' : 'cli-failed'
+  }
 }
 
 /** Queries GBrain via HTTP. Defensive in the same way as searchViaCli. */
@@ -144,7 +155,7 @@ async function searchViaHttp(
   endpoint: string,
   token: string,
   timeoutMs: number
-): Promise<RetrievedContext[] | null> {
+): Promise<{ results: RetrievedContext[] | null; failureReason: 'none' | 'http-empty' | 'http-failed' }> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
@@ -160,12 +171,16 @@ async function searchViaHttp(
       signal: controller.signal
     })
 
-    if (!response.ok) return null
+    if (!response.ok) return { results: null, failureReason: 'http-failed' }
 
     const parsed: unknown = await response.json()
-    return normalizeResults(parsed)
+    const normalized = normalizeResults(parsed)
+    return {
+      results: normalized.length > 0 ? normalized : null,
+      failureReason: normalized.length > 0 ? 'none' : 'http-empty'
+    }
   } catch {
-    return null
+    return { results: null, failureReason: 'http-failed' }
   } finally {
     clearTimeout(timeout)
   }
@@ -306,26 +321,69 @@ export async function searchGBrain(
 ): Promise<GBrainSearchResult> {
   const { mode, cliPath, endpoint, token, timeoutMs } = settings.gbrain
   const resolvedCliPath = cliPath || 'gbrain'
+  const attemptedSources: GBrainTrace['attemptedSources'] = []
+  let fallbackReason: GBrainTrace['fallbackReason'] = 'none'
 
   if (mode === 'cli' || mode === 'local') {
-    const results = await searchViaCli(query, resolvedCliPath, timeoutMs)
-    if (results && results.length > 0) {
-      return { results, contextSource: 'gbrain-cli' }
+    attemptedSources.push('gbrain-cli')
+    const cliResult = await searchViaCli(query, resolvedCliPath, timeoutMs)
+    if (cliResult.results && cliResult.results.length > 0) {
+      return {
+        results: cliResult.results,
+        contextSource: 'gbrain-cli',
+        trace: {
+          requestedMode: mode,
+          attemptedSources,
+          finalContextSource: 'gbrain-cli',
+          fallbackReason: 'none'
+        }
+      }
     }
+    fallbackReason = cliResult.failureReason
   } else if (mode === 'http') {
-    const results = await searchViaHttp(query, endpoint, token, timeoutMs)
-    if (results && results.length > 0) {
-      return { results, contextSource: 'gbrain-http' }
+    attemptedSources.push('gbrain-http')
+    const httpResult = await searchViaHttp(query, endpoint, token, timeoutMs)
+    if (httpResult.results && httpResult.results.length > 0) {
+      return {
+        results: httpResult.results,
+        contextSource: 'gbrain-http',
+        trace: {
+          requestedMode: mode,
+          attemptedSources,
+          finalContextSource: 'gbrain-http',
+          fallbackReason: 'none'
+        }
+      }
     }
+    fallbackReason = httpResult.failureReason
   }
 
+  attemptedSources.push('local-fallback')
   const localResults = await searchMarkdownDirs(query, [
     { dir: brainDir, prefix: '' },
     ...(settings.memory.enabled && settings.memory.dir ? [{ dir: settings.memory.dir, prefix: 'memory/' }] : [])
   ])
   if (localResults.length > 0) {
-    return { results: localResults, contextSource: 'local-fallback' }
+    return {
+      results: localResults,
+      contextSource: 'local-fallback',
+      trace: {
+        requestedMode: mode,
+        attemptedSources,
+        finalContextSource: 'local-fallback',
+        fallbackReason
+      }
+    }
   }
 
-  return { results: [], contextSource: 'none' }
+  return {
+    results: [],
+    contextSource: 'none',
+    trace: {
+      requestedMode: mode,
+      attemptedSources,
+      finalContextSource: 'none',
+      fallbackReason: fallbackReason === 'none' ? 'local-empty' : fallbackReason
+    }
+  }
 }

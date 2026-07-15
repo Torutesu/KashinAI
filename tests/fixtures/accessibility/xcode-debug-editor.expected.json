@@ -1,0 +1,26 @@
+{
+  "expectDiagnostics": {
+    "lowSignal": false,
+    "lowSignalReason": null,
+    "pageUrlCandidate": null
+  },
+  "rankedLineIncludes": [
+    "struct CapturePlan { let pageTitle: String? }",
+    "Type 'CurrentContext' has no member 'captureMethod'"
+  ],
+  "rankedLineExcludes": [
+    "Navigator",
+    "Search",
+    "Issues"
+  ],
+  "extractionIncludes": [
+    "func buildContext() -> CurrentContext {",
+    "throw ContextError.captureFailed",
+    "Type 'CurrentContext' has no member 'captureMethod'"
+  ],
+  "extractionExcludes": [
+    "Navigator",
+    "Search",
+    "Issues"
+  ]
+}

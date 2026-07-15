@@ -1,0 +1,18 @@
+{
+  "activeApp": "Figma",
+  "windowTitle": "Marketing Site",
+  "contextKind": "document",
+  "primaryContentSource": "accessibility-text",
+  "pageTitle": "Marketing Site",
+  "pageUrl": null,
+  "pageText": "Frame: Hero / Pricing Component: Primary CTA Button label: Start free trial Auto layout: vertical, spacing 24 Notes: pricing comparison and social proof need tighter hierarchy",
+  "pageCaptureMethod": "accessibility",
+  "accessibilityText": "Frame: Hero / Pricing Component: Primary CTA Button label: Start free trial Auto layout: vertical, spacing 24 Notes: pricing comparison and social proof need tighter hierarchy",
+  "accessibilityCaptureMethod": "ax-tree",
+  "screenshotPath": null,
+  "screenText": null,
+  "screenCaptureMethod": "none",
+  "selectedText": null,
+  "clipboardText": null,
+  "timestamp": "FIXTURE_TIMESTAMP"
+}

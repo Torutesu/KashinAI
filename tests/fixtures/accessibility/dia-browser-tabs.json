@@ -1,0 +1,34 @@
+{
+  "appName": "Dia",
+  "windowTitle": "Personal: DESIGN.md Examples for AI Agents",
+  "focusedRole": "AXWebArea",
+  "selectedText": null,
+  "valueText": null,
+  "document": null,
+  "url": "https://www.refero.design/content/design-md-examples",
+  "title": "DESIGN.md Examples for AI Agents | Refero Styles",
+  "focusChain": [
+    {
+      "role": "AXWebArea",
+      "title": "DESIGN.md Examples for AI Agents | Refero Styles",
+      "value": null,
+      "visibleText": "High-quality DESIGN.md examples for AI agents.",
+      "selectedMarkerText": null,
+      "description": null,
+      "help": null,
+      "placeholder": null,
+      "selectedText": null,
+      "document": null,
+      "url": "https://www.refero.design/content/design-md-examples",
+      "childCount": 12,
+      "attributeNames": ["AXRole", "AXTitle", "AXURL", "AXVisibleCharacterRange"]
+    }
+  ],
+  "lines": [
+    "HN Top Links - Popular Stories from Hacker News、タブ",
+    "DESIGN.md Examples for AI Agents | Refero Styles",
+    "https://www.refero.design/content/design-md-examples",
+    "High-quality DESIGN.md examples for AI agents",
+    "Slack | Internal updates、タブ"
+  ]
+}

@@ -4,16 +4,25 @@ export type CurrentContext = {
   activeApp: string | null
   windowTitle: string | null
   contextKind: 'social' | 'coding' | 'browser' | 'document' | 'general'
+  primaryContentSource: 'selected-text' | 'page-text' | 'accessibility-text' | 'screen-ocr' | 'none'
   pageTitle: string | null
   pageUrl: string | null
   pageText: string | null
-  pageCaptureMethod: 'browser-automation' | 'keyboard-copy' | 'chrome-session' | 'none'
+  pageCaptureMethod: 'browser-automation' | 'keyboard-copy' | 'chrome-session' | 'accessibility' | 'none'
   accessibilityText: string | null
   accessibilityCaptureMethod: 'ax-tree' | 'none'
   screenshotPath: string | null
   screenText: string | null
   screenCaptureMethod: 'window-ocr' | 'screen-ocr' | 'window-screenshot-only' | 'screen-screenshot-only' | 'none'
   selectedText: string | null
+  selectedTextSource:
+    | 'clipboard-selection'
+    | 'top-level-selected-text'
+    | 'top-level-selected-range-text'
+    | 'focus-chain-selected-text'
+    | 'focus-chain-selected-range-text'
+    | 'focus-chain-selected-marker-text'
+    | 'none'
   clipboardText: string | null
   timestamp: string
 }
@@ -48,6 +57,19 @@ export type ContextPack = {
 }
 
 export type ContextSource = 'gbrain-cli' | 'gbrain-http' | 'local-fallback' | 'none'
+
+export type GBrainTrace = {
+  requestedMode: GBrainMode
+  attemptedSources: Array<'gbrain-cli' | 'gbrain-http' | 'local-fallback'>
+  finalContextSource: ContextSource
+  fallbackReason:
+    | 'none'
+    | 'cli-empty'
+    | 'cli-failed'
+    | 'http-empty'
+    | 'http-failed'
+    | 'local-empty'
+}
 
 export type GenerateRequest = {
   currentContext: CurrentContext
@@ -89,16 +111,111 @@ export type ContextPushPayload = {
 export type BackendDiagnostics = {
   accessibilityGranted: boolean
   screenCaptureStatus: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'
+  accessibilityDiagnostics?: {
+    appName: string | null
+    rawAppName: string | null
+    workspaceAppName: string | null
+    topWindowOwnerName: string | null
+    windowTitle: string | null
+    rawWindowTitle: string | null
+    topWindowTitle: string | null
+    appResolutionSource: 'helper-frontmost' | 'top-window-owner' | 'workspace-app' | 'none'
+    windowTitleResolutionSource: 'window-title' | 'top-window-title' | 'snapshot-title' | 'none'
+    focusedRole: string | null
+    pageUrlCandidate: string | null
+    selectedTextPresent: boolean
+    selectedTextSource:
+      | 'top-level-selected-text'
+      | 'top-level-selected-range-text'
+      | 'focus-chain-selected-text'
+      | 'focus-chain-selected-range-text'
+      | 'focus-chain-selected-marker-text'
+      | 'none'
+    valueTextPresent: boolean
+    focusChainNodeCount: number
+    rankedLines: Array<{
+      line: string
+      score: number
+    }>
+    lowSignal: boolean
+    lowSignalReason:
+      | 'missing-snapshot'
+      | 'notification-center'
+      | 'system-shell'
+      | 'empty-ranked-lines'
+      | 'title-only'
+      | 'social-chrome-only'
+      | 'browser-chrome-only'
+      | 'weak-content'
+      | null
+  }
+  screenCaptureDecisionReason?: 'strong-accessibility-context' | 'needs-screen-signal'
+  browserCaptureSummary?: {
+    finalPageCaptureMethod: CurrentContext['pageCaptureMethod']
+    finalPrimarySource: CurrentContext['primaryContentSource']
+    path:
+      | 'accessibility-short-circuit'
+      | 'accessibility-retained'
+      | 'browser-automation'
+      | 'keyboard-copy'
+      | 'chrome-session'
+      | 'screen-ocr-fallback'
+      | 'no-page-context'
+    pageTitlePresent: boolean
+    pageUrlPresent: boolean
+    pageTextLength: number
+    accessibilityTextLength: number
+    selectedTextLength: number
+    usedBrowserAutomation: boolean
+    usedKeyboardFallback: boolean
+    usedSessionFallback: boolean
+    skippedBrowserCapture: boolean
+    lastAttemptedStep: 'browser' | 'keyboard' | 'session' | null
+    nextPlannedStep: 'none' | 'browser' | 'keyboard' | 'session'
+    stalledAtStep: 'browser' | 'keyboard' | 'session' | null
+  }
+  captureTrace?: {
+    resolvedActiveApp: string | null
+    resolvedWindowTitle: string | null
+    canSkipBrowserCapture: boolean
+    canSkipOcr: boolean
+    browser: {
+      initialNextStep: 'none' | 'browser' | 'keyboard' | 'session'
+      afterBrowserNextStep: 'none' | 'browser' | 'keyboard' | 'session'
+      afterKeyboardNextStep: 'none' | 'browser' | 'keyboard' | 'session'
+      attemptedSteps: Array<'browser' | 'keyboard' | 'session'>
+      browserCaptureMethod: CurrentContext['pageCaptureMethod'] | null
+      keyboardCaptureMethod: CurrentContext['pageCaptureMethod'] | null
+      sessionCaptureMethod: CurrentContext['pageCaptureMethod'] | null
+      finalPageCaptureMethod: CurrentContext['pageCaptureMethod']
+    }
+    screen: {
+      shouldCaptureScreen: boolean
+      reason: 'strong-accessibility-context' | 'needs-screen-signal'
+      finalScreenCaptureMethod: CurrentContext['screenCaptureMethod']
+      sourceSelection?: {
+        fallbackReason:
+          | 'matched-window'
+          | 'screen-fallback-no-window-match'
+          | 'screen-fallback-no-window-candidates'
+          | 'screen-fallback-no-viable-window-thumbnails'
+          | 'no-viable-sources'
+        preferredCaptureMode: 'desktop-source' | 'native-screen'
+      } | null
+    }
+  }
   canFuseContext: boolean
   gbrain: {
     ok: boolean
     contextSource: ContextSource
     resultCount: number
     sampleSources: string[]
+    trace?: GBrainTrace
   }
   fusionInputs: {
     hasGBrainContext: boolean
     hasPageContext: boolean
+    hasAccessibilityContext: boolean
     hasScreenContext: boolean
     hasSelectedText: boolean
     hasClipboardFallback: boolean

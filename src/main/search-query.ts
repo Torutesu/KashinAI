@@ -1,4 +1,6 @@
+import path from 'node:path'
 import type { ActionType, CurrentContext, DetectedEntities } from '../shared/types'
+import { buildLiveContextDigest } from '../shared/live-context'
 
 const STOPWORDS = new Set([
   // English
@@ -19,16 +21,81 @@ const ACTION_SEARCH_TERMS: Record<ActionType, string[]> = {
   custom: []
 }
 
+const QUERY_NOISE_RE =
+  /^(esc|tab|shift|command|cmd|option|control|ctrl|return|enter|space|delete|finder|file|edit|view|window|help|copy|paste|wifi|battery|bold|italic|schedule|later|message|new|back|forward)$/i
+const SELECTED_TEXT_NOISE_RE =
+  /^(message #[\w.-]+|message to [\w.-]+|bold|italic|underline|strikethrough|link|ordered list|bulleted list|blockquote|code block?|show formatting|formatting|composer actions|send now|schedule for later|attach|emoji|mention someone|record video clip|record audio clip|start a new conversation|type a new message|post a reply|delivery options|loop components|reply|reply all|forward|archive|trash|flag|junk|send later|mailboxes?|back|forward|reload|refresh|new tab|tab search|bookmark|bookmarks|extensions?|address bar|omnibox|profile|レビューする|元に戻す|新しいタスク|プラグイン|ピン留め|コミットまたはプッシュ)$/i
+
+function isUsefulQueryToken(token: string): boolean {
+  if (token.length <= 1) return false
+  if (STOPWORDS.has(token.toLowerCase()) || STOPWORDS.has(token)) return false
+  if (QUERY_NOISE_RE.test(token)) return false
+  if (/^\d+([.,]\d+)?%$/.test(token)) return false
+  if (/^\d{1,2}[:.]\d{2}(?:\s?[AP]M)?$/i.test(token)) return false
+  return true
+}
+
+function selectedTextForQuery(value: string | null): string | null {
+  if (!value) return null
+  const normalized = value.replace(/\s+/g, ' ').trim()
+  if (!normalized) return null
+  if (SELECTED_TEXT_NOISE_RE.test(normalized)) return null
+  return normalized
+}
+
 function tokenize(text: string): string[] {
   return text
     .split(/[\s,.。、!?！？「」『』()（）\[\]:：;；\/\\]+/u)
     .map((token) => token.trim())
-    .filter((token) => token.length > 1 && !STOPWORDS.has(token.toLowerCase()) && !STOPWORDS.has(token))
+    .filter(isUsefulQueryToken)
 }
 
 function extractQuotedPhrases(text: string): string[] {
   const matches = text.match(/["「『]([^"」』]+)["」』]/gu) ?? []
   return matches.map((m) => m.replace(/["「『」』]/gu, '').trim()).filter(Boolean)
+}
+
+function localContextHints(context: CurrentContext): string[] {
+  const hints: string[] = []
+
+  const maybePushBasename = (value: string | null) => {
+    if (!value) return
+
+    if (value.startsWith('file://')) {
+      try {
+        const basename = path.basename(new URL(value).pathname)
+        if (basename) hints.push(basename)
+      } catch {
+        // Ignore malformed file urls.
+      }
+      return
+    }
+
+    if (value.includes('/Users/') || value.startsWith('/')) {
+      const basename = path.basename(value)
+      if (basename) hints.push(basename)
+    }
+  }
+
+  maybePushBasename(context.pageUrl)
+  maybePushBasename(context.pageTitle)
+  maybePushBasename(context.windowTitle)
+  return hints
+}
+
+function bestAvailableContextText(context: CurrentContext): string {
+  const digest = buildLiveContextDigest(context, 900)
+
+  return [
+    selectedTextForQuery(context.selectedText),
+    context.pageTitle,
+    context.pageUrl,
+    ...localContextHints(context),
+    digest || null,
+    context.clipboardText
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join('\n')
 }
 
 /** Best-effort entity detection from window title + selected text. Rule-based only (no LLM
@@ -43,7 +110,7 @@ function detectEntities(context: CurrentContext, actionType: ActionType): Detect
   const customer = segments[0] || null
   const project = segments[1] || null
 
-  const text = context.selectedText ?? context.clipboardText ?? ''
+  const text = bestAvailableContextText(context)
   const topic = text.length > 0 ? text.slice(0, 60).replace(/\s+/g, ' ').trim() : null
 
   return {
@@ -69,17 +136,7 @@ export function buildSearchQuery(
   actionType: ActionType,
   userInstruction: string
 ): SearchQueryResult {
-  const primaryContext = [
-    context.selectedText,
-    context.pageTitle,
-    context.pageUrl,
-    context.pageText,
-    context.accessibilityText,
-    context.screenText
-  ]
-    .filter((value): value is string => Boolean(value))
-    .join('\n')
-  const sourceText = primaryContext || context.clipboardText || ''
+  const sourceText = bestAvailableContextText(context)
   const quoted = extractQuotedPhrases(sourceText)
   const bodyTokens = tokenize(sourceText)
   const titleTokens = tokenize(context.windowTitle ?? '')

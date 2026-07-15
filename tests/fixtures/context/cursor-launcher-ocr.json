@@ -1,0 +1,19 @@
+{
+  "activeApp": "Cursor",
+  "windowTitle": "Cursor",
+  "contextKind": "coding",
+  "primaryContentSource": "page-text",
+  "pageTitle": "Cursor",
+  "pageUrl": null,
+  "pageText": "Editor Group 1 (empty) Try a new window for running parallel agents Recent projects Free Plan Upgrade View all ( 18 Open project Clone repo Connect via SSH CRM ~/Documents internal-corporate-site ShogunAI3 ~/ShogunAI3 internal-corporate-site-staging internal-corporate-site-main Cursor logo このボタンにはウインドウを拡大する操作もあります",
+  "pageCaptureMethod": "accessibility",
+  "accessibilityText": "Editor Group 1 (empty) Try a new window for running parallel agents Recent projects Free Plan Upgrade View all ( 18 Open project Clone repo Connect via SSH CRM ~/Documents internal-corporate-site ShogunAI3 ~/ShogunAI3 internal-corporate-site-staging internal-corporate-site-main Cursor logo Cursor このボタンにはウインドウを拡大する操作もあります",
+  "accessibilityCaptureMethod": "ax-tree",
+  "screenshotPath": null,
+  "screenText": null,
+  "screenCaptureMethod": "none",
+  "selectedText": null,
+  "selectedTextSource": "none",
+  "clipboardText": null,
+  "timestamp": "FIXTURE_TIMESTAMP"
+}

@@ -1,0 +1,23 @@
+{
+  "resolvedActiveApp": "Google Chrome",
+  "resolvedWindowTitle": "Product Hunt – テクノロジー分野における最高の新製品。 - 固定済み - Google Chrome - Product (仕事)",
+  "canSkipBrowserCapture": false,
+  "canSkipOcr": true,
+  "browser": {
+    "initialNextStep": "browser",
+    "afterBrowserNextStep": "none",
+    "afterKeyboardNextStep": "none",
+    "attemptedSteps": [
+      "browser"
+    ],
+    "browserCaptureMethod": "none",
+    "keyboardCaptureMethod": null,
+    "sessionCaptureMethod": null,
+    "finalPageCaptureMethod": "accessibility"
+  },
+  "screen": {
+    "shouldCaptureScreen": false,
+    "reason": "strong-accessibility-context",
+    "finalScreenCaptureMethod": "none"
+  }
+}

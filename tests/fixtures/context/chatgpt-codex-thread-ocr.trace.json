@@ -1,0 +1,23 @@
+{
+  "resolvedActiveApp": "ChatGPT",
+  "resolvedWindowTitle": "ChatGPT",
+  "canSkipBrowserCapture": false,
+  "canSkipOcr": false,
+  "browser": {
+    "initialNextStep": "browser",
+    "afterBrowserNextStep": "none",
+    "afterKeyboardNextStep": "none",
+    "attemptedSteps": [
+      "browser"
+    ],
+    "browserCaptureMethod": "none",
+    "keyboardCaptureMethod": null,
+    "sessionCaptureMethod": null,
+    "finalPageCaptureMethod": "none"
+  },
+  "screen": {
+    "shouldCaptureScreen": true,
+    "reason": "needs-screen-signal",
+    "finalScreenCaptureMethod": "screen-ocr"
+  }
+}

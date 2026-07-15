@@ -35,6 +35,7 @@ export async function saveMarkdownMemory(params: {
 created: ${now.toISOString()}
 activeApp: ${yamlString(params.currentContext.activeApp)}
 windowTitle: ${yamlString(params.currentContext.windowTitle)}
+primaryContentSource: ${yamlString(params.currentContext.primaryContentSource)}
 pageTitle: ${yamlString(params.currentContext.pageTitle)}
 pageUrl: ${yamlString(params.currentContext.pageUrl)}
 pageCaptureMethod: ${yamlString(params.currentContext.pageCaptureMethod)}

@@ -1,0 +1,30 @@
+{
+  "userInstruction": "この文脈を確認したい",
+  "actionType": "custom",
+  "expectContext": {
+    "contextKind": "coding",
+    "primaryContentSource": "page-text"
+  },
+  "digestIncludes": [
+    "Try a new window for running parallel agents",
+    "Recent projects",
+    "Open project",
+    "Clone repo",
+    "Connect via SSH",
+    "ShogunAI3"
+  ],
+  "digestExcludes": [
+    "このボタンにはウインドウを拡大する操作もあります"
+  ],
+  "searchQueryIncludes": [
+    "Cursor",
+    "Open",
+    "project",
+    "Clone",
+    "repo",
+    "ShogunAI3"
+  ],
+  "searchQueryExcludes": [
+    "ウインドウを拡大する操作"
+  ]
+}

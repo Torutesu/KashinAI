@@ -1,0 +1,36 @@
+{
+  "userInstruction": "この文脈を確認したい",
+  "actionType": "custom",
+  "expectContext": {
+    "contextKind": "social",
+    "primaryContentSource": "screen-ocr",
+    "pageCaptureMethod": "none",
+    "screenCaptureMethod": "window-ocr",
+    "selectedTextSource": "none",
+    "selectedText": null
+  },
+  "digestIncludes": [
+    "Discord の live fallback を、その場しのぎではなく正式なregression に乗せました。（",
+    "OCR chrome を少しだけ落として、現在のtask 本文がもっと前に出るようにします。"
+  ],
+  "digestExcludes": [
+    "新しいタスク",
+    "プラグイン",
+    "ピン留め",
+    "レビューする",
+    "進行中の目標",
+    "コミットまたはプッシュ"
+  ],
+  "searchQueryIncludes": [
+    "Discord",
+    "live",
+    "fallback",
+    "regression",
+    "AX"
+  ],
+  "searchQueryExcludes": [
+    "新しいタスク",
+    "ピン留め",
+    "レビューする"
+  ]
+}

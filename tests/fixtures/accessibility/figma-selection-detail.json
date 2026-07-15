@@ -1,0 +1,40 @@
+{
+  "appName": "Figma",
+  "windowTitle": "Marketing Site",
+  "focusedRole": "AXGroup",
+  "selectedText": null,
+  "valueText": null,
+  "document": null,
+  "url": null,
+  "title": "Marketing Site",
+  "focusChain": [
+    {
+      "role": "AXGroup",
+      "title": "Selection inspector",
+      "value": null,
+      "visibleText": "Frame: Hero / Pricing\nComponent: Primary CTA\nButton label: Start free trial\nAuto layout: vertical, spacing 24\nNotes: pricing comparison and social proof need tighter hierarchy",
+      "selectedMarkerText": null,
+      "description": null,
+      "help": null,
+      "placeholder": null,
+      "selectedText": null,
+      "document": null,
+      "url": null,
+      "childCount": 5
+    }
+  ],
+  "lines": [
+    "Layers",
+    "Assets",
+    "Design",
+    "Prototype",
+    "Inspect",
+    "Frame: Hero / Pricing",
+    "Component: Primary CTA",
+    "Button label: Start free trial",
+    "Auto layout: vertical, spacing 24",
+    "Notes: pricing comparison and social proof need tighter hierarchy",
+    "Fill",
+    "Stroke"
+  ]
+}

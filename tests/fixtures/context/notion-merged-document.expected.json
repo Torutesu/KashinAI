@@ -1,0 +1,29 @@
+{
+  "userInstruction": "このページの要点を掴みたい",
+  "actionType": "summarize",
+  "linkedAccessibilityFixture": "notion-dense-page",
+  "expectContext": {
+    "contextKind": "document",
+    "primaryContentSource": "accessibility-text"
+  },
+  "digestIncludes": [
+    "Launch review summary with action items and owners.",
+    "trial-to-paid step",
+    "tighten onboarding copy"
+  ],
+  "digestExcludes": [
+    "Add comment",
+    "Favorite",
+    "Share"
+  ],
+  "searchQueryIncludes": [
+    "Q3 Launch Review",
+    "trial-to-paid step",
+    "tighten onboarding"
+  ],
+  "searchQueryExcludes": [
+    "Add comment",
+    "Favorite",
+    "Share"
+  ]
+}

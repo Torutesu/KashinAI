@@ -1,0 +1,32 @@
+{
+  "userInstruction": "この文脈を確認したい",
+  "actionType": "custom",
+  "expectContext": {
+    "contextKind": "social",
+    "primaryContentSource": "screen-ocr",
+    "pageCaptureMethod": "none",
+    "screenCaptureMethod": "window-ocr"
+  },
+  "digestIncludes": [
+    "さっき、transposeの方からdmをもらったんですけど、多分ycスタートアップスクールのサイドイベントみたいな感じでhackathonする予定なんで、",
+    "それ一回参加していいかなという感じなんです"
+  ],
+  "digestExcludes": [
+    "サーバーブースト",
+    "テキストチャンネル",
+    "Technical Founder vs. Content Creator",
+    "https://luma.com/",
+    "一般へメッセージを送信"
+  ],
+  "searchQueryIncludes": [
+    "transpose",
+    "hackathon",
+    "賞金",
+    "yc"
+  ],
+  "searchQueryExcludes": [
+    "Technical Founder vs. Content Creator",
+    "サーバーブースト",
+    "一般へメッセージを送信"
+  ]
+}

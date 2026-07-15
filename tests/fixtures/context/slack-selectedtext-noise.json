@@ -1,0 +1,19 @@
+{
+  "activeApp": "Slack",
+  "windowTitle": "mk-biz (Channel) - aisaac - Slack",
+  "contextKind": "social",
+  "primaryContentSource": "accessibility-text",
+  "pageTitle": "mk-biz (Channel) - aisaac - Slack",
+  "pageUrl": null,
+  "pageText": "比較のために12日文金はおじので行こうかなと考えています！ 画面文脈で見ると、先に営業導線の詰まりを解くのがよさそうです。",
+  "pageCaptureMethod": "accessibility",
+  "accessibilityText": "比較のために12日文金はおじので行こうかなと考えています！ 画面文脈で見ると、先に営業導線の詰まりを解くのがよさそうです。",
+  "accessibilityCaptureMethod": "ax-tree",
+  "screenshotPath": null,
+  "screenText": null,
+  "screenCaptureMethod": "none",
+  "selectedText": "Message #mk-biz",
+  "selectedTextSource": "top-level-selected-text",
+  "clipboardText": null,
+  "timestamp": "FIXTURE_TIMESTAMP"
+}

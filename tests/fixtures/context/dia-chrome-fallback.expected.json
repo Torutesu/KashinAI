@@ -1,0 +1,33 @@
+{
+  "userInstruction": "この画面の内容を把握したい",
+  "actionType": "custom",
+  "linkedAccessibilityFixture": "dia-chrome-only",
+  "expectContext": {
+    "contextKind": "browser",
+    "primaryContentSource": "screen-ocr",
+    "pageCaptureMethod": "none",
+    "screenCaptureMethod": "window-ocr"
+  },
+  "digestIncludes": [
+    "KashinAI pricing plans help teams standardize AI workflows",
+    "The enterprise plan adds SSO"
+  ],
+  "digestExcludes": [
+    "HN Top Links - Popular Stories from Hacker News",
+    "Slack | Internal updates",
+    "New tab",
+    "Back",
+    "Forward"
+  ],
+  "searchQueryIncludes": [
+    "KashinAI pricing plans",
+    "enterprise plan adds SSO"
+  ],
+  "searchQueryExcludes": [
+    "HN Top Links - Popular Stories from Hacker News",
+    "Slack | Internal updates",
+    "New tab",
+    "Back",
+    "Forward"
+  ]
+}

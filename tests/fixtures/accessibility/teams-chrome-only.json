@@ -1,0 +1,36 @@
+{
+  "appName": "Microsoft Teams",
+  "windowTitle": "Growth sync | Microsoft Teams",
+  "focusedRole": "AXGroup",
+  "selectedText": null,
+  "valueText": null,
+  "document": null,
+  "url": null,
+  "title": "Growth sync | Microsoft Teams",
+  "focusChain": [
+    {
+      "role": "AXGroup",
+      "title": "Compose area",
+      "value": null,
+      "visibleText": null,
+      "selectedMarkerText": null,
+      "description": null,
+      "help": null,
+      "placeholder": "Type a new message",
+      "selectedText": null,
+      "document": null,
+      "url": null,
+      "childCount": 6,
+      "attributeNames": ["AXChildren", "AXPlaceholderValue", "AXRole"]
+    }
+  ],
+  "lines": [
+    "Growth sync | Microsoft Teams",
+    "Chat",
+    "Start a new conversation",
+    "Type a new message",
+    "Format",
+    "Delivery options",
+    "Loop components"
+  ]
+}

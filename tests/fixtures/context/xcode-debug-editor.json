@@ -1,0 +1,18 @@
+{
+  "activeApp": "Xcode",
+  "windowTitle": "CapturePlan.swift",
+  "contextKind": "coding",
+  "primaryContentSource": "accessibility-text",
+  "pageTitle": "CapturePlan.swift",
+  "pageUrl": null,
+  "pageText": "struct CapturePlan { let pageTitle: String? } func buildContext() -> CurrentContext { throw ContextError.captureFailed } Type 'CurrentContext' has no member 'captureMethod'",
+  "pageCaptureMethod": "accessibility",
+  "accessibilityText": "struct CapturePlan { let pageTitle: String? } func buildContext() -> CurrentContext { throw ContextError.captureFailed } Type 'CurrentContext' has no member 'captureMethod'",
+  "accessibilityCaptureMethod": "ax-tree",
+  "screenshotPath": null,
+  "screenText": null,
+  "screenCaptureMethod": "none",
+  "selectedText": null,
+  "clipboardText": null,
+  "timestamp": "FIXTURE_TIMESTAMP"
+}

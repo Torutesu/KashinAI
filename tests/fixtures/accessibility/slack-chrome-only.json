@@ -1,0 +1,36 @@
+{
+  "appName": "Slack",
+  "windowTitle": "mk-biz (Channel) - aisaac - Slack",
+  "focusedRole": "AXGroup",
+  "selectedText": null,
+  "valueText": null,
+  "document": null,
+  "url": null,
+  "title": "mk-biz (Channel) - aisaac - Slack",
+  "focusChain": [
+    {
+      "role": "AXGroup",
+      "title": "Composer",
+      "value": null,
+      "visibleText": null,
+      "selectedMarkerText": null,
+      "description": null,
+      "help": null,
+      "placeholder": "Message #mk-biz",
+      "selectedText": null,
+      "document": null,
+      "url": null,
+      "childCount": 6,
+      "attributeNames": ["AXChildren", "AXPlaceholderValue", "AXRole"]
+    }
+  ],
+  "lines": [
+    "mk-biz (Channel) - aisaac - Slack",
+    "Message to mk-biz",
+    "composer",
+    "Bold",
+    "Italic",
+    "Schedule for later",
+    "Mention someone"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "appName": "Dia",
+  "windowTitle": "Personal: Open tabs",
+  "focusedRole": "AXWebArea",
+  "selectedText": null,
+  "valueText": null,
+  "document": null,
+  "url": null,
+  "title": "Personal: Open tabs",
+  "focusChain": [
+    {
+      "role": "AXWebArea",
+      "title": "Personal: Open tabs",
+      "value": null,
+      "visibleText": null,
+      "selectedMarkerText": null,
+      "description": null,
+      "help": null,
+      "placeholder": null,
+      "selectedText": null,
+      "document": null,
+      "url": null,
+      "childCount": 8,
+      "attributeNames": ["AXRole", "AXTitle"]
+    }
+  ],
+  "lines": [
+    "Personal: Open tabs",
+    "HN Top Links - Popular Stories from Hacker News、タブ",
+    "Slack | Internal updates、タブ",
+    "New tab",
+    "Back",
+    "Forward"
+  ]
+}

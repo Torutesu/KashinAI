@@ -1,0 +1,37 @@
+{
+  "appName": "Calendar",
+  "windowTitle": "KashinAI context review",
+  "focusedRole": "AXGroup",
+  "selectedText": null,
+  "valueText": null,
+  "document": null,
+  "url": null,
+  "title": "KashinAI context review",
+  "focusChain": [
+    {
+      "role": "AXGroup",
+      "title": "Event details",
+      "value": null,
+      "visibleText": "KashinAI context review\n明日 14:00 - 14:30\n参加者: toru@example.com, pm@example.com\n議題: アクセシビリティ経由で取れている文脈の精度確認\nZoom\nhttps://zoom.us/j/1234567890",
+      "selectedMarkerText": null,
+      "description": null,
+      "help": null,
+      "placeholder": null,
+      "selectedText": null,
+      "document": null,
+      "url": null,
+      "childCount": 5
+    }
+  ],
+  "lines": [
+    "Today",
+    "Inbox",
+    "Search",
+    "KashinAI context review",
+    "明日 14:00 - 14:30",
+    "参加者: toru@example.com, pm@example.com",
+    "議題: アクセシビリティ経由で取れている文脈の精度確認",
+    "Zoom",
+    "https://zoom.us/j/1234567890"
+  ]
+}

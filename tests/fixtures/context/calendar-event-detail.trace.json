@@ -1,0 +1,21 @@
+{
+  "resolvedActiveApp": "Calendar",
+  "resolvedWindowTitle": "カレンダー",
+  "canSkipBrowserCapture": true,
+  "canSkipOcr": true,
+  "browser": {
+    "initialNextStep": "none",
+    "afterBrowserNextStep": "none",
+    "afterKeyboardNextStep": "none",
+    "attemptedSteps": [],
+    "browserCaptureMethod": null,
+    "keyboardCaptureMethod": null,
+    "sessionCaptureMethod": null,
+    "finalPageCaptureMethod": "accessibility"
+  },
+  "screen": {
+    "shouldCaptureScreen": false,
+    "reason": "strong-accessibility-context",
+    "finalScreenCaptureMethod": "none"
+  }
+}

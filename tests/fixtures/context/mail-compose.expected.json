@@ -1,0 +1,25 @@
+{
+  "userInstruction": "このメールの返信方針を整理したい",
+  "actionType": "reply",
+  "expectContext": {
+    "contextKind": "social",
+    "primaryContentSource": "accessibility-text"
+  },
+  "digestIncludes": [
+    "先方には来週火曜までに初回の提案を返します。",
+    "画面文脈の精度改善を主眼に進めたいです。"
+  ],
+  "digestExcludes": [
+    "^From$",
+    "^To$",
+    "^Subject$",
+    "Send later"
+  ],
+  "searchQueryIncludes": [
+    "先方には来週火曜までに初回の提案を返します",
+    "画面文脈の精度改善"
+  ],
+  "searchQueryExcludes": [
+    "Send later"
+  ]
+}

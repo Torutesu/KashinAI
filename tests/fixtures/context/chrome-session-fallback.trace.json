@@ -1,0 +1,25 @@
+{
+  "resolvedActiveApp": "Google Chrome",
+  "resolvedWindowTitle": "Town - 固定済み - Google Chrome - dev",
+  "canSkipBrowserCapture": false,
+  "canSkipOcr": true,
+  "browser": {
+    "initialNextStep": "browser",
+    "afterBrowserNextStep": "keyboard",
+    "afterKeyboardNextStep": "session",
+    "attemptedSteps": [
+      "browser",
+      "keyboard",
+      "session"
+    ],
+    "browserCaptureMethod": "browser-automation",
+    "keyboardCaptureMethod": "none",
+    "sessionCaptureMethod": "chrome-session",
+    "finalPageCaptureMethod": "chrome-session"
+  },
+  "screen": {
+    "shouldCaptureScreen": false,
+    "reason": "strong-accessibility-context",
+    "finalScreenCaptureMethod": "none"
+  }
+}

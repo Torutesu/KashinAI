@@ -1,0 +1,36 @@
+{
+  "appName": "Xcode",
+  "windowTitle": "CapturePlan.swift",
+  "focusedRole": "AXTextArea",
+  "selectedText": null,
+  "valueText": "struct CapturePlan { let pageTitle: String? }\nfunc buildContext() -> CurrentContext {\n  throw ContextError.captureFailed\n}",
+  "document": "/Users/toru/project/KashinAI/Sources/CapturePlan.swift",
+  "url": null,
+  "title": null,
+  "focusChain": [
+    {
+      "role": "AXTextArea",
+      "title": "Editor",
+      "value": "struct CapturePlan { let pageTitle: String? }\nfunc buildContext() -> CurrentContext {\n  throw ContextError.captureFailed\n}",
+      "visibleText": "struct CapturePlan { let pageTitle: String? }\nfunc buildContext() -> CurrentContext {\n  throw ContextError.captureFailed\n}",
+      "selectedMarkerText": null,
+      "description": null,
+      "help": null,
+      "placeholder": null,
+      "selectedText": null,
+      "document": "/Users/toru/project/KashinAI/Sources/CapturePlan.swift",
+      "url": null,
+      "childCount": 3
+    }
+  ],
+  "lines": [
+    "Navigator",
+    "Search",
+    "Issues",
+    "CapturePlan.swift",
+    "struct CapturePlan { let pageTitle: String? }",
+    "func buildContext() -> CurrentContext {",
+    "throw ContextError.captureFailed",
+    "Type 'CurrentContext' has no member 'captureMethod'"
+  ]
+}

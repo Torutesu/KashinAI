@@ -1,16 +1,89 @@
 import { app, clipboard, desktopCapturer } from 'electron'
 import { execFile } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import type { CurrentContext } from '../shared/types'
+import {
+  parseAccessibilityHelperOutput,
+  resolveAccessibilityCaptureOutcome,
+  type AccessibilityDiagnostics
+} from './accessibility-context'
+import {
+  buildBrowserPageContext,
+  type CapturePlanOverrides,
+  type ScreenSourceSelection,
+  buildScreenCaptureMethod,
+  browserMetadata,
+  resolveBundledResourcePathCandidates,
+  resolveBundledResourceRuntimePath,
+  shouldReuseCompiledHelperBinary,
+  analyzeDesktopCaptureSourceSelection,
+  resolveDesktopCaptureRuntimePlan,
+  EMPTY_PAGE_CONTEXT,
+  extractSessionUrls,
+  extractTextFromHtml,
+  mergeBrowserPageContexts,
+  normalizeCopiedText,
+  normalizeBrowserPageCapture,
+  parseBrowserAutomationCapture,
+  parseChromiumTabMetadata,
+  parseLsAppInfoFrontRecord,
+  pickRecentChromiumSessionFiles,
+  resolveChromiumSessionPageContextPlan,
+  resolveBrowserPageContextResolutionPlan,
+  resolveBrowserPageContextFetchExecutionPlan,
+  resolveBrowserCaptureStepExecutionPlan,
+  advanceBrowserCaptureExecutionLoopState,
+  finalizeContextCaptureResult,
+  resolveFrontmostAppName,
+  resolveContextCapturePreparation,
+  resolveContextCaptureRuntimeState,
+  resolveChromiumBrowserPageContext,
+  resolveChromiumSessionBrowserPageContext,
+  buildChromiumTabBodyTextAppleScript,
+  buildChromiumTabMetadataAppleScript,
+  buildSafariPageCaptureAppleScript,
+  escapeAppleScriptString,
+  resolveBrowserPageCaptureRuntimeInvocation,
+  resolveBrowserCaptureRuntimeInvocation,
+  resolveBrowserCaptureLoopIteration,
+  resolveKeyboardCopyBrowserPageContext,
+  resolveInitialScreenCaptureMode,
+  resolveInitialScreenCaptureRuntimeInvocation,
+  resolveInitialScreenSourceSelection,
+  resolveCapturedScreenshotRuntime,
+  resolveScreenCaptureAttemptExecution,
+  resolveScreenContextCaptureRequest,
+  resolveScreenContextExecutionPlan,
+  finalizeScreenContext,
+  shouldAcceptPublicPageFetchResponse,
+  resolvePublicPageTextFetchExecutionPlan,
+  resolvePublicPageFetchRequest,
+} from './context-reader-utils'
 
 const execFileAsync = promisify(execFile)
 
 async function runAppleScript(script: string): Promise<string> {
-  const { stdout } = await execFileAsync('osascript', ['-e', script])
+  const { stdout } = await execFileAsync('osascript', ['-e', script], { timeout: 5000, maxBuffer: 1024 * 1024 * 2 })
   return stdout.trim()
+}
+
+async function readFrontmostAppFromLsAppInfo(): Promise<string | null> {
+  try {
+    const { stdout: asnStdout } = await execFileAsync('lsappinfo', ['front'])
+    const parsedFront = parseLsAppInfoFrontRecord(asnStdout)
+    const asn = parsedFront.asn?.replace(/:$/, '')
+    if (!asn) return parsedFront.displayName
+
+    const { stdout: infoStdout } = await execFileAsync('lsappinfo', ['info', '-only', 'name', asn])
+    const parsedInfo = parseLsAppInfoFrontRecord(infoStdout)
+    return parsedInfo.displayName || parsedFront.displayName
+  } catch {
+    return null
+  }
 }
 
 function sleep(ms: number): Promise<void> {
@@ -18,7 +91,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 function escapeForAppleScript(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+  return escapeAppleScriptString(value)
 }
 
 export type FrontmostAppInfo = {
@@ -26,87 +99,50 @@ export type FrontmostAppInfo = {
   windowTitle: string | null
 }
 
-type BrowserPageContext = {
+type AccessibilityContext = {
+  appName: string | null
+  windowTitle: string | null
+  selectedText: string | null
+  accessibilityText: string | null
+  accessibilityCaptureMethod: CurrentContext['accessibilityCaptureMethod']
   pageTitle: string | null
   pageUrl: string | null
   pageText: string | null
-  pageCaptureMethod: CurrentContext['pageCaptureMethod']
 }
 
-type ScreenContext = {
-  screenshotPath: string | null
-  screenText: string | null
-  screenCaptureMethod: CurrentContext['screenCaptureMethod']
-}
+type BrowserPageContext = Pick<CurrentContext, 'pageTitle' | 'pageUrl' | 'pageText' | 'pageCaptureMethod'>
 
-type AccessibilityContext = {
-  accessibilityText: string | null
-  accessibilityCaptureMethod: CurrentContext['accessibilityCaptureMethod']
-}
+type ScreenContext = Pick<CurrentContext, 'screenshotPath' | 'screenText' | 'screenCaptureMethod'>
 
 type ScreenshotCapture = {
   screenshotPath: string
   sourceKind: 'window' | 'screen'
+  sourceSelection?: ScreenSourceSelection | null
 }
 
-const EMPTY_PAGE_CONTEXT: BrowserPageContext = {
-  pageTitle: null,
-  pageUrl: null,
-  pageText: null,
-  pageCaptureMethod: 'none'
-}
+function resolveBundledResourcePath(devRelativePath: string, packagedFileName: string): string {
+  const candidates = resolveBundledResourcePathCandidates({
+    isPackaged: app.isPackaged,
+    cwd: process.cwd(),
+    appPath: app.getAppPath(),
+    resourcesPath: process.resourcesPath,
+    devRelativePath,
+    packagedFileName
+  })
 
-function hasSubstantialText(value: string | null, minLength = 240): boolean {
-  return Boolean(value && value.replace(/\s+/g, '').length > minLength)
-}
-
-function classifyContext(params: {
-  activeApp: string | null
-  windowTitle: string | null
-  pageTitle: string | null
-  pageUrl: string | null
-  accessibilityText: string | null
-  screenText: string | null
-}): CurrentContext['contextKind'] {
-  const haystack = [
-    params.activeApp,
-    params.windowTitle,
-    params.pageTitle,
-    params.pageUrl,
-    params.accessibilityText?.slice(0, 3000),
-    params.screenText?.slice(0, 2000)
-  ]
-    .filter(Boolean)
-    .join('\n')
-    .toLowerCase()
-
-  if (/(twitter|x\.com|tweet|post|repost|following|followers|for you|返信|リポスト|フォロー)/i.test(haystack)) {
-    return 'social'
-  }
-  if (/(visual studio code|cursor|xcode|terminal|iterm|github|pull request|typescript|javascript|python|swift|tsx|jsx|\.ts|\.tsx|\.py|\.swift|function |class |const |import )/i.test(haystack)) {
-    return 'coding'
-  }
-  if (/(google docs|notion|obsidian|markdown|document|docs\.google)/i.test(haystack)) {
-    return 'document'
-  }
-  if (params.pageUrl || browserScriptName(params.activeApp)) {
-    return 'browser'
-  }
-  return 'general'
+  return resolveBundledResourceRuntimePath({
+    candidates,
+    existingPaths: candidates.filter((candidate) => existsSync(candidate)),
+    fallbackPath: path.join(process.cwd(), devRelativePath)
+  })
 }
 
 function ocrScriptPath(): string {
-  if (process.defaultApp || process.env['ELECTRON_RENDERER_URL']) {
-    return path.join(app.getAppPath(), 'scripts/ocr.swift')
-  }
-  return path.join(process.resourcesPath, 'ocr.swift')
+  return resolveBundledResourcePath('scripts/ocr.swift', 'ocr.swift')
 }
 
 function axScriptPath(): string {
-  if (process.defaultApp || process.env['ELECTRON_RENDERER_URL']) {
-    return path.join(app.getAppPath(), 'scripts/ax-context.swift')
-  }
-  return path.join(process.resourcesPath, 'ax-context.swift')
+  return resolveBundledResourcePath('scripts/ax-context.swift', 'ax-context.swift')
 }
 
 async function compiledHelperPath(scriptPath: string, binaryName: string): Promise<string> {
@@ -116,7 +152,14 @@ async function compiledHelperPath(scriptPath: string, binaryName: string): Promi
 
   try {
     const [binaryInfo, scriptInfo] = await Promise.all([stat(binaryPath), stat(scriptPath)])
-    if (binaryInfo.mtimeMs >= scriptInfo.mtimeMs) return binaryPath
+    if (
+      shouldReuseCompiledHelperBinary({
+        binaryMtimeMs: binaryInfo.mtimeMs,
+        scriptMtimeMs: scriptInfo.mtimeMs
+      })
+    ) {
+      return binaryPath
+    }
   } catch {
     // Compile below.
   }
@@ -137,36 +180,26 @@ export function warmContextHelpers(): void {
   void Promise.allSettled([ocrHelperPath(), axHelperPath()])
 }
 
-async function captureAccessibilityContext(): Promise<AccessibilityContext> {
+async function captureAccessibilityOutcome(): Promise<{
+  extraction: AccessibilityContext
+  diagnostics: AccessibilityDiagnostics
+}> {
   try {
     const helperPath = await axHelperPath()
     const { stdout } = await execFileAsync(helperPath, [], {
       timeout: 2500,
       maxBuffer: 1024 * 1024 * 3
     })
-    const text = stdout.replace(/\s+\n/g, '\n').trim()
+    const outcome = resolveAccessibilityCaptureOutcome(parseAccessibilityHelperOutput(stdout))
     return {
-      accessibilityText: text ? text.slice(0, 12000) : null,
-      accessibilityCaptureMethod: text ? 'ax-tree' : 'none'
+      extraction: outcome.extraction,
+      diagnostics: outcome.diagnostics
     }
   } catch {
-    return { accessibilityText: null, accessibilityCaptureMethod: 'none' }
+    return resolveAccessibilityCaptureOutcome(null)
   }
 }
 
-function sourceScore(sourceName: string, frontmost: FrontmostAppInfo): number {
-  const source = sourceName.toLowerCase()
-  const title = frontmost.windowTitle?.toLowerCase() ?? ''
-  const appName = frontmost.activeApp?.toLowerCase() ?? ''
-  if (source.includes('kashinai')) return -100
-  let score = 0
-  if (title && source.includes(title.slice(0, Math.min(title.length, 60)))) score += 8
-  for (const part of title.split(/[\s\-–—|/]+/).filter((value) => value.length > 3)) {
-    if (source.includes(part)) score += 2
-  }
-  if (appName && source.includes(appName)) score += 3
-  return score
-}
 
 async function captureScreenshotPng(frontmost: FrontmostAppInfo): Promise<ScreenshotCapture | null> {
   try {
@@ -174,22 +207,53 @@ async function captureScreenshotPng(frontmost: FrontmostAppInfo): Promise<Screen
       types: ['window', 'screen'],
       thumbnailSize: { width: 1600, height: 1000 }
     })
-    const windowSources = sources.filter((source) => source.id.startsWith('window:') && !source.thumbnail.isEmpty())
-    const rankedWindow = windowSources
-      .map((source) => ({ source, score: sourceScore(source.name, frontmost) }))
-      .sort((a, b) => b.score - a.score)[0]
-    const source =
-      rankedWindow && rankedWindow.score > 0
-        ? rankedWindow.source
-        : sources.find((candidate) => candidate.id.startsWith('screen:') && !candidate.thumbnail.isEmpty())
+    const pickedSource = analyzeDesktopCaptureSourceSelection(
+      sources.map((source) => ({
+        id: source.id,
+        name: source.name,
+        hasThumbnail: !source.thumbnail.isEmpty()
+      })),
+      frontmost
+    )
+    const runtimePlan = resolveDesktopCaptureRuntimePlan(
+      pickedSource,
+      sources.filter((source) => !source.thumbnail.isEmpty()).map((source) => source.id)
+    )
+    if (runtimePlan.captureMode === 'native-screen') {
+      const nativeCapture = await captureNativeScreenScreenshot()
+      return nativeCapture
+        ? {
+            ...nativeCapture,
+            sourceSelection: runtimePlan.sourceSelection
+          }
+        : null
+    }
+    if (runtimePlan.captureMode !== 'desktop-source' || !runtimePlan.sourceId || !runtimePlan.sourceKind) return null
+    const source = sources.find((candidate) => candidate.id === runtimePlan.sourceId) ?? null
     if (!source || source.thumbnail.isEmpty()) return null
 
     const capturesDir = path.join(app.getPath('userData'), 'captures')
     await mkdir(capturesDir, { recursive: true })
-    const sourceKind = source.id.startsWith('window:') ? 'window' : 'screen'
+    const sourceKind = runtimePlan.sourceKind
     const screenshotPath = path.join(capturesDir, `latest-${sourceKind}.png`)
     await writeFile(screenshotPath, source.thumbnail.toPNG())
-    return { screenshotPath, sourceKind }
+    return {
+      screenshotPath,
+      sourceKind,
+      sourceSelection: runtimePlan.sourceSelection
+    }
+  } catch {
+    return captureNativeScreenScreenshot()
+  }
+}
+
+async function captureNativeScreenScreenshot(): Promise<ScreenshotCapture | null> {
+  try {
+    const capturesDir = path.join(app.getPath('userData'), 'captures')
+    await mkdir(capturesDir, { recursive: true })
+    const screenshotPath = path.join(capturesDir, 'latest-native-screen.png')
+    await execFileAsync('screencapture', ['-x', screenshotPath], { timeout: 8000 })
+    return { screenshotPath, sourceKind: 'screen', sourceSelection: null }
   } catch {
     return null
   }
@@ -209,18 +273,82 @@ async function recognizeScreenshotText(screenshotPath: string): Promise<string |
   }
 }
 
-async function captureScreenContext(frontmost: FrontmostAppInfo, options: { skipOcr: boolean }): Promise<ScreenContext> {
-  const screenshot = await captureScreenshotPng(frontmost)
+async function captureScreenContext(
+  frontmost: FrontmostAppInfo,
+  options: { skipOcr: boolean; suppressScreenOcr?: boolean; forceNativeScreenCapture?: boolean }
+): Promise<{
+  screenContext: ScreenContext
+  sourceSelection: ScreenSourceSelection | null
+}> {
+  const initialCaptureInvocation = resolveInitialScreenCaptureRuntimeInvocation({
+    overrides: { forceNativeScreenCapture: options.forceNativeScreenCapture }
+  })
+  const initialCaptureMode = initialCaptureInvocation.mode
+  let sourceSelection = resolveInitialScreenSourceSelection({ initialCaptureMode })
+  let screenshot =
+    initialCaptureInvocation.mode === 'native-screen'
+      ? await captureNativeScreenScreenshot()
+      : await captureScreenshotPng(frontmost)
+  const initialRuntime = resolveCapturedScreenshotRuntime({
+    skipOcr: options.skipOcr,
+    suppressScreenOcr: options.suppressScreenOcr,
+    currentSelection: sourceSelection,
+    screenshot
+  })
+  sourceSelection = initialRuntime.sourceSelection
   if (!screenshot) {
-    return { screenshotPath: null, screenText: null, screenCaptureMethod: 'none' }
+    return {
+      screenContext: finalizeScreenContext(initialRuntime.runtimeState),
+      sourceSelection
+    }
   }
 
-  const screenText = options.skipOcr ? null : await recognizeScreenshotText(screenshot.screenshotPath)
-  const prefix = screenshot.sourceKind === 'window' ? 'window' : 'screen'
+  const initialScreenText =
+    initialRuntime.ocrInvocation.kind === 'recognize-screenshot-text'
+      ? await recognizeScreenshotText(initialRuntime.ocrInvocation.screenshotPath)
+      : null
+  let attemptExecution = resolveScreenCaptureAttemptExecution({
+    skipOcr: options.skipOcr,
+    suppressScreenOcr: options.suppressScreenOcr,
+    currentSelection: sourceSelection,
+    screenshot,
+    screenText: initialScreenText
+  })
+  sourceSelection = attemptExecution.sourceSelection
+  let runtimeState = attemptExecution.runtimeState
+
+  if (runtimeState.retryPlan?.shouldRetryWithNativeFallback) {
+    const nativeFallback = await captureNativeScreenScreenshot()
+    if (nativeFallback) {
+      screenshot = nativeFallback
+      const retryRuntime = resolveCapturedScreenshotRuntime({
+        skipOcr: options.skipOcr,
+        suppressScreenOcr: options.suppressScreenOcr,
+        currentSelection: sourceSelection,
+        screenshot,
+        usedNativeRetryFallback: true
+      })
+      sourceSelection = retryRuntime.sourceSelection
+      const retryScreenText =
+        retryRuntime.ocrInvocation.kind === 'recognize-screenshot-text'
+          ? await recognizeScreenshotText(retryRuntime.ocrInvocation.screenshotPath)
+          : null
+      attemptExecution = resolveScreenCaptureAttemptExecution({
+        skipOcr: options.skipOcr,
+        suppressScreenOcr: options.suppressScreenOcr,
+        currentSelection: sourceSelection,
+        screenshot,
+        usedNativeRetryFallback: true,
+        screenText: retryScreenText
+      })
+      sourceSelection = attemptExecution.sourceSelection
+      runtimeState = attemptExecution.runtimeState
+    }
+  }
+
   return {
-    screenshotPath: screenshot.screenshotPath,
-    screenText,
-    screenCaptureMethod: screenText ? `${prefix}-ocr` : `${prefix}-screenshot-only`
+    screenContext: finalizeScreenContext(runtimeState),
+    sourceSelection
   }
 }
 
@@ -232,17 +360,23 @@ async function captureScreenContext(frontmost: FrontmostAppInfo, options: { skip
  * capturing the app name.
  */
 export async function getFrontmostAppInfo(): Promise<FrontmostAppInfo> {
-  let activeApp: string | null = null
+  let systemEventsApp: string | null = null
   let windowTitle: string | null = null
 
   try {
     const name = await runAppleScript(
       'tell application "System Events" to get name of first process whose frontmost is true'
     )
-    activeApp = name || null
+    systemEventsApp = name || null
   } catch {
-    activeApp = null
+    systemEventsApp = null
   }
+
+  const lsappinfoApp = await readFrontmostAppFromLsAppInfo()
+  const resolvedFrontmost = resolveFrontmostAppName({
+    systemEventsAppName: systemEventsApp,
+    lsappinfoAppName: lsappinfoApp
+  })
 
   try {
     const title = await runAppleScript(
@@ -253,7 +387,7 @@ export async function getFrontmostAppInfo(): Promise<FrontmostAppInfo> {
     windowTitle = null
   }
 
-  return { activeApp, windowTitle }
+  return { activeApp: resolvedFrontmost.activeApp, windowTitle }
 }
 
 /**
@@ -276,7 +410,7 @@ async function captureSelectionViaClipboard(originalClipboard: string): Promise<
   const selected = clipboard.readText()
   clipboard.writeText(originalClipboard)
 
-  return selected && selected.trim().length > 0 ? selected : null
+  return normalizeCopiedText(selected)
 }
 
 async function copyWithShortcut(key: string, delayMs = 150): Promise<string> {
@@ -286,95 +420,67 @@ async function copyWithShortcut(key: string, delayMs = 150): Promise<string> {
   return clipboard.readText()
 }
 
-function browserScriptName(activeApp: string | null): string | null {
-  if (!activeApp) return null
-  const normalized = activeApp.toLowerCase()
-  if (normalized.includes('chrome')) return activeApp
-  if (normalized.includes('arc')) return activeApp
-  if (normalized.includes('brave')) return activeApp
-  if (normalized.includes('edge')) return activeApp
-  if (normalized.includes('safari')) return activeApp
-  return null
-}
-
-function cleanSessionUrl(raw: string): string | null {
-  try {
-    const withoutNulls = raw.replace(/\u0000/g, '').replace(/[)\]}>,.;:'"(`]+$/g, '')
-    const parsed = new URL(withoutNulls)
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
-    if (parsed.hostname === 'contacts.google.com') return null
-    return parsed.toString()
-  } catch {
-    return null
-  }
-}
-
-async function findLatestChromeSessionFiles(): Promise<string[]> {
-  const chromeRoot = path.join(os.homedir(), 'Library/Application Support/Google/Chrome')
-  let profiles: string[]
-  try {
-    profiles = await readdir(chromeRoot)
-  } catch {
-    return []
-  }
-
+async function findLatestChromiumSessionFiles(sessionRoots: string[]): Promise<string[]> {
   const files: { filePath: string; mtimeMs: number }[] = []
-  for (const profile of profiles) {
-    const sessionsDir = path.join(chromeRoot, profile, 'Sessions')
-    let entries: string[]
+  for (const root of sessionRoots) {
+    let profiles: string[]
     try {
-      entries = await readdir(sessionsDir)
+      profiles = await readdir(root)
     } catch {
       continue
     }
 
-    for (const entry of entries) {
-      if (!entry.startsWith('Session_') && !entry.startsWith('Tabs_')) continue
-      const filePath = path.join(sessionsDir, entry)
+    for (const profile of profiles) {
+      const sessionsDir = path.join(root, profile, 'Sessions')
+      let entries: string[]
       try {
-        const info = await stat(filePath)
-        files.push({ filePath, mtimeMs: info.mtimeMs })
+        entries = await readdir(sessionsDir)
       } catch {
-        // Ignore unreadable session files.
+        continue
+      }
+
+      for (const entry of entries) {
+        const filePath = path.join(sessionsDir, entry)
+        try {
+          const info = await stat(filePath)
+          files.push({ filePath, mtimeMs: info.mtimeMs })
+        } catch {
+          // Ignore unreadable session files.
+        }
       }
     }
   }
 
-  return files.sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, 6).map((file) => file.filePath)
+  return pickRecentChromiumSessionFiles(files)
 }
 
 async function fetchPublicPageText(url: string): Promise<string | null> {
-  let parsed: URL
-  try {
-    parsed = new URL(url)
-  } catch {
-    return null
-  }
-
-  const privateHosts = ['mail.google.com', 'docs.google.com', 'drive.google.com', 'calendar.google.com']
-  if (privateHosts.some((host) => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`))) {
+  const executionPlan = resolvePublicPageTextFetchExecutionPlan(resolvePublicPageFetchRequest(url))
+  if (!executionPlan.shouldFetch || !executionPlan.url) {
     return null
   }
 
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(3000) })
+    const response = await fetch(executionPlan.url, { signal: AbortSignal.timeout(3000) })
     const contentType = response.headers.get('content-type') ?? ''
-    if (!response.ok || !contentType.includes('text/html')) return null
+    if (
+      !shouldAcceptPublicPageFetchResponse({
+        ok: response.ok,
+        contentType
+      })
+    ) {
+      return null
+    }
     const html = await response.text()
-    return html
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 12000) || null
+    return extractTextFromHtml(html)
   } catch {
     return null
   }
 }
 
-async function captureChromePageViaSession(frontmost: FrontmostAppInfo): Promise<BrowserPageContext> {
-  const sessionFiles = await findLatestChromeSessionFiles()
+async function captureChromiumPageViaSession(frontmost: FrontmostAppInfo): Promise<BrowserPageContext> {
+  const metadata = browserMetadata(frontmost.activeApp)
+  const sessionFiles = await findLatestChromiumSessionFiles(metadata?.sessionRoots ?? [])
   const urls: string[] = []
 
   for (const filePath of sessionFiles) {
@@ -391,66 +497,71 @@ async function captureChromePageViaSession(frontmost: FrontmostAppInfo): Promise
       }
     }
 
-    const matches = raw.match(/https?:\/\/[^\s"'<>\\\u0000]+/g) ?? []
-    for (const match of matches) {
-      const url = cleanSessionUrl(match)
-      if (url) urls.push(url)
-    }
+    urls.push(...extractSessionUrls(raw))
   }
 
-  const pageUrl = [...urls].reverse().find(Boolean) ?? null
-  return {
-    pageTitle: frontmost.windowTitle,
-    pageUrl,
-    pageText: pageUrl ? await fetchPublicPageText(pageUrl) : null,
-    pageCaptureMethod: pageUrl ? 'chrome-session' : 'none'
-  }
+  const sessionPlan = resolveChromiumSessionPageContextPlan({ urls, frontmost })
+  const fetchPlan = resolveBrowserPageContextFetchExecutionPlan({
+    capture: {
+      pageTitle: sessionPlan.pageTitle,
+      pageUrl: sessionPlan.pageUrl,
+      pageText: null
+    },
+    pageCaptureMethod: 'chrome-session'
+  })
+  const fetchedPageText =
+    fetchPlan.fetchRequest.shouldFetch && fetchPlan.fetchRequest.url
+      ? await fetchPublicPageText(fetchPlan.fetchRequest.url)
+      : null
+
+  return resolveChromiumSessionBrowserPageContext({
+    pageTitle: fetchPlan.normalizedCapture.pageTitle,
+    pageUrl: fetchPlan.normalizedCapture.pageUrl,
+    fetchedPageText
+  })
+}
+
+async function captureChromiumTabMetadata(appName: string): Promise<Pick<BrowserPageContext, 'pageTitle' | 'pageUrl'>> {
+  const raw = await runAppleScript(buildChromiumTabMetadataAppleScript(appName))
+  return parseChromiumTabMetadata(raw)
+}
+
+async function captureChromiumTabBodyText(appName: string): Promise<string | null> {
+  const raw = await runAppleScript(buildChromiumTabBodyTextAppleScript(appName))
+  return normalizeCopiedText(raw)
 }
 
 async function captureChromiumPage(appName: string): Promise<BrowserPageContext> {
-  const escapedApp = escapeForAppleScript(appName)
-  const script = `
-tell application "${escapedApp}"
-  if not (exists front window) then return ""
-  set tabTitle to get title of active tab of front window
-  set tabUrl to get URL of active tab of front window
-  set tabText to ""
-  try
-    set tabText to execute active tab of front window javascript "document.body ? document.body.innerText.slice(0, 12000) : ''"
-  end try
-  return tabTitle & linefeed & tabUrl & linefeed & tabText
-end tell`
-  const raw = await runAppleScript(script)
-  const [pageTitle, pageUrl, ...textLines] = raw.split('\n')
-  return {
-    pageTitle: pageTitle || null,
-    pageUrl: pageUrl || null,
-    pageText: textLines.join('\n').trim() || null,
-    pageCaptureMethod: pageUrl || textLines.length > 0 ? 'browser-automation' : 'none'
-  }
+  const [metadata, pageText] = await Promise.all([
+    captureChromiumTabMetadata(appName),
+    captureChromiumTabBodyText(appName)
+  ])
+  const fetchPlan = resolveBrowserPageContextFetchExecutionPlan({
+    capture: {
+      pageTitle: metadata.pageTitle,
+      pageUrl: metadata.pageUrl,
+      pageText
+    },
+    pageCaptureMethod: 'browser-automation'
+  })
+  const fetchedPageText =
+    fetchPlan.fetchRequest.shouldFetch && fetchPlan.fetchRequest.url
+      ? await fetchPublicPageText(fetchPlan.fetchRequest.url)
+      : null
+
+  return resolveChromiumBrowserPageContext({
+    metadata: {
+      pageTitle: fetchPlan.normalizedCapture.pageTitle,
+      pageUrl: fetchPlan.normalizedCapture.pageUrl
+    },
+    bodyText: fetchPlan.normalizedCapture.pageText,
+    fetchedPageText
+  })
 }
 
 async function captureSafariPage(appName: string): Promise<BrowserPageContext> {
-  const escapedApp = escapeForAppleScript(appName)
-  const script = `
-tell application "${escapedApp}"
-  if not (exists front document) then return ""
-  set tabTitle to name of front document
-  set tabUrl to URL of front document
-  set tabText to ""
-  try
-    set tabText to do JavaScript "document.body ? document.body.innerText.slice(0, 12000) : ''" in front document
-  end try
-  return tabTitle & linefeed & tabUrl & linefeed & tabText
-end tell`
-  const raw = await runAppleScript(script)
-  const [pageTitle, pageUrl, ...textLines] = raw.split('\n')
-  return {
-    pageTitle: pageTitle || null,
-    pageUrl: pageUrl || null,
-    pageText: textLines.join('\n').trim() || null,
-    pageCaptureMethod: pageUrl || textLines.length > 0 ? 'browser-automation' : 'none'
-  }
+  const raw = await runAppleScript(buildSafariPageCaptureAppleScript(appName))
+  return buildBrowserPageContext(parseBrowserAutomationCapture(raw), 'browser-automation')
 }
 
 async function captureBrowserPageViaKeyboard(frontmost: FrontmostAppInfo, originalClipboard: string): Promise<BrowserPageContext> {
@@ -460,13 +571,13 @@ async function captureBrowserPageViaKeyboard(frontmost: FrontmostAppInfo, origin
   try {
     await runAppleScript('tell application "System Events" to keystroke "l" using command down')
     await sleep(80)
-    pageUrl = (await copyWithShortcut('c')).trim() || null
+    pageUrl = normalizeCopiedText(await copyWithShortcut('c'))
 
     await runAppleScript('tell application "System Events" to key code 53')
     await sleep(80)
     await runAppleScript('tell application "System Events" to keystroke "a" using command down')
     await sleep(80)
-    pageText = (await copyWithShortcut('c', 250)).trim().slice(0, 12000) || null
+    pageText = normalizeCopiedText(await copyWithShortcut('c', 250))
   } catch {
     pageUrl = null
     pageText = null
@@ -474,98 +585,155 @@ async function captureBrowserPageViaKeyboard(frontmost: FrontmostAppInfo, origin
     clipboard.writeText(originalClipboard)
   }
 
-  return {
+  const normalizedCapture = normalizeBrowserPageCapture({
     pageTitle: frontmost.windowTitle,
     pageUrl,
-    pageText,
-    pageCaptureMethod: pageUrl || pageText ? 'keyboard-copy' : 'none'
-  }
+    pageText
+  })
+  const fetchPlan = resolveBrowserPageContextFetchExecutionPlan({
+    capture: normalizedCapture,
+    pageCaptureMethod: 'keyboard-copy'
+  })
+  const fetchedPageText =
+    fetchPlan.fetchRequest.shouldFetch && fetchPlan.fetchRequest.url
+      ? await fetchPublicPageText(fetchPlan.fetchRequest.url)
+      : null
+
+  return resolveKeyboardCopyBrowserPageContext({
+    ...fetchPlan.normalizedCapture,
+    fetchedPageText
+  })
 }
 
 async function captureBrowserPageContext(activeApp: string | null): Promise<BrowserPageContext> {
-  const appName = browserScriptName(activeApp)
-  if (!appName) return { pageTitle: null, pageUrl: null, pageText: null, pageCaptureMethod: 'none' }
+  const invocation = resolveBrowserPageCaptureRuntimeInvocation(activeApp)
 
   try {
-    if (appName.toLowerCase().includes('safari')) return await captureSafariPage(appName)
-    return await captureChromiumPage(appName)
+    if (invocation.kind === 'capture-safari-page') return await captureSafariPage(invocation.scriptName)
+    if (invocation.kind === 'capture-chromium-page') return await captureChromiumPage(invocation.scriptName)
+    return EMPTY_PAGE_CONTEXT
   } catch {
-    return { pageTitle: null, pageUrl: null, pageText: null, pageCaptureMethod: 'none' }
+    return EMPTY_PAGE_CONTEXT
   }
+}
+
+async function executeBrowserCaptureStep(
+  executionPlan: ReturnType<typeof resolveBrowserCaptureStepExecutionPlan>,
+  originalClipboard: string
+): Promise<BrowserPageContext | null> {
+  const invocation = resolveBrowserCaptureRuntimeInvocation(executionPlan)
+
+  if (invocation.kind === 'capture-browser-page-context') {
+    return captureBrowserPageContext(invocation.activeApp)
+  }
+
+  if (invocation.kind === 'capture-browser-page-via-keyboard') {
+    return captureBrowserPageViaKeyboard(invocation.frontmost, originalClipboard)
+  }
+
+  return captureChromiumPageViaSession(invocation.frontmost)
 }
 
 /**
  * Captures the full current context: selected text (via simulated copy), clipboard fallback,
  * and the already-resolved frontmost app info. Must run before the assistant window is shown.
  */
-export async function captureCurrentContext(frontmost: FrontmostAppInfo): Promise<CurrentContext> {
+export async function captureCurrentContextDetailed(
+  frontmost: FrontmostAppInfo,
+  overrides: CapturePlanOverrides = {}
+): Promise<{
+  context: CurrentContext
+  captureTrace: NonNullable<import('../shared/types').BackendDiagnostics['captureTrace']>
+  accessibilityDiagnostics: AccessibilityDiagnostics
+}> {
   const originalClipboard = clipboard.readText()
-  const selectedText = await captureSelectionViaClipboard(originalClipboard)
-  const accessibilityContext = await captureAccessibilityContext()
-  const preliminaryKind = classifyContext({
-    activeApp: frontmost.activeApp,
-    windowTitle: frontmost.windowTitle,
-    pageTitle: null,
-    pageUrl: null,
-    accessibilityText: [selectedText, accessibilityContext.accessibilityText].filter(Boolean).join('\n') || null,
-    screenText: null
+  const accessibilityOutcome = await captureAccessibilityOutcome()
+  const accessibilityContext = accessibilityOutcome.extraction
+  const capturePreparation = resolveContextCapturePreparation({
+    frontmost,
+    accessibilityContext,
+    accessibilityDiagnostics: accessibilityOutcome.diagnostics,
+    clipboardSelectedText: null
   })
-  const canSkipBrowserCapture =
-    (preliminaryKind === 'social' || preliminaryKind === 'coding') &&
-    hasSubstantialText([selectedText, accessibilityContext.accessibilityText].filter(Boolean).join('\n') || null, 120)
+  const clipboardSelectedText = capturePreparation.shouldAttemptClipboardSelection
+    ? await captureSelectionViaClipboard(originalClipboard)
+    : null
+  const {
+    resolvedActiveApp,
+    resolvedWindowTitle,
+    selectedText,
+    selectedTextSource,
+    canSkipBrowserCapture,
+    canSkipOcr,
+    initialPageContext,
+    screenCapturePlan,
+    browserLoopState: initialBrowserLoopState
+  } = resolveContextCaptureRuntimeState({
+    capturePlanInput: capturePreparation.capturePlanInput,
+    clipboardSelectedText,
+    overrides
+  })
 
-  let pageContext = EMPTY_PAGE_CONTEXT
-  if (!canSkipBrowserCapture) {
-    pageContext = await captureBrowserPageContext(frontmost.activeApp)
-    if (browserScriptName(frontmost.activeApp) && !pageContext.pageText) {
-      const keyboardContext = await captureBrowserPageViaKeyboard(frontmost, originalClipboard)
-      pageContext = {
-        pageTitle: pageContext.pageTitle || keyboardContext.pageTitle,
-        pageUrl: pageContext.pageUrl || keyboardContext.pageUrl,
-        pageText: pageContext.pageText || keyboardContext.pageText,
-        pageCaptureMethod:
-          pageContext.pageText || !keyboardContext.pageText ? pageContext.pageCaptureMethod : keyboardContext.pageCaptureMethod
+  let pageContext: BrowserPageContext = initialPageContext
+  let browserLoopState = initialBrowserLoopState
+
+  while (true) {
+    const iteration = resolveBrowserCaptureLoopIteration(browserLoopState)
+    if (!iteration.hasRequest) break
+
+    const stepContext = await executeBrowserCaptureStep(iteration.executionPlan, originalClipboard)
+
+    browserLoopState = advanceBrowserCaptureExecutionLoopState({
+      activeApp: resolvedActiveApp,
+      resolvedWindowTitle,
+      canSkipBrowserCapture,
+      pageContext,
+      browserContext: browserLoopState.browserContext,
+      keyboardContext: browserLoopState.keyboardContext,
+      sessionContext: browserLoopState.sessionContext,
+      overrides,
+      stepResult: {
+        step: iteration.request.step,
+        context: stepContext
       }
-    }
-    if (
-      (!frontmost.activeApp || frontmost.activeApp.toLowerCase().includes('chrome')) &&
-      !pageContext.pageText
-    ) {
-      const sessionContext = await captureChromePageViaSession(frontmost)
-      pageContext = {
-        pageTitle: pageContext.pageTitle || sessionContext.pageTitle,
-        pageUrl: pageContext.pageUrl || sessionContext.pageUrl,
-        pageText: pageContext.pageText || sessionContext.pageText,
-        pageCaptureMethod:
-          pageContext.pageText || !sessionContext.pageText ? pageContext.pageCaptureMethod : sessionContext.pageCaptureMethod
-      }
-    }
+    })
   }
-  const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)
-  const screenContext = await captureScreenContext(frontmost, { skipOcr: canSkipOcr })
+  const finalPageContext = browserLoopState.execution.plan.final.finalPageContext
+  const screenCaptureRequest = resolveScreenContextCaptureRequest({
+    accessibilityText: accessibilityContext.accessibilityText,
+    accessibilityDiagnostics: accessibilityOutcome.diagnostics,
+    pageContext: finalPageContext,
+    canSkipOcr,
+    overrides
+  })
+  const screenCaptureExecution = resolveScreenContextExecutionPlan(screenCaptureRequest)
+  const screenCaptureResult =
+    screenCaptureExecution.shouldCapture && screenCaptureExecution.options
+      ? await captureScreenContext(frontmost, screenCaptureExecution.options)
+      : screenCaptureExecution.skippedResult
+  const result = finalizeContextCaptureResult({
+    resolvedActiveApp,
+    resolvedWindowTitle,
+    selectedText,
+    selectedTextSource,
+    accessibilityContext,
+    accessibilityDiagnostics: accessibilityOutcome.diagnostics,
+    screenContext: screenCaptureResult.screenContext,
+    browserExecutionPlan: browserLoopState.execution.plan.final,
+    canSkipBrowserCapture,
+    canSkipOcr,
+    screenCapturePlan: screenCaptureRequest.plan,
+    screenSourceSelection: screenCaptureResult.sourceSelection,
+    timestamp: new Date().toISOString()
+  })
 
   return {
-    activeApp: frontmost.activeApp,
-    windowTitle: frontmost.windowTitle,
-    contextKind: classifyContext({
-      activeApp: frontmost.activeApp,
-      windowTitle: frontmost.windowTitle,
-      pageTitle: pageContext.pageTitle,
-      pageUrl: pageContext.pageUrl,
-      accessibilityText: accessibilityContext.accessibilityText,
-      screenText: screenContext.screenText
-    }),
-    pageTitle: pageContext.pageTitle,
-    pageUrl: pageContext.pageUrl,
-    pageText: pageContext.pageText,
-    pageCaptureMethod: pageContext.pageCaptureMethod,
-    accessibilityText: accessibilityContext.accessibilityText,
-    accessibilityCaptureMethod: accessibilityContext.accessibilityCaptureMethod,
-    screenshotPath: screenContext.screenshotPath,
-    screenText: screenContext.screenText,
-    screenCaptureMethod: screenContext.screenCaptureMethod,
-    selectedText,
-    clipboardText: originalClipboard || null,
-    timestamp: new Date().toISOString()
+    ...result,
+    accessibilityDiagnostics: accessibilityOutcome.diagnostics
   }
+}
+
+export async function captureCurrentContext(frontmost: FrontmostAppInfo): Promise<CurrentContext> {
+  const result = await captureCurrentContextDetailed(frontmost)
+  return result.context
 }

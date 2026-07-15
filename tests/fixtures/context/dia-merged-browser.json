@@ -1,0 +1,18 @@
+{
+  "activeApp": "Dia",
+  "windowTitle": "Personal: DESIGN.md Examples for AI Agents",
+  "contextKind": "browser",
+  "primaryContentSource": "page-text",
+  "pageTitle": "DESIGN.md Examples for AI Agents | Refero Styles",
+  "pageUrl": "https://www.refero.design/content/design-md-examples",
+  "pageText": "DESIGN.md Examples for AI Agents | Refero Styles\nHigh-quality DESIGN.md examples for AI agents.\nPatterns for instruction design, context windows, and evaluation prompts.",
+  "pageCaptureMethod": "accessibility",
+  "accessibilityText": "DESIGN.md Examples for AI Agents | Refero Styles\nHigh-quality DESIGN.md examples for AI agents.\nPatterns for instruction design, context windows, and evaluation prompts.",
+  "accessibilityCaptureMethod": "ax-tree",
+  "screenshotPath": null,
+  "screenText": null,
+  "screenCaptureMethod": "none",
+  "selectedText": null,
+  "clipboardText": null,
+  "timestamp": "FIXTURE_TIMESTAMP"
+}

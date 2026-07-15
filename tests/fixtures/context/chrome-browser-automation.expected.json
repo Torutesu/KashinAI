@@ -1,0 +1,19 @@
+{
+  "userInstruction": "このページを要約して",
+  "actionType": "summarize",
+  "expectContext": {
+    "contextKind": "document",
+    "primaryContentSource": "page-text",
+    "pageCaptureMethod": "browser-automation",
+    "screenCaptureMethod": "none",
+    "selectedTextSource": "none",
+    "selectedText": null
+  },
+  "digestIncludes": [
+    "Town",
+    "https://www.town.com/"
+  ],
+  "digestExcludes": [],
+  "searchQueryIncludes": [],
+  "searchQueryExcludes": []
+}

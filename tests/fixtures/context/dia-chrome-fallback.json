@@ -1,0 +1,18 @@
+{
+  "activeApp": "Dia",
+  "windowTitle": "Personal: Open tabs",
+  "contextKind": "browser",
+  "primaryContentSource": "screen-ocr",
+  "pageTitle": null,
+  "pageUrl": null,
+  "pageText": null,
+  "pageCaptureMethod": "none",
+  "accessibilityText": null,
+  "accessibilityCaptureMethod": "none",
+  "screenshotPath": null,
+  "screenText": "HN Top Links - Popular Stories from Hacker News\nSlack | Internal updates\nKashinAI pricing plans help teams standardize AI workflows across sales and support.\nThe enterprise plan adds SSO, audit logs, and managed memory controls.\nNew tab\nBack\nForward",
+  "screenCaptureMethod": "window-ocr",
+  "selectedText": null,
+  "clipboardText": null,
+  "timestamp": "FIXTURE_TIMESTAMP"
+}

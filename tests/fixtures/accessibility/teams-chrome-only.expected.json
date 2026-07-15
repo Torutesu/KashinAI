@@ -1,0 +1,18 @@
+{
+  "expectDiagnostics": {
+    "lowSignal": true,
+    "lowSignalReason": "social-chrome-only",
+    "pageUrlCandidate": null
+  },
+  "rankedLineIncludes": [
+    "Growth sync | Microsoft Teams",
+    "Type a new message"
+  ],
+  "rankedLineExcludes": [],
+  "extractionIncludes": [],
+  "extractionExcludes": [
+    "Type a new message",
+    "Delivery options",
+    "Loop components"
+  ]
+}

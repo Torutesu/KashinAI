@@ -1,0 +1,26 @@
+{
+  "userInstruction": "このローカル資料の要点を整理したい",
+  "actionType": "summarize",
+  "expectContext": {
+    "contextKind": "document",
+    "primaryContentSource": "page-text",
+    "pageCaptureMethod": "accessibility",
+    "screenCaptureMethod": "none"
+  },
+  "digestIncludes": [
+    "LaunchPlan.html",
+    "Next customer sync agenda",
+    "Pricing risks and open questions"
+  ],
+  "digestExcludes": [
+    "file:///Users/toru/Documents/LaunchPlan.html",
+    "/Users/toru/Documents/LaunchPlan.html"
+  ],
+  "searchQueryIncludes": [
+    "LaunchPlan.html",
+    "Pricing risks open questions"
+  ],
+  "searchQueryExcludes": [
+    "file:///Users/toru/Documents/LaunchPlan.html file:///Users/toru/Documents/LaunchPlan.html"
+  ]
+}

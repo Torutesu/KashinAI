@@ -1,0 +1,37 @@
+{
+  "appName": "Notion",
+  "windowTitle": "Q3 Launch Review",
+  "focusedRole": "AXWebArea",
+  "selectedText": null,
+  "valueText": null,
+  "document": null,
+  "url": null,
+  "title": "Q3 Launch Review",
+  "focusChain": [
+    {
+      "role": "AXTextArea",
+      "title": "Editor",
+      "value": null,
+      "visibleText": "Launch review summary with action items and owners.\nAcquisition is ahead of plan, but activation is lagging in the trial-to-paid step.",
+      "selectedMarkerText": null,
+      "description": null,
+      "help": null,
+      "placeholder": null,
+      "selectedText": null,
+      "document": null,
+      "url": null,
+      "childCount": 2
+    }
+  ],
+  "lines": [
+    "Share",
+    "Updates",
+    "Favorite",
+    "Q3 Launch Review",
+    "Launch review summary with action items and owners.",
+    "Acquisition is ahead of plan, but activation is lagging in the trial-to-paid step.",
+    "Next steps: tighten onboarding copy, reduce setup friction, and review CRM handoff.",
+    "Last edited 2 minutes ago",
+    "Add comment"
+  ]
+}

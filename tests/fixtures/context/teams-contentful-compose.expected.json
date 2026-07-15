@@ -1,0 +1,28 @@
+{
+  "userInstruction": "何の話か掴みたい",
+  "actionType": "custom",
+  "expectContext": {
+    "contextKind": "social",
+    "primaryContentSource": "accessibility-text"
+  },
+  "digestIncludes": [
+    "文脈取得精度を上げる方針",
+    "比較材料はそのあとにまとめれば十分"
+  ],
+  "digestExcludes": [
+    "Type a new message",
+    "Delivery options",
+    "Loop components",
+    "Start a new conversation"
+  ],
+  "searchQueryIncludes": [
+    "文脈取得精度",
+    "比較材料"
+  ],
+  "searchQueryExcludes": [
+    "Type a new message",
+    "Delivery options",
+    "Loop components",
+    "Start a new conversation"
+  ]
+}

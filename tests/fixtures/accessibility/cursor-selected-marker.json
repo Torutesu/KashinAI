@@ -1,0 +1,33 @@
+{
+  "appName": "Cursor",
+  "windowTitle": "context-reader.ts",
+  "focusedRole": "AXTextArea",
+  "selectedText": null,
+  "valueText": null,
+  "document": "/Users/toru/project/src/main/context-reader.ts",
+  "url": null,
+  "title": null,
+  "focusChain": [
+    {
+      "role": "AXTextArea",
+      "title": "Editor",
+      "value": null,
+      "visibleText": "const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)",
+      "selectedMarkerText": "const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)",
+      "description": null,
+      "help": null,
+      "placeholder": null,
+      "selectedText": null,
+      "document": "/Users/toru/project/src/main/context-reader.ts",
+      "url": null,
+      "childCount": 1,
+      "attributeNames": ["AXDocument", "AXRole", "AXSelectedText", "AXVisibleCharacterRange"]
+    }
+  ],
+  "lines": [
+    "Explorer",
+    "Search",
+    "const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)",
+    "Settings"
+  ]
+}

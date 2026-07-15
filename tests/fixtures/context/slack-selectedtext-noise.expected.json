@@ -1,0 +1,30 @@
+{
+  "userInstruction": "何の話か掴みたい",
+  "actionType": "custom",
+  "expectContext": {
+    "contextKind": "social",
+    "primaryContentSource": "accessibility-text",
+    "selectedTextSource": "top-level-selected-text",
+    "selectedText": "Message #mk-biz"
+  },
+  "digestIncludes": [
+    "行こうかなと考えています",
+    "営業導線の詰まり"
+  ],
+  "digestExcludes": [
+    "Message #mk-biz",
+    "Message to mk-biz",
+    "Bold",
+    "Schedule for later"
+  ],
+  "searchQueryIncludes": [
+    "行こうかなと考えています",
+    "営業導線"
+  ],
+  "searchQueryExcludes": [
+    "Message #mk-biz",
+    "Message to mk-biz",
+    "Bold",
+    "Schedule for later"
+  ]
+}

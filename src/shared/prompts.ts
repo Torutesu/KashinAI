@@ -44,6 +44,9 @@ ${currentContext.windowTitle ?? '(unknown)'}
 Context Kind:
 ${currentContext.contextKind}
 
+Primary Content Source:
+${currentContext.primaryContentSource}
+
 Page Title:
 ${currentContext.pageTitle ?? '(none)'}
 

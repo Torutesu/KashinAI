@@ -1,0 +1,18 @@
+{
+  "expectDiagnostics": {
+    "lowSignal": false,
+    "lowSignalReason": null,
+    "pageUrlCandidate": "https://www.refero.design/content/design-md-examples",
+    "appResolutionSource": "helper-frontmost",
+    "windowTitleResolutionSource": "window-title"
+  },
+  "rankedLineIncludes": [
+    "DESIGN.md Examples for AI Agents | Refero Styles",
+    "https://www.refero.design/content/design-md-examples"
+  ],
+  "rankedLineExcludes": [],
+  "extractionIncludes": [
+    "High-quality DESIGN.md examples for AI agents"
+  ],
+  "extractionExcludes": []
+}

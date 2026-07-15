@@ -33,6 +33,12 @@ const detectedCliPath = detectDefaultGbrainCliPath()
 const NEW_DEFAULT_SHORTCUT = 'Option+Space'
 const LEGACY_DEFAULT_SHORTCUT = 'Option+['
 const DEFAULT_MEMORY_DIR = path.join(os.homedir(), 'KashinAI', 'memory')
+const LEGACY_DISPLAY_NAMES = new Set(['Context Assistant', 'ContextAssistant', 'Kashin AI'])
+
+function normalizeDisplayName(value: string | undefined): string {
+  if (!value || LEGACY_DISPLAY_NAMES.has(value)) return 'KashinAI'
+  return value
+}
 
 const DEFAULT_SETTINGS: StoredSettings = {
   appDisplayName: 'KashinAI',
@@ -101,6 +107,7 @@ export function getSettings(): AppSettings {
   const shortcut = raw.shortcut === LEGACY_DEFAULT_SHORTCUT ? NEW_DEFAULT_SHORTCUT : raw.shortcut
   return {
     ...raw,
+    appDisplayName: normalizeDisplayName(raw.appDisplayName),
     shortcut,
     gbrain: {
       ...raw.gbrain,
@@ -128,6 +135,7 @@ export function getPublicSettings(): PublicAppSettings {
   const shortcut = raw.shortcut === LEGACY_DEFAULT_SHORTCUT ? NEW_DEFAULT_SHORTCUT : raw.shortcut
   return {
     ...raw,
+    appDisplayName: normalizeDisplayName(raw.appDisplayName),
     shortcut,
     gbrain: {
       mode,
@@ -155,7 +163,7 @@ export function updateSettings(update: SettingsUpdate): PublicAppSettings {
   const current = store.store
 
   const next: StoredSettings = {
-    appDisplayName: update.appDisplayName ?? current.appDisplayName,
+    appDisplayName: normalizeDisplayName(update.appDisplayName ?? current.appDisplayName),
     shortcut: update.shortcut ?? current.shortcut,
     gbrain: {
       mode: update.gbrain?.mode ?? current.gbrain.mode,

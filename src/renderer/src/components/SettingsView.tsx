@@ -247,10 +247,21 @@ export default function SettingsView({
                     GBrain: {diagnostics.gbrain.ok ? 'ok' : 'not ready'} / {diagnostics.gbrain.contextSource} /{' '}
                     {diagnostics.gbrain.resultCount} results
                   </div>
+                  {diagnostics.gbrain.trace && (
+                    <>
+                      <div>
+                        GBrain trace: requested {diagnostics.gbrain.trace.requestedMode} / attempted{' '}
+                        {diagnostics.gbrain.trace.attemptedSources.join(' -> ') || 'none'} / final{' '}
+                        {diagnostics.gbrain.trace.finalContextSource}
+                      </div>
+                      <div>GBrain fallback reason: {diagnostics.gbrain.trace.fallbackReason}</div>
+                    </>
+                  )}
                   <div>
                     Inputs: GBrain {diagnostics.fusionInputs.hasGBrainContext ? 'yes' : 'no'}, page{' '}
                     {diagnostics.fusionInputs.hasPageContext ? 'yes' : 'no'}, selection{' '}
-                    {diagnostics.fusionInputs.hasSelectedText ? 'yes' : 'no'}, screen{' '}
+                    {diagnostics.fusionInputs.hasSelectedText ? 'yes' : 'no'}, accessibility{' '}
+                    {diagnostics.fusionInputs.hasAccessibilityContext ? 'yes' : 'no'}, screen{' '}
                     {diagnostics.fusionInputs.hasScreenContext ? 'yes' : 'no'}, clipboard{' '}
                     {diagnostics.fusionInputs.hasClipboardFallback ? 'yes' : 'no'}
                   </div>
@@ -261,6 +272,14 @@ export default function SettingsView({
                   </div>
                   <div>Page URL: {diagnostics.currentContext.pageUrl ?? 'not captured'}</div>
                   <div>Page capture: {diagnostics.currentContext.pageCaptureMethod}</div>
+                  <div>Selected text source: {diagnostics.currentContext.selectedTextSource ?? 'unknown'}</div>
+                  <div>
+                    Selected text:{' '}
+                    {diagnostics.currentContext.selectedText
+                      ? `${diagnostics.currentContext.selectedText.length} chars`
+                      : 'not captured'}
+                  </div>
+                  <div>Selected text preview: {preview(diagnostics.currentContext.selectedText)}</div>
                   <div>
                     Page text: {diagnostics.currentContext.pageText ? `${diagnostics.currentContext.pageText.length} chars` : 'not captured'}
                   </div>
@@ -273,6 +292,42 @@ export default function SettingsView({
                   </div>
                   <div>Accessibility preview: {preview(diagnostics.currentContext.accessibilityText)}</div>
                   <div>Screen capture: {diagnostics.currentContext.screenCaptureMethod}</div>
+                  <div>Screen capture reason: {diagnostics.screenCaptureDecisionReason ?? 'unknown'}</div>
+                  {diagnostics.browserCaptureSummary && (
+                    <>
+                      <div>
+                        Browser path: {diagnostics.browserCaptureSummary.path} / final method{' '}
+                        {diagnostics.browserCaptureSummary.finalPageCaptureMethod} / source{' '}
+                        {diagnostics.browserCaptureSummary.finalPrimarySource}
+                      </div>
+                      <div>
+                        Browser signals: title {diagnostics.browserCaptureSummary.pageTitlePresent ? 'yes' : 'no'} / url{' '}
+                        {diagnostics.browserCaptureSummary.pageUrlPresent ? 'yes' : 'no'} / page text{' '}
+                        {diagnostics.browserCaptureSummary.pageTextLength} chars / AX{' '}
+                        {diagnostics.browserCaptureSummary.accessibilityTextLength} chars / selected{' '}
+                        {diagnostics.browserCaptureSummary.selectedTextLength} chars
+                      </div>
+                    </>
+                  )}
+                  {diagnostics.captureTrace && (
+                    <>
+                      <div>
+                        Browser trace: {diagnostics.captureTrace.browser.attemptedSteps.join(' -> ') || 'none'} / initial{' '}
+                        {diagnostics.captureTrace.browser.initialNextStep} / after browser{' '}
+                        {diagnostics.captureTrace.browser.afterBrowserNextStep} / after keyboard{' '}
+                        {diagnostics.captureTrace.browser.afterKeyboardNextStep}
+                      </div>
+                      <div>
+                        Browser methods: automation {diagnostics.captureTrace.browser.browserCaptureMethod ?? 'n/a'}, keyboard{' '}
+                        {diagnostics.captureTrace.browser.keyboardCaptureMethod ?? 'n/a'}, session{' '}
+                        {diagnostics.captureTrace.browser.sessionCaptureMethod ?? 'n/a'}
+                      </div>
+                      <div>
+                        Screen trace: should capture {diagnostics.captureTrace.screen.shouldCaptureScreen ? 'yes' : 'no'} /{' '}
+                        {diagnostics.captureTrace.screen.reason}
+                      </div>
+                    </>
+                  )}
                   <div>Screenshot: {diagnostics.currentContext.screenshotPath ?? 'not captured'}</div>
                   <div>
                     Screen OCR:{' '}

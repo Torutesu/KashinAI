@@ -1,0 +1,18 @@
+{
+  "activeApp": "Notion",
+  "windowTitle": "Q3 Launch Review",
+  "contextKind": "document",
+  "primaryContentSource": "accessibility-text",
+  "pageTitle": "Q3 Launch Review",
+  "pageUrl": null,
+  "pageText": "Launch review summary with action items and owners. Acquisition is ahead of plan, but activation is lagging in the trial-to-paid step. Launch review summary with action items and owners. Acquisition is ahead of plan, but activation is lagging in the trial-to-paid step. Next steps: tighten onboarding copy, reduce setup friction, and review CRM handoff.",
+  "pageCaptureMethod": "accessibility",
+  "accessibilityText": "Launch review summary with action items and owners. Acquisition is ahead of plan, but activation is lagging in the trial-to-paid step. Q3 Launch Review Launch review summary with action items and owners. Acquisition is ahead of plan, but activation is lagging in the trial-to-paid step. Next steps: tighten onboarding copy, reduce setup friction, and review CRM handoff.",
+  "accessibilityCaptureMethod": "ax-tree",
+  "screenshotPath": null,
+  "screenText": null,
+  "screenCaptureMethod": "none",
+  "selectedText": null,
+  "clipboardText": null,
+  "timestamp": "FIXTURE_TIMESTAMP"
+}

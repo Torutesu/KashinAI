@@ -4,12 +4,20 @@
   "description": "Lightweight macOS desktop assistant that combines current screen context with GBrain company memory to generate replies, summaries, proposals, and next actions.",
   "private": true,
   "main": "./out/main/index.js",
-  "author": "Kashin AI",
+  "author": "KashinAI",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "package:mac": "pnpm build && electron-builder --mac dir",
     "start": "electron-vite preview",
+    "test:unit": "node --test --experimental-strip-types --import ./tests/unit/register-loader.mjs ./tests/unit/*.test.ts",
+    "debug:ax": "electron ./scripts/dump-ax-context.mjs",
+    "debug:ax:fixture": "node ./scripts/save-ax-fixture.mjs",
+    "debug:desktop-sources": "electron ./scripts/inspect-desktop-capture-sources.mjs",
+    "debug:context": "electron ./scripts/dump-context-runner.mjs",
+    "debug:context:fixture": "node ./scripts/save-context-fixture.mjs",
+    "debug:context:coverage": "node ./scripts/check-context-fixture-coverage.mjs",
+    "debug:context:next": "node ./scripts/print-next-context-fixture-command.mjs",
     "smoke:fusion": "node scripts/smoke-fusion.mjs",
     "smoke:live-context": "node scripts/smoke-live-context.mjs",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
@@ -33,12 +41,6 @@
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",
     "vite": "^5.4.11"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron",
-      "esbuild"
-    ]
   },
   "build": {
     "appId": "ai.kashin.desktop",

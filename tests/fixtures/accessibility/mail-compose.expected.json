@@ -1,0 +1,24 @@
+{
+  "expectDiagnostics": {
+    "lowSignal": false,
+    "lowSignalReason": null,
+    "pageUrlCandidate": null,
+    "appResolutionSource": "helper-frontmost",
+    "windowTitleResolutionSource": "window-title"
+  },
+  "rankedLineIncludes": [
+    "先方には来週火曜までに初回の提案を返します。",
+    "今回は価格ではなく、まずは画面文脈の精度改善を主眼に進めたいです。"
+  ],
+  "rankedLineExcludes": [],
+  "extractionIncludes": [
+    "先方には来週火曜までに初回の提案を返します。",
+    "必要なら実機ログも合わせて共有します。"
+  ],
+  "extractionExcludes": [
+    "From",
+    "To",
+    "Subject",
+    "Send later"
+  ]
+}

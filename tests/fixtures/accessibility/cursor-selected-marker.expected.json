@@ -1,0 +1,23 @@
+{
+  "expectDiagnostics": {
+    "lowSignal": false,
+    "lowSignalReason": null,
+    "pageUrlCandidate": null,
+    "selectedTextSource": "focus-chain-selected-marker-text"
+  },
+  "expectSelectedText": "const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)",
+  "rankedLineIncludes": [
+    "const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)"
+  ],
+  "rankedLineExcludes": [
+    "Explorer",
+    "Settings"
+  ],
+  "extractionIncludes": [
+    "const canSkipOcr = hasSubstantialText(accessibilityContext.accessibilityText)"
+  ],
+  "extractionExcludes": [
+    "Explorer",
+    "Settings"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "expectDiagnostics": {
+    "lowSignal": false,
+    "lowSignalReason": null,
+    "pageUrlCandidate": null
+  },
+  "rankedLineIncludes": [
+    "Launch review summary with action items and owners.",
+    "Acquisition is ahead of plan, but activation is lagging in the trial-to-paid step."
+  ],
+  "rankedLineExcludes": [],
+  "extractionIncludes": [
+    "Launch review summary with action items and owners.",
+    "Next steps: tighten onboarding copy, reduce setup friction, and review CRM handoff."
+  ],
+  "extractionExcludes": [
+    "Share",
+    "Favorite",
+    "Add comment"
+  ]
+}

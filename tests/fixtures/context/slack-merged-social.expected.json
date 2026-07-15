@@ -1,0 +1,26 @@
+{
+  "userInstruction": "何の話か掴みたい",
+  "actionType": "custom",
+  "linkedAccessibilityFixture": "slack-chrome-only",
+  "expectContext": {
+    "contextKind": "social",
+    "primaryContentSource": "screen-ocr"
+  },
+  "digestIncludes": [
+    "店舗数",
+    "行こうかなと考えています"
+  ],
+  "digestExcludes": [
+    "Bold",
+    "Schedule for later",
+    "Message #mk-biz"
+  ],
+  "searchQueryIncludes": [
+    "店舗数"
+  ],
+  "searchQueryExcludes": [
+    "Bold",
+    "Schedule for later",
+    "Message #mk-biz"
+  ]
+}

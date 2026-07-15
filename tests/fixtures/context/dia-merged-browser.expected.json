@@ -1,0 +1,20 @@
+{
+  "userInstruction": "このページを要約して",
+  "actionType": "summarize",
+  "expectContext": {
+    "contextKind": "browser",
+    "primaryContentSource": "page-text",
+    "pageCaptureMethod": "accessibility",
+    "screenCaptureMethod": "none"
+  },
+  "digestIncludes": [
+    "High-quality DESIGN.md examples for AI agents.",
+    "evaluation prompts"
+  ],
+  "digestExcludes": [],
+  "searchQueryIncludes": [
+    "Refero Styles",
+    "Patterns instruction context windows evaluation prompts"
+  ],
+  "searchQueryExcludes": []
+}

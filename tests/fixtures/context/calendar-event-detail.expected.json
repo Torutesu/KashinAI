@@ -1,0 +1,19 @@
+{
+  "userInstruction": "この文脈を確認したい",
+  "actionType": "custom",
+  "expectContext": {
+    "contextKind": "document",
+    "primaryContentSource": "page-text",
+    "pageCaptureMethod": "accessibility",
+    "screenCaptureMethod": "none",
+    "selectedTextSource": "none",
+    "selectedText": null
+  },
+  "digestIncludes": [
+    "月表示カレンダーエリア 2026年7月 この予定はカレンダー“日本の祝日”に含まれます。 表示 海の日. 2026年7月20日, 終日 Holiday 6月28日 日曜日 6月29日 月曜日 6月30日 火曜日 7月1日 水曜日 7月2日 木曜日 7月3日 金曜日 7月4日 土曜日 7月5日 日曜日 7月6日 月曜日 7月7日 火曜日 7月8日 水曜日 7月9日 木曜日 7月10日 金曜日 7月11日 土曜日 今日、7月12日 日曜日 7月13日 月曜日 7月14日 火曜日 7月15日 水曜日 7月16日 木曜日 7月17日 金曜日 7月18日 土曜日 7月19日 日曜日 7月20日 月曜日 7月21日 火曜日 7月22日 水曜日 7月23日 木曜日 7月24日 金曜日 7月25日 土曜日 7月26日 日曜日 7月27日 月曜日 7月28日 火曜日 予定を追加",
+    "カレンダー"
+  ],
+  "digestExcludes": [],
+  "searchQueryIncludes": [],
+  "searchQueryExcludes": []
+}
