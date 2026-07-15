@@ -3,6 +3,7 @@ import { bearerFromHeader, signJwt, verifyJwt, type Plan, type TokenPayload } fr
 import { checkQuota, dayBucket, entitlement, type UsageStore } from './quota.ts'
 import type { PlanStore } from './plan-store.ts'
 import { planFromStripeEvent, verifyStripeSignature } from './stripe.ts'
+import type { Billing } from './billing.ts'
 import type { InferenceRequest, Upstream } from './upstream.ts'
 
 /**
@@ -28,6 +29,8 @@ export type AppDeps = {
   verifyIdentity?: (headers: Headers) => Promise<{ userId: string } | null>
   /** Minted-token lifetime in seconds (default 1h). */
   tokenTtlSeconds?: number
+  /** Stripe Checkout session creation; when unset /v1/billing/checkout responds 501. */
+  billing?: Billing
 }
 
 type Vars = { user: TokenPayload }
@@ -85,6 +88,18 @@ export function createApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     if (!payload) return c.json({ error: 'unauthorized' }, 401)
     c.set('user', payload)
     await next()
+  })
+
+  // Creates a Stripe Checkout session for the authenticated user; the app opens the returned URL.
+  app.post('/v1/billing/checkout', async (c) => {
+    if (!deps.billing) return c.json({ error: 'billing_not_configured' }, 501)
+    const user = c.get('user')
+    try {
+      const { url } = await deps.billing.createCheckoutSession(user.sub)
+      return c.json({ url })
+    } catch {
+      return c.json({ error: 'checkout_failed' }, 502)
+    }
   })
 
   app.get('/v1/entitlement', async (c) => {

@@ -363,6 +363,7 @@ export type KashinAiApi = {
   clearHistory: () => Promise<boolean>
   captureTelemetry: (event: TelemetryEventName, properties?: Record<string, string | number | boolean>) => Promise<boolean>
   cancelGeneration: (streamId: string) => Promise<boolean>
+  openCheckout: () => Promise<{ ok: true; url: string } | { ok: false; error: AppError }>
   onGenerationChunk: (callback: (chunk: GenerationChunk) => void) => () => void
   getWindowState: () => Promise<{ collapsed: boolean; registeredShortcut: string | null }>
   hideWindow: () => Promise<void>

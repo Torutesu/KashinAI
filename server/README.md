@@ -15,6 +15,7 @@ Runs on Cloudflare Workers (Hono). Isolated from the Electron app — its own `p
 | POST | `/auth/token` | auth provider | Mint a signed plan token for the verified user |
 | POST | `/webhooks/stripe` | Stripe signature | Subscription events → plan updates (idempotent) |
 | GET | `/v1/entitlement` | Bearer JWT | Current plan + daily usage/remaining |
+| POST | `/v1/billing/checkout` | Bearer JWT | Create a Stripe Checkout session (subscribe) → `{ url }` |
 | POST | `/v1/inference` | Bearer JWT | Quota-checked SSE inference proxy (Anthropic) |
 
 `/v1/inference` request body: `{ "system": string, "user": string, "temperature"?: number, "model"?: string }`.

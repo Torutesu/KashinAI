@@ -985,3 +985,35 @@ test('assistant:generate routes through the hosted backend when an account token
   const telem = captureTelemetryCalls.find((c) => c.event === 'generation_completed')
   assert.equal((telem?.properties as Record<string, unknown>)?.provider, 'kashinai')
 })
+
+test('billing:checkout opens the Stripe URL returned by the backend', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const { setMockHostedInference } = await import('./__mocks__/mock-modules.ts')
+  setMockHostedInference('https://api.kashin.ai', 'account-token')
+
+  const originalFetch = globalThis.fetch
+  // @ts-expect-error test stub
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ url: 'https://checkout.stripe.com/pay/xyz' }), { status: 200 })
+  try {
+    const handler = electronMockState.ipcHandlers['billing:checkout']
+    assert.ok(handler, 'billing:checkout handler should be registered')
+    const result = await handler({}, undefined)
+    assert.equal(result.ok, true)
+    assert.equal(result.url, 'https://checkout.stripe.com/pay/xyz')
+    assert.ok(electronMockState.shellOpenExternalCalls.includes('https://checkout.stripe.com/pay/xyz'))
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('billing:checkout returns an error when no account is configured', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['billing:checkout']
+  const result = await handler({}, undefined)
+  assert.equal(result.ok, false)
+})

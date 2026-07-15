@@ -10,8 +10,11 @@ compatibility_date = "2026-07-01"
 
 [vars]
 DEFAULT_MODEL = "claude-sonnet-4-5"
+# CHECKOUT_SUCCESS_URL / CHECKOUT_CANCEL_URL can also be set here (non-secret).
 
 # Secrets (set with `wrangler secret put <NAME>`, never commit):
 #   JWT_SECRET             - HMAC secret used to sign/verify account tokens
 #   ANTHROPIC_API_KEY      - upstream inference key (server-side only)
 #   STRIPE_WEBHOOK_SECRET  - Stripe webhook signing secret (enables /webhooks/stripe)
+#   STRIPE_SECRET_KEY      - Stripe API key (enables /v1/billing/checkout)
+#   STRIPE_PRICE_ID        - the Pro subscription price id (price_...)

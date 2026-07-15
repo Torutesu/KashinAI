@@ -357,7 +357,17 @@ export default function AssistantPanel({
           <div className="pb-1 pt-3">
             {error && (
               <div className="mb-2.5 rounded-[16px] border border-rose-300/20 bg-rose-300/10 px-3.5 py-2.5 text-[12px] text-rose-50/90">
-                {error.message}
+                <div className="flex items-center justify-between gap-3">
+                  <span>{error.message}</span>
+                  {error.code === 'quota_exceeded' && (
+                    <button
+                      onClick={() => void window.api.openCheckout()}
+                      className="shrink-0 rounded-[12px] bg-[#ff9347] px-3 py-1.5 text-[12px] font-semibold text-black"
+                    >
+                      Upgrade to Pro
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

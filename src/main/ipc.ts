@@ -444,6 +444,31 @@ export function registerIpcHandlers(): void {
     return true
   })
 
+  ipcMain.handle('billing:checkout', async () => {
+    const settings = getSettings()
+    if (!settings.account.hostedUrl || !settings.account.token) {
+      return { ok: false as const, error: { code: 'unknown' as const, message: 'Sign in to your KashinAI account first.' } }
+    }
+    try {
+      const base = settings.account.hostedUrl.replace(/\/+$/, '')
+      const res = await fetch(`${base}/v1/billing/checkout`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${settings.account.token}` }
+      })
+      if (!res.ok) {
+        return { ok: false as const, error: { code: 'unknown' as const, message: `Could not start checkout (status ${res.status}).` } }
+      }
+      const data = (await res.json()) as { url?: string }
+      if (!data.url) {
+        return { ok: false as const, error: { code: 'unknown' as const, message: 'Checkout did not return a URL.' } }
+      }
+      await shell.openExternal(data.url)
+      return { ok: true as const, url: data.url }
+    } catch (err) {
+      return { ok: false as const, error: { code: 'unknown' as const, message: err instanceof Error ? err.message : 'Checkout failed.' } }
+    }
+  })
+
   ipcMain.handle('history:list', async () => {
     return listHistory()
   })

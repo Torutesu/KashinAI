@@ -1,5 +1,6 @@
 import { createApp } from './app.ts'
 import { createAnthropicUpstream } from './upstream.ts'
+import { createStripeBilling } from './billing.ts'
 import type { UsageStore } from './quota.ts'
 import type { PlanStore } from './plan-store.ts'
 import type { Plan } from './auth.ts'
@@ -20,6 +21,10 @@ type Env = {
   ANTHROPIC_API_KEY: string
   DEFAULT_MODEL?: string
   STRIPE_WEBHOOK_SECRET?: string
+  STRIPE_SECRET_KEY?: string
+  STRIPE_PRICE_ID?: string
+  CHECKOUT_SUCCESS_URL?: string
+  CHECKOUT_CANCEL_URL?: string
   USAGE_KV: KVNamespace
 }
 
@@ -71,7 +76,16 @@ export default {
       planStore: new KvPlanStore(env.USAGE_KV),
       upstream: createAnthropicUpstream({ anthropicApiKey: env.ANTHROPIC_API_KEY }),
       defaultModel: env.DEFAULT_MODEL,
-      stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET
+      stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,
+      billing:
+        env.STRIPE_SECRET_KEY && env.STRIPE_PRICE_ID
+          ? createStripeBilling({
+              secretKey: env.STRIPE_SECRET_KEY,
+              priceId: env.STRIPE_PRICE_ID,
+              successUrl: env.CHECKOUT_SUCCESS_URL ?? 'https://kashin.ai/upgraded',
+              cancelUrl: env.CHECKOUT_CANCEL_URL ?? 'https://kashin.ai/pricing'
+            })
+          : undefined
       // verifyIdentity: wire the auth provider (Clerk/Supabase) here to enable /auth/token.
     })
     return app.fetch(request)

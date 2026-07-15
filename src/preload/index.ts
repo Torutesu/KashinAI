@@ -26,6 +26,8 @@ const api: KashinAiApi = {
 
   cancelGeneration: (streamId) => ipcRenderer.invoke('generation:cancel', streamId),
 
+  openCheckout: () => ipcRenderer.invoke('billing:checkout'),
+
   onGenerationChunk: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, chunk: { streamId: string; delta: string }): void =>
       callback(chunk)
