@@ -23,7 +23,8 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "pnpm typecheck:node && pnpm typecheck:web",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "eval:prompts": "node --experimental-strip-types --import ./tests/unit/register-loader.mjs scripts/eval-prompts.mjs"
   },
   "dependencies": {
     "electron-store": "^8.2.0",

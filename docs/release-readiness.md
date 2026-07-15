@@ -65,7 +65,10 @@ below.
 
 ### C. Test coverage to add (tracked in growth-plan §4)
 
-- [ ] LLM eval harness (reuse existing context fixtures; LLM-judge the language/no-preamble/screen-fit rules) — guards prompt regressions
+- [x] LLM eval harness (`pnpm eval:prompts`): builds real prompts from the context fixtures,
+      generates live, and scores with deterministic rules (`src/shared/eval.ts`, unit-tested) —
+      language match / no-preamble / length / no company-context leakage. Key-gated; run before
+      shipping prompt changes.
 - [ ] Playwright + Electron E2E on `macos-14`
 - [ ] macOS CI job (unit + `swiftc -parse` + `electron-builder dir` smoke)
 - [ ] Renderer component tests (App.tsx state transitions)
