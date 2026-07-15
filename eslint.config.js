@@ -13,7 +13,9 @@ export default tseslint.config(
       'release/**',
       'dist/**',
       'dist-electron/**',
-      'node_modules/**',
+      '**/node_modules/**',
+      // The backend is an isolated workspace with its own typecheck + tests (server/).
+      'server/**',
       '**/*.d.ts'
     ]
   },

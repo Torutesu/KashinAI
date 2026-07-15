@@ -1,0 +1,16 @@
+name = "kashinai-server"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+
+# Anonymous/account subject + plan are carried in a signed JWT; usage counters live in KV.
+# Bind a KV namespace named USAGE_KV (create with: wrangler kv namespace create USAGE_KV).
+# [[kv_namespaces]]
+# binding = "USAGE_KV"
+# id = "<your-kv-namespace-id>"
+
+[vars]
+DEFAULT_MODEL = "claude-sonnet-4-5"
+
+# Secrets (set with `wrangler secret put <NAME>`, never commit):
+#   JWT_SECRET         - HMAC secret used to sign/verify account tokens
+#   ANTHROPIC_API_KEY  - upstream inference key (server-side only)
