@@ -1,4 +1,5 @@
 import type { ErrorCode, LlmProvider } from '../shared/types'
+import { createSseParser } from '../shared/sse'
 
 export class LlmError extends Error {
   code: ErrorCode
@@ -17,6 +18,10 @@ export type GenerateParams = {
   temperature: number
   system: string
   user: string
+  /** Called with each incremental text delta as the response streams in. */
+  onDelta?: (text: string) => void
+  /** Aborts the in-flight request (e.g. when the user cancels or triggers a new generation). */
+  signal?: AbortSignal
 }
 
 async function safeReadJson(response: Response): Promise<Record<string, unknown> | null> {
@@ -36,6 +41,45 @@ function getNested(obj: unknown, path: (string | number)[]): unknown {
   return current
 }
 
+/**
+ * Reads a provider's SSE response body, forwarding each text delta to `onDelta` and returning the
+ * accumulated full text. Shared across providers since only the per-provider delta framing differs
+ * (handled by createSseParser).
+ */
+async function consumeStream(
+  response: Response,
+  provider: LlmProvider,
+  onDelta?: (text: string) => void
+): Promise<string> {
+  const reader = response.body?.getReader()
+  if (!reader) {
+    // No streamable body: fall back to reading the whole payload is not possible here, so surface it.
+    throw new LlmError('llm_request_failed', `${provider} returned an empty response stream.`)
+  }
+  const decoder = new TextDecoder()
+  const parser = createSseParser(provider)
+  let full = ''
+
+  let read = await reader.read()
+  while (!read.done) {
+    const chunk = decoder.decode(read.value, { stream: true })
+    for (const delta of parser.push(chunk)) {
+      full += delta
+      onDelta?.(delta)
+    }
+    read = await reader.read()
+  }
+  for (const delta of parser.flush()) {
+    full += delta
+    onDelta?.(delta)
+  }
+
+  if (!full) {
+    throw new LlmError('llm_request_failed', `${provider} returned an unexpected empty response.`)
+  }
+  return full
+}
+
 async function generateAnthropic(params: GenerateParams): Promise<string> {
   const model = params.model || 'claude-sonnet-4-5'
   let response: Response
@@ -52,8 +96,10 @@ async function generateAnthropic(params: GenerateParams): Promise<string> {
         max_tokens: 2048,
         temperature: params.temperature,
         system: params.system,
-        messages: [{ role: 'user', content: params.user }]
-      })
+        messages: [{ role: 'user', content: params.user }],
+        stream: true
+      }),
+      signal: params.signal
     })
   } catch (err) {
     throw new LlmError('llm_request_failed', `Failed to reach Anthropic API: ${(err as Error).message}`)
@@ -65,15 +111,7 @@ async function generateAnthropic(params: GenerateParams): Promise<string> {
     throw new LlmError('llm_request_failed', `Anthropic API error (${message}). Check your API key and model name in Settings.`)
   }
 
-  const data = await safeReadJson(response)
-  const content = getNested(data, ['content']) as Array<{ type: string; text?: string }> | undefined
-  const text = content?.find((block) => block.type === 'text')?.text
-
-  if (typeof text !== 'string') {
-    throw new LlmError('llm_request_failed', 'Anthropic returned an unexpected response shape.')
-  }
-
-  return text
+  return consumeStream(response, 'anthropic', params.onDelta)
 }
 
 async function generateOpenAI(params: GenerateParams): Promise<string> {
@@ -89,11 +127,13 @@ async function generateOpenAI(params: GenerateParams): Promise<string> {
       body: JSON.stringify({
         model,
         temperature: params.temperature,
+        stream: true,
         messages: [
           { role: 'system', content: params.system },
           { role: 'user', content: params.user }
         ]
-      })
+      }),
+      signal: params.signal
     })
   } catch (err) {
     throw new LlmError('llm_request_failed', `Failed to reach OpenAI API: ${(err as Error).message}`)
@@ -105,14 +145,7 @@ async function generateOpenAI(params: GenerateParams): Promise<string> {
     throw new LlmError('llm_request_failed', `OpenAI API error (${message}). Check your API key and model name in Settings.`)
   }
 
-  const data = await safeReadJson(response)
-  const text = getNested(data, ['choices', 0, 'message', 'content'])
-
-  if (typeof text !== 'string') {
-    throw new LlmError('llm_request_failed', 'OpenAI returned an unexpected response shape.')
-  }
-
-  return text
+  return consumeStream(response, 'openai', params.onDelta)
 }
 
 async function generateGemini(params: GenerateParams): Promise<string> {
@@ -120,7 +153,7 @@ async function generateGemini(params: GenerateParams): Promise<string> {
   let response: Response
   try {
     response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${params.apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${params.apiKey}`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -128,7 +161,8 @@ async function generateGemini(params: GenerateParams): Promise<string> {
           systemInstruction: { parts: [{ text: params.system }] },
           contents: [{ role: 'user', parts: [{ text: params.user }] }],
           generationConfig: { temperature: params.temperature }
-        })
+        }),
+        signal: params.signal
       }
     )
   } catch (err) {
@@ -141,19 +175,13 @@ async function generateGemini(params: GenerateParams): Promise<string> {
     throw new LlmError('llm_request_failed', `Gemini API error (${message}). Check your API key and model name in Settings.`)
   }
 
-  const data = await safeReadJson(response)
-  const text = getNested(data, ['candidates', 0, 'content', 'parts', 0, 'text'])
-
-  if (typeof text !== 'string') {
-    throw new LlmError('llm_request_failed', 'Gemini returned an unexpected response shape.')
-  }
-
-  return text
+  return consumeStream(response, 'gemini', params.onDelta)
 }
 
 /**
- * Provider-agnostic text generation. Throws LlmError with a distinct code per brief 20.3 so
- * the renderer can render an actionable message (e.g. "check API key -> open settings").
+ * Provider-agnostic text generation. Streams internally (forwarding deltas to params.onDelta when
+ * provided) and returns the full text. Throws LlmError with a distinct code per brief 20.3 so the
+ * renderer can render an actionable message (e.g. "check API key -> open settings").
  */
 export async function generate(params: GenerateParams): Promise<string> {
   if (!params.apiKey) {

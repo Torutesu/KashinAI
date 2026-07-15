@@ -12,6 +12,7 @@ type Props = {
   context: CurrentContext | null
   customInstruction: string
   messages: ChatMessage[]
+  streamingText: string
   lastContextSource: ContextSource | null
   lastSearchQuery: string
   searchQueryOverride: string
@@ -127,6 +128,7 @@ export default function AssistantPanel({
   context,
   customInstruction,
   messages,
+  streamingText,
   lastContextSource,
   lastSearchQuery,
   searchQueryOverride,
@@ -262,7 +264,7 @@ export default function AssistantPanel({
               </div>
             </div>
             <div className="max-h-[136px] overflow-y-auto px-3.5 py-3">
-              {messages.length === 0 ? (
+              {messages.length === 0 && !streamingText ? (
                 <p className="text-[13px] leading-6 text-white/50">
                   Ask about the current app. KashinAI will use the visible context first.
                 </p>
@@ -281,6 +283,17 @@ export default function AssistantPanel({
                       <div className="whitespace-pre-wrap">{message.content}</div>
                     </div>
                   ))}
+                  {streamingText && (
+                    <div className="rounded-[14px] bg-orange-400/10 px-3 py-2 text-[13px] leading-5 text-white/88">
+                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">
+                        KashinAI
+                      </div>
+                      <div className="whitespace-pre-wrap">
+                        {streamingText}
+                        <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-white/50 align-middle" />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

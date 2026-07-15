@@ -24,6 +24,15 @@ const api: KashinAiApi = {
 
   captureTelemetry: (event, properties) => ipcRenderer.invoke('telemetry:capture', { event, properties }),
 
+  cancelGeneration: (streamId) => ipcRenderer.invoke('generation:cancel', streamId),
+
+  onGenerationChunk: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, chunk: { streamId: string; delta: string }): void =>
+      callback(chunk)
+    ipcRenderer.on('generation:chunk', listener)
+    return () => ipcRenderer.removeListener('generation:chunk', listener)
+  },
+
   getWindowState: () => ipcRenderer.invoke('window:getState'),
 
   hideWindow: () => ipcRenderer.invoke('window:hide'),

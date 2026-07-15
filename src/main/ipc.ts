@@ -51,6 +51,35 @@ function brainDir(): string {
   return path.join(app.getAppPath(), 'brain')
 }
 
+/** In-flight streaming generations, keyed by the renderer-supplied streamId, so they can be aborted. */
+const activeGenerations = new Map<string, AbortController>()
+
+type StreamHooks = { onDelta?: (delta: string) => void; signal?: AbortSignal }
+
+/**
+ * Builds the streaming hooks for a request: forwards deltas to the renderer and registers an
+ * AbortController so `generation:cancel` can stop the in-flight LLM call. Returns a cleanup fn.
+ */
+function beginStream(
+  streamId: string | undefined,
+  sender: Electron.WebContents | undefined
+): { hooks: StreamHooks; done: () => void } {
+  if (!streamId) return { hooks: {}, done: () => {} }
+  const controller = new AbortController()
+  activeGenerations.set(streamId, controller)
+  const onDelta = sender
+    ? (delta: string) => {
+        if (!sender.isDestroyed()) sender.send('generation:chunk', { streamId, delta })
+      }
+    : undefined
+  return {
+    hooks: { onDelta, signal: controller.signal },
+    done: () => {
+      activeGenerations.delete(streamId)
+    }
+  }
+}
+
 function getScreenCaptureStatus(): BackendDiagnostics['screenCaptureStatus'] {
   return getScreenCaptureStatusForPlatform({
     platform: process.platform,
@@ -63,8 +92,12 @@ function getScreenCaptureStatus(): BackendDiagnostics['screenCaptureStatus'] {
  * build prompt -> LLM call -> GenerateResult. Never throws: failures are returned as a
  * structured AppError with a distinct code so the renderer can render an actionable message.
  */
-async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResult> {
+async function handleGenerate(
+  request: GenerateRequest,
+  sender?: Electron.WebContents
+): Promise<GenerateIpcResult> {
   const startedAt = nowMs()
+  const { hooks, done } = beginStream(request.streamId, sender)
   try {
     const requestPlan = resolveGenerateRequestPlan(request)
     if (!requestPlan.canProceed) {
@@ -118,7 +151,9 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
           model: settings.llm.defaultModel,
           temperature: settings.llm.temperature,
           system,
-          user
+          user,
+          onDelta: hooks.onDelta,
+          signal: hooks.signal
         })
       : buildRetrievalOnlyAnswer(
           buildRetrievalOnlyAnswerParams({
@@ -163,11 +198,14 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
       ok: false,
       error: { code: 'unknown', message: err instanceof Error ? err.message : 'Unknown error' }
     }
+  } finally {
+    done()
   }
 }
 
-async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
+async function handleChat(request: ChatRequest, sender?: Electron.WebContents): Promise<ChatIpcResult> {
   const startedAt = nowMs()
+  const { hooks, done } = beginStream(request.streamId, sender)
   try {
     const requestPlan = resolveChatRequestPlan(request)
     if (!requestPlan.canProceed) {
@@ -225,7 +263,9 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
           model: settings.llm.defaultModel,
           temperature: settings.llm.temperature,
           system,
-          user
+          user,
+          onDelta: hooks.onDelta,
+          signal: hooks.signal
         })
       : buildRetrievalOnlyAnswer(
           buildRetrievalOnlyAnswerParams({
@@ -277,6 +317,8 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
       ok: false,
       error: { code: 'unknown', message: err instanceof Error ? err.message : 'Unknown error' }
     }
+  } finally {
+    done()
   }
 }
 
@@ -286,12 +328,18 @@ export function registerIpcHandlers(): void {
     return captureCurrentContext(frontmost)
   })
 
-  ipcMain.handle('assistant:generate', async (_event, request: GenerateRequest) => {
-    return handleGenerate(request)
+  ipcMain.handle('assistant:generate', async (event, request: GenerateRequest) => {
+    return handleGenerate(request, event?.sender)
   })
 
-  ipcMain.handle('assistant:chat', async (_event, request: ChatRequest) => {
-    return handleChat(request)
+  ipcMain.handle('assistant:chat', async (event, request: ChatRequest) => {
+    return handleChat(request, event?.sender)
+  })
+
+  ipcMain.handle('generation:cancel', async (_event, streamId: string) => {
+    activeGenerations.get(streamId)?.abort()
+    activeGenerations.delete(streamId)
+    return true
   })
 
   ipcMain.handle('output:copy', async (_event, text: string) => {

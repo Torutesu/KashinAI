@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type {
   ActionType,
   AppError,
@@ -47,6 +47,8 @@ function AssistantFlow() {
   const [lastSearchQuery, setLastSearchQuery] = useState('')
   const [searchQueryOverride, setSearchQueryOverride] = useState('')
   const [history, setHistory] = useState<HistoryEntry[]>([])
+  const [streamingText, setStreamingText] = useState('')
+  const streamIdRef = useRef<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<AppError | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle')
@@ -73,6 +75,10 @@ function AssistantFlow() {
 
     const unsubscribeCollapsed = window.api.onCollapsedChanged(setCollapsed)
 
+    const unsubscribeChunk = window.api.onGenerationChunk(({ streamId, delta }) => {
+      if (streamId === streamIdRef.current) setStreamingText((prev) => prev + delta)
+    })
+
     window.api.getSettings().then((settings) => {
       setAppDisplayName(settings.appDisplayName)
       setShowSources(settings.privacy.showSources)
@@ -96,6 +102,7 @@ function AssistantFlow() {
       unsubscribe()
       unsubscribeNavigate()
       unsubscribeCollapsed()
+      unsubscribeChunk()
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [])
@@ -108,12 +115,18 @@ function AssistantFlow() {
 
     setLoading(true)
     setError(null)
+    const streamId = crypto.randomUUID()
+    streamIdRef.current = streamId
+    setStreamingText('')
     const res = await window.api.chat({
       currentContext: nextContext,
       messages: [recommendationRequest],
-      searchQueryOverride: searchQueryOverride.trim() || null
+      searchQueryOverride: searchQueryOverride.trim() || null,
+      streamId
     })
 
+    streamIdRef.current = null
+    setStreamingText('')
     setLoading(false)
     if (res.ok) {
       setMessages([res.data.message])
@@ -160,13 +173,19 @@ function AssistantFlow() {
     setMessages(nextMessages)
     setLoading(true)
     setError(null)
+    const streamId = crypto.randomUUID()
+    streamIdRef.current = streamId
+    setStreamingText('')
 
     const res = await window.api.chat({
       currentContext: context,
       messages: nextMessages,
-      searchQueryOverride: searchQueryOverride.trim() || null
+      searchQueryOverride: searchQueryOverride.trim() || null,
+      streamId
     })
 
+    streamIdRef.current = null
+    setStreamingText('')
     setLoading(false)
     if (res.ok) {
       setMessages((prev) => [...prev, res.data.message])
@@ -293,6 +312,7 @@ function AssistantFlow() {
           context={context}
           customInstruction={customInstruction}
           messages={messages}
+          streamingText={streamingText}
           lastContextSource={lastContextSource}
           lastSearchQuery={lastSearchQuery}
           searchQueryOverride={searchQueryOverride}

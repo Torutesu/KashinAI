@@ -357,6 +357,9 @@ export class LlmError extends Error {
 
 export async function generate(payload: unknown): Promise<string> {
   generateCalls.push(payload)
+  // Emulate streaming so the ipc chunk plumbing can be tested through the mock.
+  const onDelta = (payload as { onDelta?: (text: string) => void })?.onDelta
+  if (typeof onDelta === 'function') onDelta('generated response')
   return 'generated response'
 }
 
@@ -390,13 +393,18 @@ export function setMockRedactSensitive(next: boolean): void {
   mockRedactSensitive = next
 }
 
+export let mockLlmApiKey = ''
+export function setMockLlmApiKey(next: string): void {
+  mockLlmApiKey = next
+}
+
 export function getSettings() {
   return {
     appDisplayName: 'TestApp',
     shortcut: 'Option+Space',
     gbrain: { mode: 'cli', endpoint: 'http://localhost:3000', token: '', cliPath: 'gbrain', timeoutMs: 10000 },
     memory: { enabled: true, dir: '/tmp/memory' },
-    llm: { provider: 'anthropic', apiKey: '', defaultModel: 'claude-sonnet-4-5', temperature: 0.3 },
+    llm: { provider: 'anthropic', apiKey: mockLlmApiKey, defaultModel: 'claude-sonnet-4-5', temperature: 0.3 },
     defaults: { language: 'ja', tone: 'professional', length: 'medium' },
     privacy: { showSources: true, redactSensitive: mockRedactSensitive }
   }
@@ -472,6 +480,7 @@ export function resetAllMocks(): void {
   mockHistoryEntries = []
   clearHistoryCalls.length = 0
   mockRedactSensitive = false
+  mockLlmApiKey = ''
   registerIpcHandlersCalls.length = 0
   registerShortcutCalls.length = 0
   createAssistantWindowCalls.length = 0

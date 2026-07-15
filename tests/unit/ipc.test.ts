@@ -12,6 +12,7 @@ import {
   recordHistoryEntryCalls,
   setMockHistoryEntries,
   setMockRedactSensitive,
+  setMockLlmApiKey,
   getFrontmostAppInfoCalls,
   mockRegisteredShortcut,
   resetAllMocks,
@@ -911,4 +912,54 @@ test('telemetry:capture forwards to the telemetry service', async () => {
   const captured = captureTelemetryCalls.find((c) => c.event === 'first_paste')
   assert.ok(captured)
   assert.deepEqual(captured.properties, { source: 'tap' })
+})
+
+test('assistant:chat streams generation chunks to the sender when a streamId is given', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  setMockLlmApiKey('sk-test-key')
+  const sent: { channel: string; payload: unknown }[] = []
+  const sender = { send: (channel: string, payload: unknown) => sent.push({ channel, payload }), isDestroyed: () => false }
+
+  const handler = electronMockState.ipcHandlers['assistant:chat']
+  const result = await handler(
+    { sender },
+    {
+      currentContext: browserContext(),
+      messages: [{ role: 'user', content: 'このページを要約して' }],
+      streamId: 'stream-1'
+    }
+  )
+
+  assert.equal(result.ok, true)
+  const chunk = sent.find((s) => s.channel === 'generation:chunk')
+  assert.ok(chunk, 'a generation:chunk event should be sent')
+  assert.deepEqual(chunk.payload, { streamId: 'stream-1', delta: 'generated response' })
+})
+
+test('assistant:chat does not stream when no streamId is provided', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  setMockLlmApiKey('sk-test-key')
+  const sent: { channel: string }[] = []
+  const sender = { send: (channel: string) => sent.push({ channel }), isDestroyed: () => false }
+
+  const handler = electronMockState.ipcHandlers['assistant:chat']
+  await handler(
+    { sender },
+    { currentContext: browserContext(), messages: [{ role: 'user', content: 'このページを要約して' }] }
+  )
+
+  assert.equal(sent.filter((s) => s.channel === 'generation:chunk').length, 0)
+})
+
+test('generation:cancel handler is registered and returns true', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['generation:cancel']
+  assert.ok(handler, 'generation:cancel handler should be registered')
+  assert.equal(await handler({}, 'nonexistent-stream'), true)
 })

@@ -82,6 +82,13 @@ export type GenerateRequest = {
   modifier?: 'shorter' | 'more_polite' | null
   /** When set, this query is used for GBrain retrieval instead of the auto-generated one. */
   searchQueryOverride?: string | null
+  /** When set, streamed text deltas are pushed to the renderer via generation:chunk events. */
+  streamId?: string
+}
+
+export type GenerationChunk = {
+  streamId: string
+  delta: string
 }
 
 export type GenerateResult = {
@@ -102,6 +109,8 @@ export type ChatRequest = {
   messages: ChatMessage[]
   /** When set, this query is used for GBrain retrieval instead of the auto-generated one. */
   searchQueryOverride?: string | null
+  /** When set, streamed text deltas are pushed to the renderer via generation:chunk events. */
+  streamId?: string
 }
 
 /** A single saved generation, shown in the History view so past outputs can be reused. */
@@ -345,6 +354,8 @@ export type KashinAiApi = {
   getHistory: () => Promise<HistoryEntry[]>
   clearHistory: () => Promise<boolean>
   captureTelemetry: (event: TelemetryEventName, properties?: Record<string, string | number | boolean>) => Promise<boolean>
+  cancelGeneration: (streamId: string) => Promise<boolean>
+  onGenerationChunk: (callback: (chunk: GenerationChunk) => void) => () => void
   getWindowState: () => Promise<{ collapsed: boolean; registeredShortcut: string | null }>
   hideWindow: () => Promise<void>
   expandWindow: () => Promise<void>
