@@ -10,10 +10,9 @@ type StoredSecret = {
   encrypted: boolean
 }
 
-type StoredSettings = Omit<AppSettings, 'gbrain' | 'llm' | 'account'> & {
+type StoredSettings = Omit<AppSettings, 'gbrain' | 'llm'> & {
   gbrain: Omit<AppSettings['gbrain'], 'token'> & { token: StoredSecret }
   llm: Omit<AppSettings['llm'], 'apiKey'> & { apiKey: StoredSecret }
-  account: Omit<AppSettings['account'], 'token'> & { token: StoredSecret }
 }
 
 function detectDefaultGbrainCliPath(): string {
@@ -62,8 +61,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
     temperature: 0.3
   },
   account: {
-    hostedUrl: '',
-    token: { value: '', encrypted: false }
+    hostedUrl: ''
   },
   defaults: {
     language: 'auto',
@@ -134,8 +132,7 @@ export function getSettings(): AppSettings {
       apiKey: decryptSecret(raw.llm.apiKey)
     },
     account: {
-      hostedUrl: raw.account?.hostedUrl ?? '',
-      token: decryptSecret(raw.account?.token)
+      hostedUrl: raw.account?.hostedUrl ?? ''
     },
     privacy: {
       showSources: raw.privacy?.showSources ?? true,
@@ -177,8 +174,7 @@ export function getPublicSettings(): PublicAppSettings {
       hasApiKey: Boolean(raw.llm.apiKey?.value)
     },
     account: {
-      hostedUrl: raw.account?.hostedUrl ?? '',
-      hasToken: Boolean(raw.account?.token?.value)
+      hostedUrl: raw.account?.hostedUrl ?? ''
     },
     privacy: {
       showSources: raw.privacy?.showSources ?? true,
@@ -223,11 +219,7 @@ export function updateSettings(update: SettingsUpdate): PublicAppSettings {
           : current.llm.apiKey
     },
     account: {
-      hostedUrl: update.account?.hostedUrl ?? current.account?.hostedUrl ?? '',
-      token:
-        update.account?.token !== undefined && update.account.token !== ''
-          ? encryptSecret(update.account.token)
-          : current.account?.token ?? { value: '', encrypted: false }
+      hostedUrl: update.account?.hostedUrl ?? current.account?.hostedUrl ?? ''
     },
     defaults: { ...current.defaults, ...update.defaults },
     privacy: {

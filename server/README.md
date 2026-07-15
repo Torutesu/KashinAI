@@ -25,18 +25,34 @@ app maps to the paywall (Growth #15).
 
 ## Auth & billing (#15)
 
-Tokens are HS256 JWTs signed with `JWT_SECRET`, carrying `{ sub, plan, exp }`.
+### Default model: anonymous device (cheapest, no auth provider)
 
-- **Plan source of truth**: `POST /webhooks/stripe` verifies the Stripe signature and updates the
-  KV plan store (`plan:<userId>`). It is idempotent by Stripe event id. Set `STRIPE_WEBHOOK_SECRET`
-  and point a Stripe webhook (checkout.session.completed, customer.subscription.updated/deleted) at
-  this route.
-- **Token minting**: `POST /auth/token` mints a token carrying the user's current plan — but only
-  once an **auth provider adapter** is wired. Implement `verifyIdentity(headers)` in `index.ts`
-  (verify the Clerk/Supabase session from the `Authorization` header) and pass it to `createApp`.
-  Until then the route returns `501`.
+`/v1/*` accepts **device credentials** — the desktop app sends `x-device-id` + `x-device-secret`
+(a random id + secret it generates once). First sight registers the secret hash (trust-on-first-use,
+`src/device.ts`); later requests must match. No login, no email, no Clerk/Supabase — free to run.
 
-`src/auth.ts` `signJwt` is used by tests and can seed a local token for manual testing.
+Pro is tied to the **device id**: `POST /v1/billing/checkout` opens Stripe Checkout with the device
+id as `client_reference_id`, and `POST /webhooks/stripe` (signature-verified, idempotent) sets
+`plan:<deviceId>` in KV. The next request for that device sees `plan: pro`.
+
+### Optional: JWT / web login (future)
+
+`/v1/*` also accepts a `Bearer` HS256 JWT (`JWT_SECRET`), and `POST /auth/token` mints one — but
+only once an auth-provider adapter (`verifyIdentity`) is wired in `index.ts`. Not needed for the
+device model above; add it later if you want cross-device accounts or a web dashboard.
+
+## Cheapest launch (all free tiers)
+
+1. `wrangler kv namespace create USAGE_KV` → put the id in `wrangler.toml`.
+2. `wrangler secret put JWT_SECRET` (any random string), `wrangler secret put ANTHROPIC_API_KEY`.
+3. `wrangler deploy`.
+4. In the app: Settings → Hosted account → Backend URL = your Worker URL. Free generation works
+   immediately (device auto-registers).
+5. To enable Pro: create a Stripe product/price, then
+   `wrangler secret put STRIPE_SECRET_KEY`, set `STRIPE_PRICE_ID`, add a Stripe webhook to
+   `/webhooks/stripe` and `wrangler secret put STRIPE_WEBHOOK_SECRET`.
+
+Cloudflare Workers + KV and Stripe both have free tiers, so there's no fixed monthly cost to start.
 
 ## Local dev / tests
 

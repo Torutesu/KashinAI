@@ -54,17 +54,18 @@ test('generate maps a non-ok provider response to llm_request_failed', async () 
   )
 })
 
-test('generateHosted posts to /v1/inference with a bearer token and streams the result', async () => {
+test('generateHosted posts to /v1/inference with device credentials and streams the result', async () => {
   let seenUrl = ''
-  let seenAuth = ''
+  let seenHeaders: Record<string, string> = {}
   stubFetch(async (url, init) => {
     seenUrl = url
-    seenAuth = (init?.headers as Record<string, string>)?.authorization ?? ''
+    seenHeaders = (init?.headers as Record<string, string>) ?? {}
     return new Response(ANTHROPIC_SSE, { status: 200 })
   })
   const out = await generateHosted({
     hostedUrl: 'https://api.kashin.ai/',
-    token: 'tok-123',
+    deviceId: 'dev-1',
+    deviceSecret: 'secret-abcdef0123456789',
     model: 'm',
     temperature: 0.3,
     system: 's',
@@ -72,7 +73,8 @@ test('generateHosted posts to /v1/inference with a bearer token and streams the 
   })
   assert.equal(out, 'Hello')
   assert.equal(seenUrl, 'https://api.kashin.ai/v1/inference')
-  assert.equal(seenAuth, 'Bearer tok-123')
+  assert.equal(seenHeaders['x-device-id'], 'dev-1')
+  assert.equal(seenHeaders['x-device-secret'], 'secret-abcdef0123456789')
 })
 
 test('generateHosted maps a 429 to the quota_exceeded error code', async () => {
@@ -81,7 +83,8 @@ test('generateHosted maps a 429 to the quota_exceeded error code', async () => {
     () =>
       generateHosted({
         hostedUrl: 'https://api.kashin.ai',
-        token: 't',
+        deviceId: 'd',
+        deviceSecret: 'secret-abcdef0123456789',
         model: 'm',
         temperature: 0.3,
         system: 's',

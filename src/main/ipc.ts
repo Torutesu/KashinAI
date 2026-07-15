@@ -34,6 +34,7 @@ import {
 import { buildSearchQuery } from './search-query'
 import { searchGBrain } from './gbrain'
 import { generate, generateHosted, LlmError } from './llm'
+import { getDeviceCredentials } from './device-identity'
 import { getPublicSettings, getSettings, updateSettings } from './settings'
 import { expandAssistantWindow, hideAssistantWindow, isAssistantCollapsed, openAssistantSettings } from './windows'
 import { insertText } from './insert'
@@ -49,14 +50,14 @@ function resolveSearchQuery(builtQuery: string, override: string | null | undefi
 
 type SettingsForGeneration = ReturnType<typeof getSettings>
 
-/** The app can generate if a hosted account token OR a BYOK API key is configured. */
+/** The app can generate via the hosted backend (a URL is set) OR a BYOK API key. */
 function hasGenerationCredentials(settings: SettingsForGeneration): boolean {
-  return Boolean(settings.account.token && settings.account.hostedUrl) || Boolean(settings.llm.apiKey)
+  return Boolean(settings.account.hostedUrl) || Boolean(settings.llm.apiKey)
 }
 
 /** Whether generation should route through the hosted KashinAI backend rather than a BYOK provider. */
 function usesHostedInference(settings: SettingsForGeneration): boolean {
-  return Boolean(settings.account.token && settings.account.hostedUrl)
+  return Boolean(settings.account.hostedUrl)
 }
 
 /** Runs one generation via the hosted backend when configured, else the BYOK provider. */
@@ -67,9 +68,11 @@ function runLlm(
   hooks: StreamHooks
 ): Promise<string> {
   if (usesHostedInference(settings)) {
+    const { deviceId, deviceSecret } = getDeviceCredentials()
     return generateHosted({
       hostedUrl: settings.account.hostedUrl,
-      token: settings.account.token,
+      deviceId,
+      deviceSecret,
       model: settings.llm.defaultModel,
       temperature: settings.llm.temperature,
       system,
@@ -446,14 +449,15 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('billing:checkout', async () => {
     const settings = getSettings()
-    if (!settings.account.hostedUrl || !settings.account.token) {
-      return { ok: false as const, error: { code: 'unknown' as const, message: 'Sign in to your KashinAI account first.' } }
+    if (!settings.account.hostedUrl) {
+      return { ok: false as const, error: { code: 'unknown' as const, message: 'Set your KashinAI backend URL in Settings first.' } }
     }
     try {
+      const { deviceId, deviceSecret } = getDeviceCredentials()
       const base = settings.account.hostedUrl.replace(/\/+$/, '')
       const res = await fetch(`${base}/v1/billing/checkout`, {
         method: 'POST',
-        headers: { authorization: `Bearer ${settings.account.token}` }
+        headers: { 'x-device-id': deviceId, 'x-device-secret': deviceSecret }
       })
       if (!res.ok) {
         return { ok: false as const, error: { code: 'unknown' as const, message: `Could not start checkout (status ${res.status}).` } }

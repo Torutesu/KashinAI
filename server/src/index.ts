@@ -3,6 +3,7 @@ import { createAnthropicUpstream } from './upstream.ts'
 import { createStripeBilling } from './billing.ts'
 import type { UsageStore } from './quota.ts'
 import type { PlanStore } from './plan-store.ts'
+import type { DeviceStore } from './device.ts'
 import type { Plan } from './auth.ts'
 
 /**
@@ -68,12 +69,26 @@ class KvPlanStore implements PlanStore {
   }
 }
 
+/** KV-backed device secret hashes (`device:<id>` → sha256 hex). */
+class KvDeviceStore implements DeviceStore {
+  constructor(private kv: KVNamespace) {}
+
+  async getSecretHash(deviceId: string): Promise<string | null> {
+    return this.kv.get(`device:${deviceId}`)
+  }
+
+  async setSecretHash(deviceId: string, hash: string): Promise<void> {
+    await this.kv.put(`device:${deviceId}`, hash)
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const app = createApp({
       jwtSecret: env.JWT_SECRET,
       usageStore: new KvUsageStore(env.USAGE_KV),
       planStore: new KvPlanStore(env.USAGE_KV),
+      deviceStore: new KvDeviceStore(env.USAGE_KV),
       upstream: createAnthropicUpstream({ anthropicApiKey: env.ANTHROPIC_API_KEY }),
       defaultModel: env.DEFAULT_MODEL,
       stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,

@@ -4,6 +4,7 @@ import { checkQuota, dayBucket, entitlement, type UsageStore } from './quota.ts'
 import type { PlanStore } from './plan-store.ts'
 import { planFromStripeEvent, verifyStripeSignature } from './stripe.ts'
 import type { Billing } from './billing.ts'
+import { verifyOrRegisterDevice, type DeviceStore } from './device.ts'
 import type { InferenceRequest, Upstream } from './upstream.ts'
 
 /**
@@ -31,6 +32,8 @@ export type AppDeps = {
   tokenTtlSeconds?: number
   /** Stripe Checkout session creation; when unset /v1/billing/checkout responds 501. */
   billing?: Billing
+  /** Device-credential store — the default (no-auth-provider) account model. */
+  deviceStore?: DeviceStore
 }
 
 type Vars = { user: TokenPayload }
@@ -81,8 +84,20 @@ export function createApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     return c.json({ ok: true })
   })
 
-  // Auth on everything under /v1.
+  // Auth on everything under /v1. Prefers device credentials (the default cheap model); falls back
+  // to a signed JWT bearer for a future web/login path.
   app.use('/v1/*', async (c, next) => {
+    const deviceId = c.req.header('x-device-id')
+    const deviceSecret = c.req.header('x-device-secret')
+    if (deviceId && deviceSecret) {
+      if (!deps.deviceStore) return c.json({ error: 'device_auth_not_configured' }, 501)
+      const ok = await verifyOrRegisterDevice(deps.deviceStore, deviceId, deviceSecret)
+      if (!ok) return c.json({ error: 'unauthorized' }, 401)
+      const plan = deps.planStore ? await deps.planStore.getPlan(deviceId) : 'free'
+      c.set('user', { sub: deviceId, plan, exp: Math.floor(now() / 1000) + 3600 })
+      return next()
+    }
+
     const token = bearerFromHeader(c.req.header('authorization'))
     const payload = token ? await verifyJwt(token, deps.jwtSecret, { nowSeconds: Math.floor(now() / 1000) }) : null
     if (!payload) return c.json({ error: 'unauthorized' }, 401)

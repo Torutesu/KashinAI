@@ -383,7 +383,7 @@ export function getPublicSettings() {
     gbrain: { mode: 'cli', endpoint: 'http://localhost:3000', cliPath: 'gbrain', timeoutMs: 10000, hasToken: false },
     memory: { enabled: true, dir: '/tmp/memory' },
     llm: { provider: 'anthropic', defaultModel: 'claude-sonnet-4-5', temperature: 0.3, hasApiKey: false },
-    account: { hostedUrl: '', hasToken: false },
+    account: { hostedUrl: '' },
     defaults: { language: 'ja', tone: 'professional', length: 'medium' },
     privacy: { showSources: true }
   }
@@ -408,10 +408,13 @@ export function setMockLlmApiKey(next: string): void {
 }
 
 export let mockHostedUrl = ''
-export let mockHostedToken = ''
-export function setMockHostedInference(url: string, token: string): void {
+export function setMockHostedInference(url: string): void {
   mockHostedUrl = url
-  mockHostedToken = token
+}
+
+// --- device-identity.ts mock ---
+export function getDeviceCredentials(): { deviceId: string; deviceSecret: string } {
+  return { deviceId: 'test-device-id', deviceSecret: 'test-device-secret-abcdef0123456789' }
 }
 
 export function getSettings() {
@@ -421,7 +424,7 @@ export function getSettings() {
     gbrain: { mode: 'cli', endpoint: 'http://localhost:3000', token: '', cliPath: 'gbrain', timeoutMs: 10000 },
     memory: { enabled: true, dir: '/tmp/memory' },
     llm: { provider: 'anthropic', apiKey: mockLlmApiKey, defaultModel: 'claude-sonnet-4-5', temperature: 0.3 },
-    account: { hostedUrl: mockHostedUrl, token: mockHostedToken },
+    account: { hostedUrl: mockHostedUrl },
     defaults: { language: 'ja', tone: 'professional', length: 'medium' },
     privacy: { showSources: true, redactSensitive: mockRedactSensitive }
   }
@@ -499,7 +502,6 @@ export function resetAllMocks(): void {
   mockRedactSensitive = false
   mockLlmApiKey = ''
   mockHostedUrl = ''
-  mockHostedToken = ''
   generateHostedCalls.length = 0
   registerIpcHandlersCalls.length = 0
   registerShortcutCalls.length = 0

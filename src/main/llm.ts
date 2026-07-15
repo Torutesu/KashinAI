@@ -180,7 +180,8 @@ async function generateGemini(params: GenerateParams): Promise<string> {
 
 export type HostedGenerateParams = {
   hostedUrl: string
-  token: string
+  deviceId: string
+  deviceSecret: string
   model: string
   temperature: number
   system: string
@@ -191,8 +192,8 @@ export type HostedGenerateParams = {
 
 /**
  * Generates via the KashinAI hosted backend (no user API key). POSTs to /v1/inference with the
- * account token and streams the SSE response through the same parser. Maps a 429 to the
- * 'quota_exceeded' error code so the renderer can surface the paywall.
+ * anonymous device credential and streams the SSE response through the same parser. Maps a 429 to
+ * the 'quota_exceeded' error code so the renderer can surface the paywall.
  */
 export async function generateHosted(params: HostedGenerateParams): Promise<string> {
   const base = params.hostedUrl.replace(/\/+$/, '')
@@ -202,7 +203,8 @@ export async function generateHosted(params: HostedGenerateParams): Promise<stri
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        authorization: `Bearer ${params.token}`
+        'x-device-id': params.deviceId,
+        'x-device-secret': params.deviceSecret
       },
       body: JSON.stringify({
         model: params.model,

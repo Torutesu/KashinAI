@@ -213,7 +213,7 @@ test('memory:save persists the current context and optional note through the mar
         gbrain: { mode: 'cli', endpoint: 'http://localhost:3000', token: '', cliPath: 'gbrain', timeoutMs: 10000 },
         memory: { enabled: true, dir: '/tmp/memory' },
         llm: { provider: 'anthropic', apiKey: '', defaultModel: 'claude-sonnet-4-5', temperature: 0.3 },
-        account: { hostedUrl: '', token: '' },
+        account: { hostedUrl: '' },
         defaults: { language: 'ja', tone: 'professional', length: 'medium' },
         privacy: { showSources: true, redactSensitive: false }
       },
@@ -970,7 +970,7 @@ test('assistant:generate routes through the hosted backend when an account token
   registerIpcHandlers()
 
   const { setMockHostedInference, generateHostedCalls, generateCalls } = await import('./__mocks__/mock-modules.ts')
-  setMockHostedInference('https://api.kashin.ai', 'account-token')
+  setMockHostedInference('https://api.kashin.ai')
 
   const handler = electronMockState.ipcHandlers['assistant:generate']
   const result = await handler(
@@ -991,7 +991,7 @@ test('billing:checkout opens the Stripe URL returned by the backend', async () =
   registerIpcHandlers()
 
   const { setMockHostedInference } = await import('./__mocks__/mock-modules.ts')
-  setMockHostedInference('https://api.kashin.ai', 'account-token')
+  setMockHostedInference('https://api.kashin.ai')
 
   const originalFetch = globalThis.fetch
   // @ts-expect-error test stub

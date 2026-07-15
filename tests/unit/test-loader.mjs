@@ -29,7 +29,8 @@ const ipcSiblingSpecifiers = [
   './shortcut',
   './memory',
   './history',
-  './telemetry'
+  './telemetry',
+  './device-identity'
 ]
 
 export async function resolve(specifier, context, next) {
