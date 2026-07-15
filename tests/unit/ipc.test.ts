@@ -586,36 +586,53 @@ test('system:runDiagnostics returns a structured error when resolving the frontm
   })
 })
 
+// Screen-capture permission is a macOS-only concept: getScreenCaptureStatusForPlatform short-circuits
+// to 'granted' on any non-darwin host. These tests exercise the macOS code path, so they pin
+// process.platform to 'darwin' to stay deterministic when run on Linux/Windows CI.
+async function withDarwinPlatform(run: () => Promise<void>): Promise<void> {
+  const original = Object.getOwnPropertyDescriptor(process, 'platform')
+  Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true })
+  try {
+    await run()
+  } finally {
+    if (original) Object.defineProperty(process, 'platform', original)
+  }
+}
+
 test('system:requestScreenCapture opens System Settings until permission is granted', async () => {
-  const { registerIpcHandlers } = await importIpc()
-  registerIpcHandlers()
+  await withDarwinPlatform(async () => {
+    const { registerIpcHandlers } = await importIpc()
+    registerIpcHandlers()
 
-  electronMockState.screenCaptureStatus = 'denied'
-  const handler = electronMockState.ipcHandlers['system:requestScreenCapture']
-  assert.ok(handler, 'system:requestScreenCapture handler should be registered')
+    electronMockState.screenCaptureStatus = 'denied'
+    const handler = electronMockState.ipcHandlers['system:requestScreenCapture']
+    assert.ok(handler, 'system:requestScreenCapture handler should be registered')
 
-  const result = await handler({}, undefined)
+    const result = await handler({}, undefined)
 
-  assert.equal(electronMockState.desktopSourcesCalls, 1)
-  assert.equal(result, 'denied')
-  assert.deepEqual(electronMockState.shellOpenExternalCalls, [
-    'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
-  ])
+    assert.equal(electronMockState.desktopSourcesCalls, 1)
+    assert.equal(result, 'denied')
+    assert.deepEqual(electronMockState.shellOpenExternalCalls, [
+      'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
+    ])
+  })
 })
 
 test('system:requestScreenCapture avoids reopening System Settings once permission is already granted', async () => {
-  const { registerIpcHandlers } = await importIpc()
-  registerIpcHandlers()
+  await withDarwinPlatform(async () => {
+    const { registerIpcHandlers } = await importIpc()
+    registerIpcHandlers()
 
-  electronMockState.screenCaptureStatus = 'granted'
-  const handler = electronMockState.ipcHandlers['system:requestScreenCapture']
-  assert.ok(handler, 'system:requestScreenCapture handler should be registered')
+    electronMockState.screenCaptureStatus = 'granted'
+    const handler = electronMockState.ipcHandlers['system:requestScreenCapture']
+    assert.ok(handler, 'system:requestScreenCapture handler should be registered')
 
-  const result = await handler({}, undefined)
+    const result = await handler({}, undefined)
 
-  assert.equal(electronMockState.desktopSourcesCalls, 1)
-  assert.equal(result, 'granted')
-  assert.deepEqual(electronMockState.shellOpenExternalCalls, [])
+    assert.equal(electronMockState.desktopSourcesCalls, 1)
+    assert.equal(result, 'granted')
+    assert.deepEqual(electronMockState.shellOpenExternalCalls, [])
+  })
 })
 
 test('window:getState reports the current collapsed state and registered shortcut', async () => {
