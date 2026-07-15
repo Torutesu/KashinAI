@@ -1,5 +1,6 @@
 import type { LanguagePreference } from './language'
 import type { CaptureStageTimings, GenerationTimings } from './timing'
+import type { TelemetryEventName } from './telemetry'
 
 export type ActionType = 'reply' | 'summarize' | 'next_actions' | 'proposal' | 'translate' | 'custom'
 
@@ -294,6 +295,8 @@ export type AppSettings = {
     showSources: boolean
     /** When true, mask emails/keys/long numbers in captured text before sending to the LLM. */
     redactSensitive: boolean
+    /** Anonymous product analytics (never includes screen text/output/keys). Opt-out. */
+    telemetryEnabled: boolean
   }
   onboarding: {
     completed: boolean
@@ -341,6 +344,7 @@ export type KashinAiApi = {
   saveMemory: (request: { currentContext: CurrentContext; note?: string }) => Promise<{ ok: true; path: string } | { ok: false; error: AppError }>
   getHistory: () => Promise<HistoryEntry[]>
   clearHistory: () => Promise<boolean>
+  captureTelemetry: (event: TelemetryEventName, properties?: Record<string, string | number | boolean>) => Promise<boolean>
   getWindowState: () => Promise<{ collapsed: boolean; registeredShortcut: string | null }>
   hideWindow: () => Promise<void>
   expandWindow: () => Promise<void>

@@ -260,6 +260,20 @@ export function initAutoUpdater(): void {
   initAutoUpdaterCalls.push(1)
 }
 
+// --- telemetry.ts mock ---
+export const captureTelemetryCalls: { event: string; properties?: Record<string, unknown> }[] = []
+export const initTelemetryCalls: number[] = []
+export const shutdownTelemetryCalls: number[] = []
+export function captureTelemetry(event: string, properties?: Record<string, unknown>): void {
+  captureTelemetryCalls.push({ event, properties })
+}
+export async function initTelemetry(): Promise<void> {
+  initTelemetryCalls.push(1)
+}
+export async function shutdownTelemetry(): Promise<void> {
+  shutdownTelemetryCalls.push(1)
+}
+
 // --- option-listener.ts mock ---
 export const startOptionListenerCalls: {
   onOptionTap: () => void
@@ -477,6 +491,9 @@ export function resetAllMocks(): void {
   startOptionListenerCalls.length = 0
   stopOptionListenerCalls.length = 0
   initAutoUpdaterCalls.length = 0
+  captureTelemetryCalls.length = 0
+  initTelemetryCalls.length = 0
+  shutdownTelemetryCalls.length = 0
   insertTextCalls.length = 0
   buildPromptCalls.length = 0
   buildChatPromptCalls.length = 0

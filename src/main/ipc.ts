@@ -12,6 +12,7 @@ import type {
 import { buildChatPrompt, buildPrompt } from '../shared/prompts'
 import { redactCurrentContext } from '../shared/redaction'
 import { nowMs, type GenerationTimings } from '../shared/timing'
+import { captureTelemetry } from './telemetry'
 import { getFrontmostAppInfo, captureCurrentContext, captureCurrentContextDetailed } from './context-reader'
 import {
   buildBackendDiagnostics,
@@ -128,6 +129,17 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
         )
     const timings: GenerationTimings = { gbrainMs, llmMs: nowMs() - llmStartedAt, totalMs: nowMs() - startedAt }
 
+    captureTelemetry('generation_completed', {
+      kind: 'generate',
+      context_kind: currentContext.contextKind,
+      provider: settings.llm.provider,
+      model: settings.llm.defaultModel,
+      success: true,
+      latency_ms: timings.totalMs,
+      gbrain_ms: timings.gbrainMs ?? undefined,
+      llm_ms: timings.llmMs
+    })
+
     recordHistoryEntry({
       kind: 'generate',
       actionType: request.actionType,
@@ -223,6 +235,17 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
           })
         )
     const timings: GenerationTimings = { gbrainMs, llmMs: nowMs() - llmStartedAt, totalMs: nowMs() - startedAt }
+
+    captureTelemetry('generation_completed', {
+      kind: 'chat',
+      context_kind: currentContext.contextKind,
+      provider: settings.llm.provider,
+      model: settings.llm.defaultModel,
+      success: true,
+      latency_ms: timings.totalMs,
+      gbrain_ms: timings.gbrainMs ?? undefined,
+      llm_ms: timings.llmMs
+    })
 
     recordHistoryEntry({
       kind: 'chat',
@@ -341,6 +364,11 @@ export function registerIpcHandlers(): void {
         error: { code: 'unknown', message: err instanceof Error ? err.message : 'Failed to save memory.' }
       }
     }
+  })
+
+  ipcMain.handle('telemetry:capture', async (_event, payload: { event: string; properties?: Record<string, unknown> }) => {
+    captureTelemetry(payload.event, payload.properties)
+    return true
   })
 
   ipcMain.handle('history:list', async () => {

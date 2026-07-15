@@ -7,6 +7,8 @@ import {
   getFrontmostAppInfoCalls,
   hideAssistantWindowCalls,
   initAutoUpdaterCalls,
+  initTelemetryCalls,
+  shutdownTelemetryCalls,
   registerIpcHandlersCalls,
   registerShortcutCalls,
   resetAllMocks,
@@ -53,6 +55,7 @@ test('registers app services when Electron becomes ready', async () => {
   assert.equal(startOptionListenerCalls.length, 1)
   assert.equal(warmContextHelpersCalls.length, 1)
   assert.equal(initAutoUpdaterCalls.length, 1)
+  assert.equal(initTelemetryCalls.length, 1)
   assert.equal(showAssistantWindowCalls.length, 1)
   assert.equal(electronMockState.trayCreated, true)
   assert.equal(electronMockState.trayTitle, 'CA')
@@ -116,6 +119,7 @@ test('before-quit stops the option listener', async () => {
   beforeQuit()
 
   assert.equal(stopOptionListenerCalls.length, 1)
+  assert.equal(shutdownTelemetryCalls.length, 1)
 })
 
 test('second-instance shows the assistant window again', async () => {

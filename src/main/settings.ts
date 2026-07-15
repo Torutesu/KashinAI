@@ -67,7 +67,8 @@ const DEFAULT_SETTINGS: StoredSettings = {
   },
   privacy: {
     showSources: true,
-    redactSensitive: false
+    redactSensitive: false,
+    telemetryEnabled: true
   },
   onboarding: {
     completed: false
@@ -129,7 +130,8 @@ export function getSettings(): AppSettings {
     },
     privacy: {
       showSources: raw.privacy?.showSources ?? true,
-      redactSensitive: raw.privacy?.redactSensitive ?? false
+      redactSensitive: raw.privacy?.redactSensitive ?? false,
+      telemetryEnabled: raw.privacy?.telemetryEnabled ?? true
     },
     onboarding: {
       completed: raw.onboarding?.completed ?? false
@@ -167,7 +169,8 @@ export function getPublicSettings(): PublicAppSettings {
     },
     privacy: {
       showSources: raw.privacy?.showSources ?? true,
-      redactSensitive: raw.privacy?.redactSensitive ?? false
+      redactSensitive: raw.privacy?.redactSensitive ?? false,
+      telemetryEnabled: raw.privacy?.telemetryEnabled ?? true
     },
     onboarding: {
       completed: raw.onboarding?.completed ?? false
@@ -209,7 +212,8 @@ export function updateSettings(update: SettingsUpdate): PublicAppSettings {
     defaults: { ...current.defaults, ...update.defaults },
     privacy: {
       showSources: update.privacy?.showSources ?? current.privacy?.showSources ?? true,
-      redactSensitive: update.privacy?.redactSensitive ?? current.privacy?.redactSensitive ?? false
+      redactSensitive: update.privacy?.redactSensitive ?? current.privacy?.redactSensitive ?? false,
+      telemetryEnabled: update.privacy?.telemetryEnabled ?? current.privacy?.telemetryEnabled ?? true
     },
     onboarding: {
       completed: update.onboarding?.completed ?? current.onboarding?.completed ?? false

@@ -24,6 +24,7 @@ type FormState = {
   length: 'short' | 'medium' | 'long'
   showSources: boolean
   redactSensitive: boolean
+  telemetryEnabled: boolean
 }
 
 type NavKey = 'account' | 'privacy' | 'appearance' | 'identity' | 'memory' | 'shortcuts'
@@ -58,7 +59,8 @@ function toFormState(settings: PublicAppSettings): FormState {
     tone: settings.defaults.tone,
     length: settings.defaults.length,
     showSources: settings.privacy.showSources,
-    redactSensitive: settings.privacy.redactSensitive
+    redactSensitive: settings.privacy.redactSensitive,
+    telemetryEnabled: settings.privacy.telemetryEnabled
   }
 }
 
@@ -128,7 +130,11 @@ export default function SettingsView({
         ...(current.llmApiKey ? { apiKey: current.llmApiKey } : {})
       },
       defaults: { language: current.language, tone: current.tone, length: current.length },
-      privacy: { showSources: current.showSources, redactSensitive: current.redactSensitive }
+      privacy: {
+        showSources: current.showSources,
+        redactSensitive: current.redactSensitive,
+        telemetryEnabled: current.telemetryEnabled
+      }
     })
     setForm(toFormState(updated))
     setSaveState('saved')
@@ -371,7 +377,21 @@ export default function SettingsView({
                     <option value="on">On (mask emails, keys, long numbers)</option>
                   </select>
                 </Field>
+                <Field label="Anonymous usage analytics">
+                  <select
+                    value={form.telemetryEnabled ? 'on' : 'off'}
+                    onChange={(e) => update('telemetryEnabled', e.target.value === 'on')}
+                    className="input"
+                  >
+                    <option value="on">On (never includes screen text or output)</option>
+                    <option value="off">Off</option>
+                  </select>
+                </Field>
               </div>
+              <p className="mt-3 text-[12px] leading-5 text-white/40">
+                Analytics only cover anonymous events like install, permissions, and generation latency. Captured screen
+                text, generated output, and API keys are never sent.
+              </p>
             </SettingsCard>
 
             <SettingsCard title="Assistant setup" subtitle="Core behavior for retrieval and generation.">

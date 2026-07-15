@@ -22,6 +22,8 @@ const api: KashinAiApi = {
 
   clearHistory: () => ipcRenderer.invoke('history:clear'),
 
+  captureTelemetry: (event, properties) => ipcRenderer.invoke('telemetry:capture', { event, properties }),
+
   getWindowState: () => ipcRenderer.invoke('window:getState'),
 
   hideWindow: () => ipcRenderer.invoke('window:hide'),

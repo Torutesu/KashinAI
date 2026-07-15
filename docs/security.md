@@ -31,6 +31,30 @@ The MVP targets self-use or small-team use, so complex multi-tenant permission s
 - Every generated result displays the GBrain sources it was grounded in (e.g. `customers/customer_a.md`), so provenance is always visible.
 - The system prompt explicitly instructs the LLM not to mix internal notes into customer-facing text and not to leak internal context into external-facing drafts (see brief §14.1, and the "社内メモ" sections used throughout `brain/customers/*.md`).
 
+## Anonymous Usage Analytics (opt-out)
+
+KashinAI includes anonymous product analytics to understand the activation funnel and latency
+(Settings → Privacy → "Anonymous usage analytics", `privacy.telemetryEnabled`, default **on**).
+
+What is sent:
+
+- A stable, random **anonymous install id** (no account, email, or device identifiers by default).
+- A small set of **named events**: install, launch, onboarding step/finish, permission granted,
+  first generation/paste, generation completed, paste performed, paywall shown, subscribed.
+- For those events, only **allow-listed, non-sensitive properties** — e.g. latency in ms, model
+  name, provider, context kind (social/browser/…), onboarding step, plan. Nothing else.
+
+What is **never** sent — enforced structurally, not by convention:
+
+- Captured screen text, Accessibility text, OCR text, selected text, clipboard contents.
+- Generated output.
+- API keys or the GBrain token.
+
+The choke point is `sanitizeTelemetry()` in `src/shared/telemetry.ts`: every event passes through a
+per-event property allow-list that drops unknown keys, non-primitive values, and over-long strings,
+and rejects unknown events entirely (covered by unit tests). Transport is off unless a PostHog key
+is configured, and every capture re-checks the opt-out. Turning analytics off stops all of it.
+
 ## Sensitive-Text Redaction (opt-in)
 
 Because on-screen capture (Accessibility text, screenshot OCR, selection) can contain sensitive

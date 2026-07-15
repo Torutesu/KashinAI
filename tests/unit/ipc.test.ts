@@ -6,6 +6,7 @@ import {
   buildChatPromptCalls,
   captureCurrentContextCalls,
   clearHistoryCalls,
+  captureTelemetryCalls,
   generateCalls,
   buildPromptCalls,
   recordHistoryEntryCalls,
@@ -875,4 +876,39 @@ test('assistant:chat inline social fallback still reports timings with null gbra
   assert.ok(result.data.timings, 'timings should be present on the inline fallback')
   assert.equal(result.data.timings.gbrainMs, null)
   assert.equal(typeof result.data.timings.totalMs, 'number')
+})
+
+test('assistant:generate emits a generation_completed telemetry event with safe properties only', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  await handler(
+    {},
+    { currentContext: browserContext(), actionType: 'reply', userInstruction: '返信して', modifier: null }
+  )
+
+  const event = captureTelemetryCalls.find((c) => c.event === 'generation_completed')
+  assert.ok(event, 'generation_completed should be captured')
+  const props = event.properties as Record<string, unknown>
+  assert.equal(props.kind, 'generate')
+  assert.equal(props.context_kind, 'browser')
+  assert.equal(props.provider, 'anthropic')
+  assert.equal(typeof props.latency_ms, 'number')
+  // The output text must never be part of a telemetry payload.
+  assert.ok(!('output' in props))
+})
+
+test('telemetry:capture forwards to the telemetry service', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['telemetry:capture']
+  assert.ok(handler, 'telemetry:capture handler should be registered')
+
+  const result = await handler({}, { event: 'first_paste', properties: { source: 'tap' } })
+  assert.equal(result, true)
+  const captured = captureTelemetryCalls.find((c) => c.event === 'first_paste')
+  assert.ok(captured)
+  assert.deepEqual(captured.properties, { source: 'tap' })
 })

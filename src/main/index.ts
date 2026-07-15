@@ -6,6 +6,7 @@ import { getFrontmostAppInfo, captureCurrentContext, warmContextHelpers } from '
 import { getSettings } from './settings'
 import { startOptionListener, stopOptionListener } from './option-listener'
 import { initAutoUpdater } from './updater'
+import { initTelemetry, shutdownTelemetry } from './telemetry'
 
 let tray: Tray | null = null
 let lastTriggerAt = 0
@@ -31,6 +32,7 @@ if (!gotLock) {
     setupOptionListener()
     warmContextHelpers()
     initAutoUpdater()
+    void initTelemetry()
 
     // Make the app visibly "on" after launch without capturing context or pasting into
     // another app. Context capture/writeback only happens from the shortcut path.
@@ -49,6 +51,7 @@ if (!gotLock) {
 
   app.on('before-quit', () => {
     stopOptionListener()
+    void shutdownTelemetry()
   })
 }
 

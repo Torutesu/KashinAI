@@ -121,6 +121,7 @@ function AssistantFlow() {
       setLastSearchQuery(res.data.searchQuery)
       if (autoInsert && res.data.message.content.trim()) {
         await window.api.insertOutput(res.data.message.content, nextContext.activeApp)
+        void window.api.captureTelemetry('paste_performed', { source: 'tap' })
       }
     } else {
       setError(res.error)
@@ -204,19 +205,22 @@ function AssistantFlow() {
     setHistory([])
   }
 
-  async function completeOnboarding(): Promise<void> {
+  async function completeOnboarding(skipped: boolean): Promise<void> {
     await window.api.setSettings({ onboarding: { completed: true } })
+    void window.api.captureTelemetry('onboarding_finished', { skipped })
     setView('assistant')
   }
 
   async function requestAccessibility(): Promise<void> {
     const granted = await window.api.requestAccessibility()
     setAccessibilityGranted(granted)
+    if (granted) void window.api.captureTelemetry('permission_granted', { kind: 'accessibility' })
   }
 
   async function requestScreenCapture(): Promise<void> {
     const status = await window.api.requestScreenCapture()
     setScreenCaptureStatus(status)
+    if (status === 'granted') void window.api.captureTelemetry('permission_granted', { kind: 'screen' })
   }
 
   async function regenerate(modifier: 'shorter' | 'more_polite' | null): Promise<void> {
@@ -251,6 +255,7 @@ function AssistantFlow() {
   async function handleInsert(): Promise<void> {
     if (!result) return
     await window.api.insertOutput(result.output, context?.activeApp ?? null)
+    void window.api.captureTelemetry('paste_performed', { source: 'result' })
   }
 
   if (collapsed) {
@@ -278,8 +283,8 @@ function AssistantFlow() {
           screenCaptureStatus={screenCaptureStatus}
           onRequestAccessibility={() => void requestAccessibility()}
           onRequestScreenCapture={() => void requestScreenCapture()}
-          onFinish={() => void completeOnboarding()}
-          onSkip={() => void completeOnboarding()}
+          onFinish={() => void completeOnboarding(false)}
+          onSkip={() => void completeOnboarding(true)}
         />
       )}
       {view === 'assistant' && (
@@ -340,7 +345,10 @@ function AssistantFlow() {
           onClose={() => void window.api.hideWindow()}
           onClear={() => void clearHistory()}
           onCopy={(text) => void window.api.copyOutput(text)}
-          onInsert={(text) => void window.api.insertOutput(text, context?.activeApp ?? null)}
+          onInsert={(text) => {
+            void window.api.insertOutput(text, context?.activeApp ?? null)
+            void window.api.captureTelemetry('paste_performed', { source: 'history' })
+          }}
         />
       )}
       {view === 'settings' && (
