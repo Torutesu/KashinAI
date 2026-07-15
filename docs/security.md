@@ -10,8 +10,16 @@ To keep the psychological barrier to adoption low, the MVP commits to the follow
 - The app does **not** store a full history of user activity.
 - Processing centers on the text the user explicitly selects (plus an explicit clipboard fallback), not passive screen capture.
 - Retrieved sources are shown to the user **before** they act on generated output.
-- The app never sends anything automatically — there is no auto-send.
-- The user always reviews generated content before copying or inserting it anywhere.
+- The app never sends anything automatically — there is no auto-send. Generated text may be
+  pasted into the active field, but it is never submitted, emailed, or posted on the user's
+  behalf; the user always performs the final send action themselves.
+- There are two explicit, user-initiated gestures with different review models:
+  - **Option + Space** opens the floating panel so the user can review the generated suggestion
+    (and its sources) before copying or inserting it.
+  - **A single Option tap** is an opt-in fast path: it reads the current context, generates one
+    suggestion, and inserts it directly into the active field without a separate review step.
+    This is deliberate for speed; because nothing is auto-sent, the user still reviews the pasted
+    text in place and controls whether it is ever sent onward.
 
 ## MVP Security (brief §17.1)
 
