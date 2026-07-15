@@ -51,13 +51,13 @@ below.
       JWT auth + SSE inference proxy + KV usage meter), and the app-side hosted client is wired.
       **Remaining: deploy** — needs a Cloudflare (or Fly) account and an inference-provider key;
       then `wrangler deploy` and set the app's Hosted account URL. See `server/README.md`.
-- [~] **#15 accounts + Stripe billing**: mostly built + contract-tested. The app maps `429` to a
-      paywall (`quota_exceeded` → upgrade message + `paywall_shown` telemetry); the backend has the
-      **Stripe webhook** (signature-verified, idempotent, drives the plan store) and **`/auth/token`
-      plan-token minting**. **Remaining (needs accounts/decisions):** wire an auth-provider adapter
-      (`verifyIdentity` for Clerk/Supabase), add a Stripe Checkout-session creation endpoint + the
-      web subscribe/portal flow, and configure the Stripe webhook + secrets. Prices/quota are config
-      (`server/src/quota.ts`).
+- [x] **#15 accounts + Stripe billing**: built + contract-tested end-to-end with the **cheapest
+      model — anonymous device credentials, no auth provider** (no Clerk/Supabase, no login, no
+      email). The app auto-registers a device; the backend meters the free quota; Stripe Checkout →
+      signature-verified idempotent webhook → plan store ties **Pro to the device**; the app shows an
+      Upgrade button on `quota_exceeded`. **Remaining: deploy + a Stripe product** (set the Stripe
+      secrets + webhook). Cloudflare and Stripe both have free tiers → no fixed monthly cost. See
+      `server/README.md` → "Cheapest launch". Prices/quota are config (`server/src/quota.ts`).
 - [ ] **Sentry crash reporting**: the analytics half of #12 is done; crash reporting still needs
       `@sentry/electron` + a DSN (wire like the guarded updater/telemetry init).
 - [ ] **Landing page + Privacy Policy + Terms** (#17): download page with the "Option-tap" demo
@@ -70,17 +70,24 @@ below.
       language match / no-preamble / length / no company-context leakage. Key-gated; run before
       shipping prompt changes.
 - [ ] Playwright + Electron E2E on `macos-14`
-- [ ] macOS CI job (unit + `swiftc -parse` + `electron-builder dir` smoke)
+- [x] macOS CI job (unit + `swiftc -parse` + `electron-builder dir` smoke)
+- [x] Backend contract tests (auth/quota/SSE/device/Stripe webhook idempotency/checkout) — 42 tests
 - [ ] Renderer component tests (App.tsx state transitions)
 - [ ] Perf bench asserting P50/P95 soft budgets from the new timings
-- [ ] Backend contract tests (auth/quota/SSE/Stripe webhook idempotency)
+- [ ] E2E (Playwright + Electron on macos-14)
 
 ## Bottom line
 
-The **application is feature-complete and green for a BYOK (bring-your-own-API-key) build**, pending
-a Mac E2E pass and an icon. The **hosted-inference backend is built and contract-tested** and only
-needs deploying. A **public, monetized release** additionally requires the founder to provision
-Apple Developer, cloud (deploy the backend), Stripe, and auth accounts, then build the thin account
-service that mints plan tokens (#15) — the app already routes to the backend and surfaces the
-paywall on quota. The code and CI are structured so those integrations drop in via secrets/env
-without further app refactoring.
+The **app and the full hosted-inference + monetization backend are built, contract-tested, and
+green** (558 app + 42 server tests). Billing uses the **cheapest model — anonymous device
+credentials, no auth provider** — so there is no provider decision left to make. What remains to
+ship is operational, not code:
+
+1. **Deploy the backend** — a Cloudflare account (free tier) + an inference key, then `wrangler
+   deploy`; set the app's Hosted account URL. Free generation works immediately; add Stripe secrets
+   to enable Pro. (`server/README.md` → "Cheapest launch".)
+2. **Sign + distribute the app (#17)** — Apple Developer membership + a designed icon; the signing
+   config, notarization, release workflow, and auto-update are already wired.
+3. **A Mac E2E pass** of the Option-tap flow.
+
+Everything drops in via secrets/env with no further app refactoring.
