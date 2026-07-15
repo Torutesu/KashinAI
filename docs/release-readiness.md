@@ -24,9 +24,11 @@ CI (`.github/workflows/ci.yml`) runs lint + typecheck + test on every push/PR.
 | Latency instrumentation (capture stages + generation timings) | ✅ | #13 |
 | Privacy-first telemetry (allow-list, opt-out, anonymous id) | ✅ | #12 |
 | Streaming generation (SSE) + cancellation | ✅ | #16 |
-| CI (lint/typecheck/test); packaging/signing config; auto-update wiring | ✅ | #4, #7 |
+| Hosted-inference backend (Hono/Workers: auth + quota + SSE proxy) — contract-tested | ✅ code (deploy needs account) | #14 |
+| App-side hosted client + quota→paywall signal | ✅ | #14, #15 (partial) |
+| CI (lint/typecheck/test + server job); packaging/signing config; auto-update wiring | ✅ | #4, #7 |
 
-These are unit-tested, typechecked, and bundle cleanly. Because this environment is headless Linux
+These are unit/contract-tested (549 app + 19 server), typechecked, and bundle cleanly. Because this environment is headless Linux
 with no Electron runtime, **none have had a live macOS end-to-end run** — that is the first item
 below.
 
@@ -45,13 +47,15 @@ below.
 - [ ] **#17 signed + notarized build**: Apple Developer Program membership + certificate; set the
       `MAC_CSC_*` / `APPLE_*` secrets and run `.github/workflows/release.yml`. Config + workflow are
       ready; only the credentials and a real run remain. Auto-update also requires a signed build.
-- [ ] **#14 backend MVP** (approved pivot): Hono on Cloudflare Workers/Fly — JWT auth + SSE inference
-      proxy + usage meter. Needs a cloud account and an inference-provider key. The app already
-      streams via a provider-agnostic SSE parser, so a hosted `provider: 'kashinai'` client is a
-      thin add once the endpoint exists.
-- [ ] **#15 accounts + Stripe billing**: auth (Clerk/Supabase) + Stripe Checkout/Portal/webhooks +
-      in-app entitlement/paywall. Needs Stripe + auth accounts. Prices/quota should be config/env so
-      they can be finalized pre-launch.
+- [x] **#14 backend MVP** (approved pivot): built + contract-tested in `server/` (Hono/Workers —
+      JWT auth + SSE inference proxy + KV usage meter), and the app-side hosted client is wired.
+      **Remaining: deploy** — needs a Cloudflare (or Fly) account and an inference-provider key;
+      then `wrangler deploy` and set the app's Hosted account URL. See `server/README.md`.
+- [ ] **#15 accounts + Stripe billing**: the app already maps the backend's `429` to a paywall
+      signal (`quota_exceeded` → upgrade message + `paywall_shown` telemetry). Still needs the
+      **account service that mints signed plan tokens**: auth (Clerk/Supabase) + Stripe
+      Checkout/Portal/webhooks. Needs Stripe + auth accounts. Prices/quota are already config
+      (`server/src/quota.ts`) so they can be finalized pre-launch.
 - [ ] **Sentry crash reporting**: the analytics half of #12 is done; crash reporting still needs
       `@sentry/electron` + a DSN (wire like the guarded updater/telemetry init).
 - [ ] **Landing page + Privacy Policy + Terms** (#17): download page with the "Option-tap" demo
@@ -68,7 +72,10 @@ below.
 
 ## Bottom line
 
-The **application is feature-complete and green for a BYOK (bring-your-own-API-key) TestFlight-style
-build**, pending a Mac E2E pass and an icon. A **public, monetized release** additionally requires
-the founder to provision Apple Developer, cloud (backend), Stripe, and auth accounts — the code and
-CI are structured so those integrations drop in via secrets/env without further app refactoring.
+The **application is feature-complete and green for a BYOK (bring-your-own-API-key) build**, pending
+a Mac E2E pass and an icon. The **hosted-inference backend is built and contract-tested** and only
+needs deploying. A **public, monetized release** additionally requires the founder to provision
+Apple Developer, cloud (deploy the backend), Stripe, and auth accounts, then build the thin account
+service that mints plan tokens (#15) — the app already routes to the backend and surfaces the
+paywall on quota. The code and CI are structured so those integrations drop in via secrets/env
+without further app refactoring.
