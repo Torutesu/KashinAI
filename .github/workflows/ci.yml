@@ -74,6 +74,10 @@ jobs:
         working-directory: server
         run: pnpm test
 
+      - name: Worker build (dry-run — verifies Workers-runtime compatibility)
+        working-directory: server
+        run: pnpm build
+
   macos:
     name: macOS (helpers & packaging smoke)
     runs-on: macos-14
