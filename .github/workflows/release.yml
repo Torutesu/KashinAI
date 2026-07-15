@@ -51,14 +51,24 @@ jobs:
         run: pnpm build
 
       - name: Package (electron-builder)
+        env:
+          # Used by electron-builder to create/upload the draft GitHub Release (incl. the
+          # latest-mac.yml feed that electron-updater consumes). The built-in token is enough.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Publish (draft release + update feed) only for v* tags; plain builds just produce local artifacts.
+          PUBLISH_FLAG="never"
+          case "$GITHUB_REF" in
+            refs/tags/v*) PUBLISH_FLAG="always" ;;
+          esac
+          NOTARIZE_ARGS=""
           if [ -n "$APPLE_TEAM_ID" ] && [ -n "$APPLE_ID" ]; then
             echo "Notarizing with team $APPLE_TEAM_ID"
-            pnpm exec electron-builder --mac -c.mac.notarize.teamId="$APPLE_TEAM_ID"
+            NOTARIZE_ARGS="-c.mac.notarize.teamId=$APPLE_TEAM_ID"
           else
             echo "::warning::Apple notarization secrets are not set; building UNSIGNED artifacts."
-            pnpm exec electron-builder --mac
           fi
+          pnpm exec electron-builder --mac $NOTARIZE_ARGS --publish "$PUBLISH_FLAG"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -67,13 +77,5 @@ jobs:
           path: |
             release/*.dmg
             release/*.zip
+            release/latest-mac.yml
           if-no-files-found: error
-
-      - name: Attach to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          files: |
-            release/*.dmg
-            release/*.zip

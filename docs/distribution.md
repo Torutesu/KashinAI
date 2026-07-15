@@ -81,12 +81,24 @@ pnpm build
 pnpm exec electron-builder --mac -c.mac.notarize=true
 ```
 
+## Auto-update
+
+Auto-update is wired via `electron-updater`:
+
+- `src/main/updater.ts` initializes `autoUpdater` on startup, but only when `app.isPackaged` — in
+  dev / tests it is a no-op, and all errors are swallowed so a failed check never blocks the app.
+- `package.json` → `build.publish` points at the GitHub Releases provider (owner `Torutesu`, repo
+  `KashinAI`).
+- `.github/workflows/release.yml` runs `electron-builder --publish always` on `v*` tags, which
+  uploads the `.dmg`/`.zip` **and** the `latest-mac.yml` feed that `electron-updater` reads.
+
+So once a `v*` tag has been released through the workflow, packaged installs check GitHub Releases
+on launch and self-update. Auto-update only works for **signed** builds (macOS refuses to swap in an
+unsigned update), so the Apple secrets above are required for it to function end-to-end.
+
 ## Still to do
 
 - **App icon**: add `build/icon.icns` (1024×1024 source) so the packaged app and Dock use a real
   icon instead of the default Electron icon. The menu-bar tray icon is currently empty
-  (`nativeImage.createEmpty()` in `src/main/index.ts`) — ship a template PNG there too.
-- **Auto-update**: add `electron-updater`, wire `autoUpdater` in the main process, and set a
-  `build.publish` provider (e.g. GitHub Releases). The release workflow already produces the `.zip`
-  that electron-updater consumes; this is a deliberate follow-up because it adds a runtime
-  dependency and an update feed.
+  (`nativeImage.createEmpty()` in `src/main/index.ts`) — ship a template PNG there too. (Requires a
+  designed asset; best added on a Mac where `iconutil` can generate the `.icns`.)

@@ -5,6 +5,7 @@ import { createAssistantWindow, showAssistantWindow, hideAssistantWindow, openAs
 import { getFrontmostAppInfo, captureCurrentContext, warmContextHelpers } from './context-reader'
 import { getSettings } from './settings'
 import { startOptionListener, stopOptionListener } from './option-listener'
+import { initAutoUpdater } from './updater'
 
 let tray: Tray | null = null
 let lastTriggerAt = 0
@@ -29,6 +30,7 @@ if (!gotLock) {
     setupShortcut()
     setupOptionListener()
     warmContextHelpers()
+    initAutoUpdater()
 
     // Make the app visibly "on" after launch without capturing context or pasting into
     // another app. Context capture/writeback only happens from the shortcut path.

@@ -15,7 +15,7 @@ const electronMockUrl = pathToFileURL(pathResolve(mockDir, 'electron.ts')).href
 const mockModulesUrl = pathToFileURL(pathResolve(mockDir, 'mock-modules.ts')).href
 
 // Sibling modules that src/main/index.ts imports
-const mainIndexSiblingSpecifiers = ['./ipc', './shortcut', './windows', './context-reader', './settings', './option-listener', './insert']
+const mainIndexSiblingSpecifiers = ['./ipc', './shortcut', './windows', './context-reader', './settings', './option-listener', './insert', './updater']
 const ipcSiblingSpecifiers = [
   '../shared/prompts',
   '../shared/live-context',

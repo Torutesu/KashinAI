@@ -254,6 +254,12 @@ export function warmContextHelpers(): void {
   warmContextHelpersCalls.push(1)
 }
 
+// --- updater.ts mock ---
+export const initAutoUpdaterCalls: number[] = []
+export function initAutoUpdater(): void {
+  initAutoUpdaterCalls.push(1)
+}
+
 // --- option-listener.ts mock ---
 export const startOptionListenerCalls: {
   onOptionTap: () => void
@@ -470,6 +476,7 @@ export function resetAllMocks(): void {
   mockCaptureCurrentContextResult = null
   startOptionListenerCalls.length = 0
   stopOptionListenerCalls.length = 0
+  initAutoUpdaterCalls.length = 0
   insertTextCalls.length = 0
   buildPromptCalls.length = 0
   buildChatPromptCalls.length = 0
