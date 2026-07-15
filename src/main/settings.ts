@@ -61,7 +61,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
     temperature: 0.3
   },
   defaults: {
-    language: 'ja',
+    language: 'auto',
     tone: 'professional',
     length: 'medium'
   },

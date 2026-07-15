@@ -1,3 +1,5 @@
+import type { LanguagePreference } from './language'
+
 export type ActionType = 'reply' | 'summarize' | 'next_actions' | 'proposal' | 'translate' | 'custom'
 
 export type CurrentContext = {
@@ -50,7 +52,7 @@ export type ContextPack = {
   searchQuery: string
   retrievedContext: RetrievedContext[]
   outputPreferences: {
-    language: 'ja' | 'en'
+    language: LanguagePreference
     tone: 'casual' | 'professional' | 'polite'
     length: 'short' | 'medium' | 'long'
   }
@@ -279,7 +281,7 @@ export type AppSettings = {
     temperature: number
   }
   defaults: {
-    language: 'ja' | 'en'
+    language: LanguagePreference
     tone: 'casual' | 'professional' | 'polite'
     length: 'short' | 'medium' | 'long'
   }

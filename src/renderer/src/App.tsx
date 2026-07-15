@@ -8,6 +8,7 @@ import type {
   GenerateResult,
   HistoryEntry
 } from '@shared/types'
+import { detectLanguage } from '@shared/language'
 import AssistantPanel from './components/AssistantPanel'
 import ResultView from './components/ResultView'
 import SettingsView from './components/SettingsView'
@@ -15,6 +16,24 @@ import OnboardingView from './components/OnboardingView'
 import HistoryView from './components/HistoryView'
 
 type PanelView = 'assistant' | 'result' | 'settings' | 'onboarding' | 'history'
+
+const RECOMMENDATION_INSTRUCTION = {
+  ja: '現在の画面コンテキスト、Accessibility Text、スクリーンOCR、選択テキストを最優先で読んで、今すぐ入力欄に貼り付けて使えるおすすめ文を1つ作ってください。Twitter/Xなら表示中の投稿や返信欄に合う短い投稿・返信文、コード画面ならそのコードやエラーに合う短いコメント・説明・次アクションにしてください。Twitter/X、SNS、コード、ターミナル、エディタ画面では会社メモやGBrainを使わず、画面に見えている内容だけに合わせてください。前置き、見出し、引用符、説明、Context used、箇条書きラベルは出さず、貼り付ける本文だけを出力してください。',
+  en: 'Read the current screen context, Accessibility Text, screen OCR, and selected text first, and write one ready-to-paste suggestion for the active input. For Twitter/X, make a short post/reply that fits the visible post or reply box; for a code screen, make a short comment, explanation, or next action that fits the code or error. On Twitter/X, social, code, terminal, and editor screens, do not use company memory or GBrain — match only what is visible on screen. Output only the body to paste: no preamble, headings, quotes, explanations, "Context used", or bullet labels.'
+} as const
+
+function contextLanguageText(context: CurrentContext): string {
+  return [
+    context.selectedText,
+    context.accessibilityText,
+    context.screenText,
+    context.pageText,
+    context.pageTitle,
+    context.windowTitle
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
 
 function AssistantFlow() {
   const [context, setContext] = useState<CurrentContext | null>(null)
@@ -84,8 +103,7 @@ function AssistantFlow() {
   async function autoRecommendForContext(nextContext: CurrentContext, autoInsert: boolean): Promise<void> {
     const recommendationRequest: ChatMessage = {
       role: 'user',
-      content:
-        '現在の画面コンテキスト、Accessibility Text、スクリーンOCR、選択テキストを最優先で読んで、今すぐ入力欄に貼り付けて使えるおすすめ文を1つ作ってください。Twitter/Xなら表示中の投稿や返信欄に合う短い投稿・返信文、コード画面ならそのコードやエラーに合う短いコメント・説明・次アクションにしてください。Twitter/X、SNS、コード、ターミナル、エディタ画面では会社メモやGBrainを使わず、画面に見えている内容だけに合わせてください。前置き、見出し、引用符、説明、Context used、箇条書きラベルは出さず、貼り付ける本文だけを出力してください。'
+      content: RECOMMENDATION_INSTRUCTION[detectLanguage(contextLanguageText(nextContext))]
     }
 
     setLoading(true)

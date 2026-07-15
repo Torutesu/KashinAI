@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { BackendDiagnostics, GBrainMode, LlmProvider, PublicAppSettings } from '@shared/types'
+import type { LanguagePreference } from '@shared/language'
 
 type FormState = {
   appDisplayName: string
@@ -18,7 +19,7 @@ type FormState = {
   llmTemperature: number
   llmApiKey: string
   llmHasApiKey: boolean
-  language: 'ja' | 'en'
+  language: LanguagePreference
   tone: 'casual' | 'professional' | 'polite'
   length: 'short' | 'medium' | 'long'
   showSources: boolean
@@ -402,6 +403,17 @@ export default function SettingsView({
                   >
                     <option value="enabled">Enabled</option>
                     <option value="disabled">Disabled</option>
+                  </select>
+                </Field>
+                <Field label="Output language">
+                  <select
+                    value={form.language}
+                    onChange={(e) => update('language', e.target.value as LanguagePreference)}
+                    className="input"
+                  >
+                    <option value="auto">Auto (match the screen)</option>
+                    <option value="ja">Japanese</option>
+                    <option value="en">English</option>
                   </select>
                 </Field>
                 <Field label="LLM provider">

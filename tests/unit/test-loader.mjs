@@ -75,6 +75,13 @@ export async function resolve(specifier, context, next) {
     return next('./context-reader-utils.ts', context)
   }
 
+  // General fallback: source uses extensionless relative .ts imports (bundler resolution), which
+  // Node's default resolver does not add. Map extensionless relative specifiers to `.ts` so real
+  // modules (e.g. prompts.ts importing './live-context') can be loaded directly in tests.
+  if ((specifier.startsWith('./') || specifier.startsWith('../')) && !/\.[a-z0-9]+$/i.test(specifier)) {
+    return next(`${specifier}.ts`, context)
+  }
+
   return next(specifier, context)
 }
 
