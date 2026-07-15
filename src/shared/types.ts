@@ -76,6 +76,8 @@ export type GenerateRequest = {
   actionType: ActionType
   userInstruction: string
   modifier?: 'shorter' | 'more_polite' | null
+  /** When set, this query is used for GBrain retrieval instead of the auto-generated one. */
+  searchQueryOverride?: string | null
 }
 
 export type GenerateResult = {
@@ -93,6 +95,22 @@ export type ChatMessage = {
 export type ChatRequest = {
   currentContext: CurrentContext
   messages: ChatMessage[]
+  /** When set, this query is used for GBrain retrieval instead of the auto-generated one. */
+  searchQueryOverride?: string | null
+}
+
+/** A single saved generation, shown in the History view so past outputs can be reused. */
+export type HistoryEntry = {
+  id: string
+  timestamp: string
+  kind: 'generate' | 'chat'
+  actionType: ActionType | null
+  activeApp: string | null
+  contextKind: CurrentContext['contextKind'] | null
+  output: string
+  searchQuery: string
+  contextSource: ContextSource
+  sources: { source: string; title: string }[]
 }
 
 export type ChatResult = {
@@ -312,6 +330,8 @@ export type ContextAssistantApi = {
   getSettings: () => Promise<PublicAppSettings>
   setSettings: (update: SettingsUpdate) => Promise<PublicAppSettings>
   saveMemory: (request: { currentContext: CurrentContext; note?: string }) => Promise<{ ok: true; path: string } | { ok: false; error: AppError }>
+  getHistory: () => Promise<HistoryEntry[]>
+  clearHistory: () => Promise<boolean>
   getWindowState: () => Promise<{ collapsed: boolean; registeredShortcut: string | null }>
   hideWindow: () => Promise<void>
   expandWindow: () => Promise<void>

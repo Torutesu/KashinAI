@@ -5,7 +5,10 @@ import {
   buildSearchQueryCalls,
   buildChatPromptCalls,
   captureCurrentContextCalls,
+  clearHistoryCalls,
   generateCalls,
+  recordHistoryEntryCalls,
+  setMockHistoryEntries,
   getFrontmostAppInfoCalls,
   mockRegisteredShortcut,
   resetAllMocks,
@@ -690,4 +693,103 @@ test('settings:set returns public settings after rollback even when restoring th
   assert.deepEqual(updateRegisteredShortcutCalls, ['Option+[', 'Option+Space'])
   assert.equal(mockRegisteredShortcut, 'Option+Space')
   assert.equal(result.shortcut, 'Option+Space')
+})
+
+test('assistant:generate records a history entry on success', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  assert.ok(handler, 'assistant:generate handler should be registered')
+
+  const result = await handler(
+    {},
+    {
+      currentContext: browserContext(),
+      actionType: 'reply',
+      userInstruction: '返信して',
+      modifier: null
+    }
+  )
+
+  assert.equal(result.ok, true)
+  assert.equal(recordHistoryEntryCalls.length, 1)
+  const entry = recordHistoryEntryCalls[0] as {
+    kind: string
+    actionType: string | null
+    output: string
+    searchQuery: string
+  }
+  assert.equal(entry.kind, 'generate')
+  assert.equal(entry.actionType, 'reply')
+  assert.equal(entry.output, result.data.output)
+  assert.equal(entry.searchQuery, result.data.searchQuery)
+})
+
+test('assistant:generate uses the caller search query override for retrieval', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  assert.ok(handler, 'assistant:generate handler should be registered')
+
+  const result = await handler(
+    {},
+    {
+      currentContext: browserContext(),
+      actionType: 'reply',
+      userInstruction: '返信して',
+      modifier: null,
+      searchQueryOverride: '  custom pricing query  '
+    }
+  )
+
+  assert.equal(result.ok, true)
+  // The override wins over the mocked buildSearchQuery result ('mock search query'), trimmed.
+  assert.equal(result.data.searchQuery, 'custom pricing query')
+  assert.deepEqual(searchGBrainCalls, [{ searchQuery: 'custom pricing query' }])
+})
+
+test('assistant:generate falls back to the auto-built query when override is blank', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  const result = await handler(
+    {},
+    {
+      currentContext: browserContext(),
+      actionType: 'reply',
+      userInstruction: '返信して',
+      modifier: null,
+      searchQueryOverride: '   '
+    }
+  )
+
+  assert.equal(result.ok, true)
+  assert.equal(result.data.searchQuery, 'mock search query')
+})
+
+test('history:list returns the stored entries', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  setMockHistoryEntries([{ id: 'a', output: 'hello' }])
+  const handler = electronMockState.ipcHandlers['history:list']
+  assert.ok(handler, 'history:list handler should be registered')
+
+  const result = await handler({}, undefined)
+  assert.deepEqual(result, [{ id: 'a', output: 'hello' }])
+})
+
+test('history:clear empties the history and returns true', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['history:clear']
+  assert.ok(handler, 'history:clear handler should be registered')
+
+  const result = await handler({}, undefined)
+  assert.equal(result, true)
+  assert.equal(clearHistoryCalls.length, 1)
 })

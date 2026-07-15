@@ -27,7 +27,8 @@ const ipcSiblingSpecifiers = [
   './windows',
   './insert',
   './shortcut',
-  './memory'
+  './memory',
+  './history'
 ]
 
 export async function resolve(specifier, context, next) {

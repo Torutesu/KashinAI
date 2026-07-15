@@ -14,6 +14,9 @@ type Props = {
   messages: ChatMessage[]
   lastContextSource: ContextSource | null
   lastSearchQuery: string
+  searchQueryOverride: string
+  onSearchQueryOverrideChange: (value: string) => void
+  onOpenHistory: () => void
   onCustomInstructionChange: (value: string) => void
   onSelectAction: (actionType: ActionType) => void
   onGenerateCustom: () => void
@@ -126,6 +129,9 @@ export default function AssistantPanel({
   messages,
   lastContextSource,
   lastSearchQuery,
+  searchQueryOverride,
+  onSearchQueryOverrideChange,
+  onOpenHistory,
   onCustomInstructionChange,
   onSelectAction,
   onGenerateCustom,
@@ -209,6 +215,14 @@ export default function AssistantPanel({
               ⎘
             </button>
             <button
+              onClick={onOpenHistory}
+              className="overlay-icon-button"
+              aria-label="History"
+              title="Generation history"
+            >
+              ⏱
+            </button>
+            <button
               onClick={() => setPanelMode((prev) => (prev === 'inbox' ? 'focus' : 'inbox'))}
               className="overlay-icon-button"
               aria-label="Toggle layout"
@@ -270,11 +284,32 @@ export default function AssistantPanel({
                 </div>
               )}
             </div>
-            {lastSearchQuery && (
-              <div className="border-t border-white/8 px-3.5 py-2 text-[11px] text-white/36">
-                Context query: {lastSearchQuery}
+            <div className="border-t border-white/8 px-3.5 py-2">
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">
+                  Context query
+                </label>
+                {searchQueryOverride.trim() && (
+                  <button
+                    onClick={() => onSearchQueryOverrideChange('')}
+                    className="text-[10px] font-medium text-white/40 transition hover:text-white/70"
+                  >
+                    Reset
+                  </button>
+                )}
               </div>
-            )}
+              <input
+                value={searchQueryOverride}
+                onChange={(e) => onSearchQueryOverrideChange(e.target.value)}
+                placeholder={lastSearchQuery || 'Auto-generated from context'}
+                className="w-full rounded-[10px] border border-white/10 bg-black/20 px-2.5 py-1.5 text-[11px] text-white/80 placeholder:text-white/30 focus:border-white/25 focus:outline-none"
+              />
+              <p className="mt-1 text-[10px] text-white/28">
+                {searchQueryOverride.trim()
+                  ? 'Your edited query will be used for the next generation.'
+                  : 'Edit to override the memory search query before generating.'}
+              </p>
+            </div>
           </section>
 
           <section className="drop-in mt-2.5 overflow-hidden rounded-[18px] border border-white/12 bg-[rgba(36,28,28,0.66)] shadow-[0_10px_28px_rgba(0,0,0,0.12)] backdrop-blur-md">

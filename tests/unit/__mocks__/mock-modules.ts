@@ -413,8 +413,39 @@ export async function saveMarkdownMemory(payload: unknown): Promise<string> {
   return '/tmp/memory/mock.md'
 }
 
+// --- history.ts mock ---
+export const recordHistoryEntryCalls: unknown[] = []
+export let mockHistoryEntries: unknown[] = []
+export const clearHistoryCalls: number[] = []
+
+export function recordHistoryEntry(input: unknown): void {
+  recordHistoryEntryCalls.push(input)
+}
+
+export function setMockHistoryEntries(next: unknown[]): void {
+  mockHistoryEntries = next
+}
+
+export function listHistory(): unknown[] {
+  return mockHistoryEntries
+}
+
+export function clearHistory(): void {
+  clearHistoryCalls.push(1)
+  mockHistoryEntries = []
+}
+
+export function summarizeHistorySources(
+  sources: Array<{ source: string; title: string }>
+): Array<{ source: string; title: string }> {
+  return sources.map((source) => ({ source: source.source, title: source.title }))
+}
+
 // --- Reset helper ---
 export function resetAllMocks(): void {
+  recordHistoryEntryCalls.length = 0
+  mockHistoryEntries = []
+  clearHistoryCalls.length = 0
   registerIpcHandlersCalls.length = 0
   registerShortcutCalls.length = 0
   createAssistantWindowCalls.length = 0

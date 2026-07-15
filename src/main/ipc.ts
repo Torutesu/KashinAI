@@ -36,6 +36,13 @@ import { expandAssistantWindow, hideAssistantWindow, isAssistantCollapsed, openA
 import { insertText } from './insert'
 import { getRegisteredShortcut, updateRegisteredShortcut } from './shortcut'
 import { saveMarkdownMemory } from './memory'
+import { clearHistory, listHistory, recordHistoryEntry, summarizeHistorySources } from './history'
+
+/** Uses the caller-provided query when they edited it in the UI, otherwise the auto-built one. */
+function resolveSearchQuery(builtQuery: string, override: string | null | undefined): string {
+  const trimmed = override?.trim()
+  return trimmed ? trimmed : builtQuery
+}
 
 function brainDir(): string {
   return path.join(app.getAppPath(), 'brain')
@@ -68,11 +75,12 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
       requestPlan,
       hasApiKey: Boolean(settings.llm.apiKey)
     })
-    const { searchQuery, detectedEntities } = buildSearchQuery(
+    const { searchQuery: builtSearchQuery, detectedEntities } = buildSearchQuery(
       request.currentContext,
       request.actionType,
       request.userInstruction
     )
+    const searchQuery = resolveSearchQuery(builtSearchQuery, request.searchQueryOverride)
 
     const gbrain = executionPlan.shouldSearchGBrain ? await searchGBrain(searchQuery, settings, brainDir()) : null
     const { results, contextSource } = normalizeGBrainLookup(gbrain)
@@ -110,6 +118,17 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
           })
         )
 
+    recordHistoryEntry({
+      kind: 'generate',
+      actionType: request.actionType,
+      activeApp: request.currentContext.activeApp,
+      contextKind: request.currentContext.contextKind,
+      output,
+      searchQuery,
+      contextSource,
+      sources: summarizeHistorySources(results)
+    })
+
     return {
       ok: true,
       data: { output, sources: results, searchQuery, contextSource }
@@ -141,7 +160,8 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
       requestPlan,
       hasApiKey: Boolean(settings.llm.apiKey)
     })
-    const { searchQuery } = buildSearchQuery(request.currentContext, 'custom', latestMessage)
+    const { searchQuery: builtSearchQuery } = buildSearchQuery(request.currentContext, 'custom', latestMessage)
+    const searchQuery = resolveSearchQuery(builtSearchQuery, request.searchQueryOverride)
     if (executionPlan.executionMode === 'inline-fallback') {
       return {
         ok: true,
@@ -182,6 +202,17 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
             sources: results
           })
         )
+
+    recordHistoryEntry({
+      kind: 'chat',
+      actionType: null,
+      activeApp: request.currentContext.activeApp,
+      contextKind: request.currentContext.contextKind,
+      output,
+      searchQuery,
+      contextSource,
+      sources: summarizeHistorySources(results)
+    })
 
     return {
       ok: true,
@@ -288,6 +319,15 @@ export function registerIpcHandlers(): void {
         error: { code: 'unknown', message: err instanceof Error ? err.message : 'Failed to save memory.' }
       }
     }
+  })
+
+  ipcMain.handle('history:list', async () => {
+    return listHistory()
+  })
+
+  ipcMain.handle('history:clear', async () => {
+    clearHistory()
+    return true
   })
 
   ipcMain.handle('window:hide', async () => {

@@ -18,6 +18,10 @@ const api: ContextAssistantApi = {
 
   saveMemory: (request) => ipcRenderer.invoke('memory:save', request),
 
+  getHistory: () => ipcRenderer.invoke('history:list'),
+
+  clearHistory: () => ipcRenderer.invoke('history:clear'),
+
   getWindowState: () => ipcRenderer.invoke('window:getState'),
 
   hideWindow: () => ipcRenderer.invoke('window:hide'),

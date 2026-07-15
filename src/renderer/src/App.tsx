@@ -1,11 +1,20 @@
 import { useEffect, useState } from 'react'
-import type { ActionType, AppError, ChatMessage, ContextSource, CurrentContext, GenerateResult } from '@shared/types'
+import type {
+  ActionType,
+  AppError,
+  ChatMessage,
+  ContextSource,
+  CurrentContext,
+  GenerateResult,
+  HistoryEntry
+} from '@shared/types'
 import AssistantPanel from './components/AssistantPanel'
 import ResultView from './components/ResultView'
 import SettingsView from './components/SettingsView'
 import OnboardingView from './components/OnboardingView'
+import HistoryView from './components/HistoryView'
 
-type PanelView = 'assistant' | 'result' | 'settings' | 'onboarding'
+type PanelView = 'assistant' | 'result' | 'settings' | 'onboarding' | 'history'
 
 function AssistantFlow() {
   const [context, setContext] = useState<CurrentContext | null>(null)
@@ -17,6 +26,8 @@ function AssistantFlow() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [lastContextSource, setLastContextSource] = useState<ContextSource | null>(null)
   const [lastSearchQuery, setLastSearchQuery] = useState('')
+  const [searchQueryOverride, setSearchQueryOverride] = useState('')
+  const [history, setHistory] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<AppError | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle')
@@ -33,6 +44,7 @@ function AssistantFlow() {
       setResult(null)
       setError(null)
       setMessages([])
+      setSearchQueryOverride('')
       void autoRecommendForContext(ctx, autoInsert)
     })
 
@@ -80,7 +92,8 @@ function AssistantFlow() {
     setError(null)
     const res = await window.api.chat({
       currentContext: nextContext,
-      messages: [recommendationRequest]
+      messages: [recommendationRequest],
+      searchQueryOverride: searchQueryOverride.trim() || null
     })
 
     setLoading(false)
@@ -107,7 +120,8 @@ function AssistantFlow() {
       currentContext: context,
       actionType: nextActionType,
       userInstruction: nextInstruction,
-      modifier: null
+      modifier: null,
+      searchQueryOverride: searchQueryOverride.trim() || null
     })
 
     setLoading(false)
@@ -130,7 +144,8 @@ function AssistantFlow() {
 
     const res = await window.api.chat({
       currentContext: context,
-      messages: nextMessages
+      messages: nextMessages,
+      searchQueryOverride: searchQueryOverride.trim() || null
     })
 
     setLoading(false)
@@ -160,6 +175,17 @@ function AssistantFlow() {
     }
   }
 
+  async function openHistory(): Promise<void> {
+    const entries = await window.api.getHistory()
+    setHistory(entries)
+    setView('history')
+  }
+
+  async function clearHistory(): Promise<void> {
+    await window.api.clearHistory()
+    setHistory([])
+  }
+
   async function completeOnboarding(): Promise<void> {
     await window.api.setSettings({ onboarding: { completed: true } })
     setView('assistant')
@@ -184,7 +210,8 @@ function AssistantFlow() {
       currentContext: context,
       actionType,
       userInstruction,
-      modifier
+      modifier,
+      searchQueryOverride: searchQueryOverride.trim() || null
     })
 
     setLoading(false)
@@ -245,6 +272,9 @@ function AssistantFlow() {
           messages={messages}
           lastContextSource={lastContextSource}
           lastSearchQuery={lastSearchQuery}
+          searchQueryOverride={searchQueryOverride}
+          onSearchQueryOverrideChange={setSearchQueryOverride}
+          onOpenHistory={() => void openHistory()}
           onCustomInstructionChange={setCustomInstruction}
           onSelectAction={(type) => {
             const instructionByAction: Record<ActionType, string> = {
@@ -283,6 +313,16 @@ function AssistantFlow() {
           onShorter={() => void regenerate('shorter')}
           onMorePolite={() => void regenerate('more_polite')}
           copyState={copyState}
+        />
+      )}
+      {view === 'history' && (
+        <HistoryView
+          entries={history}
+          onBack={() => setView('assistant')}
+          onClose={() => void window.api.hideWindow()}
+          onClear={() => void clearHistory()}
+          onCopy={(text) => void window.api.copyOutput(text)}
+          onInsert={(text) => void window.api.insertOutput(text, context?.activeApp ?? null)}
         />
       )}
       {view === 'settings' && (
