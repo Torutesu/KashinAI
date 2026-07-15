@@ -1,6 +1,8 @@
 import { createApp } from './app.ts'
 import { createAnthropicUpstream } from './upstream.ts'
 import type { UsageStore } from './quota.ts'
+import type { PlanStore } from './plan-store.ts'
+import type { Plan } from './auth.ts'
 
 /**
  * Cloudflare Workers entry point. Builds the app per request with the environment's secrets and KV
@@ -17,6 +19,7 @@ type Env = {
   JWT_SECRET: string
   ANTHROPIC_API_KEY: string
   DEFAULT_MODEL?: string
+  STRIPE_WEBHOOK_SECRET?: string
   USAGE_KV: KVNamespace
 }
 
@@ -41,13 +44,35 @@ class KvUsageStore implements UsageStore {
   }
 }
 
+/** KV-backed plan map + processed-event set (shares the USAGE_KV namespace via key prefixes). */
+class KvPlanStore implements PlanStore {
+  constructor(private kv: KVNamespace) {}
+
+  async getPlan(userId: string): Promise<Plan> {
+    return (await this.kv.get(`plan:${userId}`)) === 'pro' ? 'pro' : 'free'
+  }
+
+  async setPlan(userId: string, plan: Plan): Promise<void> {
+    await this.kv.put(`plan:${userId}`, plan)
+  }
+
+  async markEventProcessed(eventId: string): Promise<boolean> {
+    if (await this.kv.get(`event:${eventId}`)) return false
+    await this.kv.put(`event:${eventId}`, '1', { expirationTtl: 60 * 60 * 24 * 30 })
+    return true
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const app = createApp({
       jwtSecret: env.JWT_SECRET,
       usageStore: new KvUsageStore(env.USAGE_KV),
+      planStore: new KvPlanStore(env.USAGE_KV),
       upstream: createAnthropicUpstream({ anthropicApiKey: env.ANTHROPIC_API_KEY }),
-      defaultModel: env.DEFAULT_MODEL
+      defaultModel: env.DEFAULT_MODEL,
+      stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET
+      // verifyIdentity: wire the auth provider (Clerk/Supabase) here to enable /auth/token.
     })
     return app.fetch(request)
   }

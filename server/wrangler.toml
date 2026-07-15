@@ -12,5 +12,6 @@ compatibility_date = "2026-07-01"
 DEFAULT_MODEL = "claude-sonnet-4-5"
 
 # Secrets (set with `wrangler secret put <NAME>`, never commit):
-#   JWT_SECRET         - HMAC secret used to sign/verify account tokens
-#   ANTHROPIC_API_KEY  - upstream inference key (server-side only)
+#   JWT_SECRET             - HMAC secret used to sign/verify account tokens
+#   ANTHROPIC_API_KEY      - upstream inference key (server-side only)
+#   STRIPE_WEBHOOK_SECRET  - Stripe webhook signing secret (enables /webhooks/stripe)

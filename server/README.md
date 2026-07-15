@@ -12,6 +12,8 @@ Runs on Cloudflare Workers (Hono). Isolated from the Electron app — its own `p
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | GET | `/health` | none | Liveness |
+| POST | `/auth/token` | auth provider | Mint a signed plan token for the verified user |
+| POST | `/webhooks/stripe` | Stripe signature | Subscription events → plan updates (idempotent) |
 | GET | `/v1/entitlement` | Bearer JWT | Current plan + daily usage/remaining |
 | POST | `/v1/inference` | Bearer JWT | Quota-checked SSE inference proxy (Anthropic) |
 
@@ -20,11 +22,20 @@ Response is `text/event-stream` — the same SSE frames the app already parses (
 When the free daily quota is exhausted it returns `429 { "error": "quota_exceeded", ... }`, which the
 app maps to the paywall (Growth #15).
 
-## Auth
+## Auth & billing (#15)
 
-Tokens are HS256 JWTs signed with `JWT_SECRET`, carrying `{ sub, plan, exp }`. The account service
-(Growth #15) mints them after login/subscription; this service only verifies them. See
-`src/auth.ts` (`signJwt` is used by tests and can seed a local token).
+Tokens are HS256 JWTs signed with `JWT_SECRET`, carrying `{ sub, plan, exp }`.
+
+- **Plan source of truth**: `POST /webhooks/stripe` verifies the Stripe signature and updates the
+  KV plan store (`plan:<userId>`). It is idempotent by Stripe event id. Set `STRIPE_WEBHOOK_SECRET`
+  and point a Stripe webhook (checkout.session.completed, customer.subscription.updated/deleted) at
+  this route.
+- **Token minting**: `POST /auth/token` mints a token carrying the user's current plan — but only
+  once an **auth provider adapter** is wired. Implement `verifyIdentity(headers)` in `index.ts`
+  (verify the Clerk/Supabase session from the `Authorization` header) and pass it to `createApp`.
+  Until then the route returns `501`.
+
+`src/auth.ts` `signJwt` is used by tests and can seed a local token for manual testing.
 
 ## Local dev / tests
 
