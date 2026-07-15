@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ContextAssistantApi, ContextPushPayload, CurrentContext } from '../shared/types'
+import type { KashinAiApi, ContextPushPayload, CurrentContext } from '../shared/types'
 
-const api: ContextAssistantApi = {
+const api: KashinAiApi = {
   captureContext: () => ipcRenderer.invoke('context:capture'),
 
   generate: (request) => ipcRenderer.invoke('assistant:generate', request),

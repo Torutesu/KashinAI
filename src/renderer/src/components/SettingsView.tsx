@@ -22,6 +22,7 @@ type FormState = {
   tone: 'casual' | 'professional' | 'polite'
   length: 'short' | 'medium' | 'long'
   showSources: boolean
+  redactSensitive: boolean
 }
 
 type NavKey = 'account' | 'privacy' | 'appearance' | 'identity' | 'memory' | 'shortcuts'
@@ -55,7 +56,8 @@ function toFormState(settings: PublicAppSettings): FormState {
     language: settings.defaults.language,
     tone: settings.defaults.tone,
     length: settings.defaults.length,
-    showSources: settings.privacy.showSources
+    showSources: settings.privacy.showSources,
+    redactSensitive: settings.privacy.redactSensitive
   }
 }
 
@@ -125,7 +127,7 @@ export default function SettingsView({
         ...(current.llmApiKey ? { apiKey: current.llmApiKey } : {})
       },
       defaults: { language: current.language, tone: current.tone, length: current.length },
-      privacy: { showSources: current.showSources }
+      privacy: { showSources: current.showSources, redactSensitive: current.redactSensitive }
     })
     setForm(toFormState(updated))
     setSaveState('saved')
@@ -344,6 +346,31 @@ export default function SettingsView({
                   <div>Screen OCR preview: {preview(diagnostics.currentContext.screenText)}</div>
                 </div>
               )}
+            </SettingsCard>
+
+            <SettingsCard title="Privacy" subtitle="Control what leaves your machine and how results are shown.">
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Show sources">
+                  <select
+                    value={form.showSources ? 'on' : 'off'}
+                    onChange={(e) => update('showSources', e.target.value === 'on')}
+                    className="input"
+                  >
+                    <option value="on">Show retrieved sources</option>
+                    <option value="off">Hide sources</option>
+                  </select>
+                </Field>
+                <Field label="Redact sensitive text before sending to the LLM">
+                  <select
+                    value={form.redactSensitive ? 'on' : 'off'}
+                    onChange={(e) => update('redactSensitive', e.target.value === 'on')}
+                    className="input"
+                  >
+                    <option value="off">Off (send captured text as-is)</option>
+                    <option value="on">On (mask emails, keys, long numbers)</option>
+                  </select>
+                </Field>
+              </div>
             </SettingsCard>
 
             <SettingsCard title="Assistant setup" subtitle="Core behavior for retrieval and generation.">

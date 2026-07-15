@@ -1,10 +1,10 @@
 /// <reference types="vite/client" />
 
-import type { ContextAssistantApi } from '../../shared/types'
+import type { KashinAiApi } from '../../shared/types'
 
 declare global {
   interface Window {
-    api: ContextAssistantApi
+    api: KashinAiApi
   }
 }
 

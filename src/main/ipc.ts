@@ -10,6 +10,7 @@ import type {
   SettingsUpdate
 } from '../shared/types'
 import { buildChatPrompt, buildPrompt } from '../shared/prompts'
+import { redactCurrentContext } from '../shared/redaction'
 import { getFrontmostAppInfo, captureCurrentContext, captureCurrentContextDetailed } from './context-reader'
 import {
   buildBackendDiagnostics,
@@ -71,12 +72,15 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
     }
 
     const settings = getSettings()
+    const currentContext = settings.privacy.redactSensitive
+      ? redactCurrentContext(request.currentContext)
+      : request.currentContext
     const executionPlan = resolveGenerateExecutionPlan({
       requestPlan,
       hasApiKey: Boolean(settings.llm.apiKey)
     })
     const { searchQuery: builtSearchQuery, detectedEntities } = buildSearchQuery(
-      request.currentContext,
+      currentContext,
       request.actionType,
       request.userInstruction
     )
@@ -86,7 +90,7 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
     const { results, contextSource } = normalizeGBrainLookup(gbrain)
 
     const pack: ContextPack = {
-      currentContext: request.currentContext,
+      currentContext,
       userInstruction: request.userInstruction,
       actionType: request.actionType,
       detectedEntities,
@@ -112,7 +116,7 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
         })
       : buildRetrievalOnlyAnswer(
           buildRetrievalOnlyAnswerParams({
-            currentContext: request.currentContext,
+            currentContext,
             latestUserMessage: request.userInstruction,
             sources: results
           })
@@ -121,8 +125,8 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
     recordHistoryEntry({
       kind: 'generate',
       actionType: request.actionType,
-      activeApp: request.currentContext.activeApp,
-      contextKind: request.currentContext.contextKind,
+      activeApp: currentContext.activeApp,
+      contextKind: currentContext.contextKind,
       output,
       searchQuery,
       contextSource,
@@ -156,17 +160,20 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
     const latestMessage = requestPlan.latestMessage
 
     const settings = getSettings()
+    const currentContext = settings.privacy.redactSensitive
+      ? redactCurrentContext(request.currentContext)
+      : request.currentContext
     const executionPlan = resolveChatExecutionPlan({
       requestPlan,
       hasApiKey: Boolean(settings.llm.apiKey)
     })
-    const { searchQuery: builtSearchQuery } = buildSearchQuery(request.currentContext, 'custom', latestMessage)
+    const { searchQuery: builtSearchQuery } = buildSearchQuery(currentContext, 'custom', latestMessage)
     const searchQuery = resolveSearchQuery(builtSearchQuery, request.searchQueryOverride)
     if (executionPlan.executionMode === 'inline-fallback') {
       return {
         ok: true,
         data: buildInlineFallbackChatResult({
-          currentContext: request.currentContext,
+          currentContext,
           latestUserMessage: latestMessage
         })
       }
@@ -175,7 +182,7 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
     const gbrain = executionPlan.shouldSearchGBrain ? await searchGBrain(searchQuery, settings, brainDir()) : null
     const { results, contextSource } = normalizeGBrainLookup(gbrain)
     const { system, user } = buildChatPrompt({
-      currentContext: request.currentContext,
+      currentContext,
       messages: request.messages,
       retrievedContext: results,
       searchQuery,
@@ -197,7 +204,7 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
         })
       : buildRetrievalOnlyAnswer(
           buildRetrievalOnlyAnswerParams({
-            currentContext: request.currentContext,
+            currentContext,
             latestUserMessage: latestMessage,
             sources: results
           })
@@ -206,8 +213,8 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
     recordHistoryEntry({
       kind: 'chat',
       actionType: null,
-      activeApp: request.currentContext.activeApp,
-      contextKind: request.currentContext.contextKind,
+      activeApp: currentContext.activeApp,
+      contextKind: currentContext.contextKind,
       output,
       searchQuery,
       contextSource,
@@ -221,7 +228,7 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
         sources: results,
         searchQuery,
         contextSource,
-        currentContext: request.currentContext
+        currentContext
       }
     }
   } catch (err) {

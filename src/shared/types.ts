@@ -285,6 +285,8 @@ export type AppSettings = {
   }
   privacy: {
     showSources: boolean
+    /** When true, mask emails/keys/long numbers in captured text before sending to the LLM. */
+    redactSensitive: boolean
   }
   onboarding: {
     completed: boolean
@@ -321,7 +323,7 @@ export type BackendDiagnosticsIpcResult =
 /** The typed contract exposed on window.api by the preload script. Declared here (not in
  * src/preload) so both the main-process tsconfig and the renderer tsconfig can reference it
  * without one composite TS project reaching into the other's file set. */
-export type ContextAssistantApi = {
+export type KashinAiApi = {
   captureContext: () => Promise<CurrentContext>
   generate: (request: GenerateRequest) => Promise<GenerateIpcResult>
   chat: (request: ChatRequest) => Promise<ChatIpcResult>

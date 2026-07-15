@@ -1,6 +1,6 @@
 # Security & Privacy
 
-This document describes ContextAssistant's privacy stance and MVP security posture, per the technical brief sections 16.3 (privacy policy) and 17.1 (MVP security).
+This document describes KashinAI's privacy stance and MVP security posture, per the technical brief sections 16.3 (privacy policy) and 17.1 (MVP security).
 
 ## Privacy Stance (brief §16.3)
 
@@ -30,6 +30,35 @@ The MVP targets self-use or small-team use, so complex multi-tenant permission s
 - The user can review exactly what information is being sent to the LLM (the assembled Context Pack, including retrieved GBrain context) before generation.
 - Every generated result displays the GBrain sources it was grounded in (e.g. `customers/customer_a.md`), so provenance is always visible.
 - The system prompt explicitly instructs the LLM not to mix internal notes into customer-facing text and not to leak internal context into external-facing drafts (see brief §14.1, and the "社内メモ" sections used throughout `brain/customers/*.md`).
+
+## Sensitive-Text Redaction (opt-in)
+
+Because on-screen capture (Accessibility text, screenshot OCR, selection) can contain sensitive
+data, KashinAI ships an **opt-in** redaction filter (Settings → Privacy → "Redact sensitive text",
+`privacy.redactSensitive`, default **off**).
+
+When enabled, the free-text context fields (`pageText`, `accessibilityText`, `screenText`,
+`selectedText`, `clipboardText`, `pageTitle`, `windowTitle`) are passed through
+`redactSensitive()` (`src/shared/redaction.ts`) before the Context Pack is built — so masking
+happens ahead of both the GBrain search query and the LLM prompt. Structural fields (app name, URL,
+capture methods) are left intact.
+
+Current patterns masked:
+
+- Email addresses → `[redacted-email]`
+- API-key / bearer-token shapes (e.g. `sk-…`, `ghp_…`) → `[redacted-key]`
+- Long digit runs (12+, card/account-like) → `[redacted-number]`
+- Phone-like number sequences → `[redacted-phone]`
+
+Design intent and limitations:
+
+- **Default off**: the core use case is sending your *own* screen to your *own* provider, so
+  redaction is a deliberate choice, not a surprise. Teams with stricter policies turn it on.
+- **Best-effort, not a guarantee**: this is a high-signal regex filter, not DLP. It reduces the most
+  common accidental leaks; it does not detect every sensitive value (names, addresses, free-form
+  secrets).
+- **Future work**: a per-capture consent gate (preview + confirm before send), configurable custom
+  patterns, and allow/deny lists per app or domain. Tracked alongside the Phase 2 items below.
 
 ## Future Security Considerations (Phase 2+, brief §17.2)
 

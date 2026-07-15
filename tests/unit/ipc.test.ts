@@ -7,8 +7,10 @@ import {
   captureCurrentContextCalls,
   clearHistoryCalls,
   generateCalls,
+  buildPromptCalls,
   recordHistoryEntryCalls,
   setMockHistoryEntries,
+  setMockRedactSensitive,
   getFrontmostAppInfoCalls,
   mockRegisteredShortcut,
   resetAllMocks,
@@ -210,7 +212,7 @@ test('memory:save persists the current context and optional note through the mar
         memory: { enabled: true, dir: '/tmp/memory' },
         llm: { provider: 'anthropic', apiKey: '', defaultModel: 'claude-sonnet-4-5', temperature: 0.3 },
         defaults: { language: 'ja', tone: 'professional', length: 'medium' },
-        privacy: { showSources: true }
+        privacy: { showSources: true, redactSensitive: false }
       },
       currentContext,
       note: 'pricing page looked promising'
@@ -792,4 +794,46 @@ test('history:clear empties the history and returns true', async () => {
   const result = await handler({}, undefined)
   assert.equal(result, true)
   assert.equal(clearHistoryCalls.length, 1)
+})
+
+test('assistant:generate redacts sensitive context before building the prompt when enabled', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  setMockRedactSensitive(true)
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  const sensitive = {
+    ...browserContext(),
+    pageText: 'Email me at toru@example.com',
+    accessibilityText: 'card 4111 1111 1111 1111'
+  }
+
+  const result = await handler(
+    {},
+    { currentContext: sensitive, actionType: 'reply', userInstruction: '返信して', modifier: null }
+  )
+
+  assert.equal(result.ok, true)
+  assert.equal(buildPromptCalls.length, 1)
+  const pack = buildPromptCalls[0] as { currentContext: { pageText: string; accessibilityText: string } }
+  assert.equal(pack.currentContext.pageText, 'Email me at [redacted-email]')
+  assert.equal(pack.currentContext.accessibilityText, 'card [redacted-number]')
+})
+
+test('assistant:generate leaves context untouched when redaction is disabled', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  const sensitive = { ...browserContext(), pageText: 'Email me at toru@example.com' }
+
+  const result = await handler(
+    {},
+    { currentContext: sensitive, actionType: 'reply', userInstruction: '返信して', modifier: null }
+  )
+
+  assert.equal(result.ok, true)
+  const pack = buildPromptCalls[0] as { currentContext: { pageText: string } }
+  assert.equal(pack.currentContext.pageText, 'Email me at toru@example.com')
 })

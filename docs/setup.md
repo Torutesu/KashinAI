@@ -16,13 +16,13 @@ This starts the Electron app (React/TypeScript/Tailwind UI + Electron main proce
 
 ## 3. Grant macOS Accessibility permission
 
-ContextAssistant needs Accessibility access to read the currently selected text and the active app/window info system-wide. Without it, the app falls back to clipboard-only capture.
+KashinAI needs Accessibility access to read the currently selected text and the active app/window info system-wide. Without it, the app falls back to clipboard-only capture.
 
 1. Open **System Settings → Privacy & Security → Accessibility**.
 2. Click the **+** button (you may need to unlock with your password first).
-3. Add the ContextAssistant app (during development this may be your terminal, Electron, or the packaged app — grant access to whichever process is actually launching the app).
+3. Add the KashinAI app (during development this may be your terminal, Electron, or the packaged app — grant access to whichever process is actually launching the app).
 4. Toggle the switch **on** for the app.
-5. Restart ContextAssistant so the new permission takes effect.
+5. Restart KashinAI so the new permission takes effect.
 
 If the global shortcut (**Option + Space**) doesn't trigger the floating window, re-check this permission first — it's the most common cause.
 

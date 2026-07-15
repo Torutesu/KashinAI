@@ -45,7 +45,7 @@ function selectedTextForQuery(value: string | null): string | null {
 
 function tokenize(text: string): string[] {
   return text
-    .split(/[\s,.。、!?！？「」『』()（）\[\]:：;；\/\\]+/u)
+    .split(/[\s,.。、!?！？「」『』()（）[\]:：;；/\\]+/u)
     .map((token) => token.trim())
     .filter(isUsefulQueryToken)
 }
@@ -103,7 +103,7 @@ function bestAvailableContextText(context: CurrentContext): string {
 function detectEntities(context: CurrentContext, actionType: ActionType): DetectedEntities {
   const windowTitle = context.windowTitle ?? ''
   const segments = windowTitle
-    .split(/[\/|\-–—]/)
+    .split(/[/|\-–—]/)
     .map((s) => s.trim())
     .filter(Boolean)
 

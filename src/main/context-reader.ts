@@ -674,7 +674,7 @@ export async function captureCurrentContextDetailed(
     overrides
   })
 
-  let pageContext: BrowserPageContext = initialPageContext
+  const pageContext: BrowserPageContext = initialPageContext
   let browserLoopState = initialBrowserLoopState
 
   while (true) {

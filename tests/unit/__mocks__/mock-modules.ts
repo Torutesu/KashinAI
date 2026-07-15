@@ -365,6 +365,11 @@ export function updateSettings(update: unknown) {
   return getPublicSettings()
 }
 
+export let mockRedactSensitive = false
+export function setMockRedactSensitive(next: boolean): void {
+  mockRedactSensitive = next
+}
+
 export function getSettings() {
   return {
     appDisplayName: 'TestApp',
@@ -373,7 +378,7 @@ export function getSettings() {
     memory: { enabled: true, dir: '/tmp/memory' },
     llm: { provider: 'anthropic', apiKey: '', defaultModel: 'claude-sonnet-4-5', temperature: 0.3 },
     defaults: { language: 'ja', tone: 'professional', length: 'medium' },
-    privacy: { showSources: true }
+    privacy: { showSources: true, redactSensitive: mockRedactSensitive }
   }
 }
 
@@ -446,6 +451,7 @@ export function resetAllMocks(): void {
   recordHistoryEntryCalls.length = 0
   mockHistoryEntries = []
   clearHistoryCalls.length = 0
+  mockRedactSensitive = false
   registerIpcHandlersCalls.length = 0
   registerShortcutCalls.length = 0
   createAssistantWindowCalls.length = 0

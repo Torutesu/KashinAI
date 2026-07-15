@@ -63,6 +63,10 @@ export async function resolve(specifier, context, next) {
     return next('../shared/live-context.ts', context)
   }
 
+  if (specifier === '../shared/redaction') {
+    return next('../shared/redaction.ts', context)
+  }
+
   if (specifier === './ipc-utils') {
     return next('./ipc-utils.ts', context)
   }

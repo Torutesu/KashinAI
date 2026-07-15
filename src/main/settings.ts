@@ -66,7 +66,8 @@ const DEFAULT_SETTINGS: StoredSettings = {
     length: 'medium'
   },
   privacy: {
-    showSources: true
+    showSources: true,
+    redactSensitive: false
   },
   onboarding: {
     completed: false
@@ -126,6 +127,10 @@ export function getSettings(): AppSettings {
       ...raw.llm,
       apiKey: decryptSecret(raw.llm.apiKey)
     },
+    privacy: {
+      showSources: raw.privacy?.showSources ?? true,
+      redactSensitive: raw.privacy?.redactSensitive ?? false
+    },
     onboarding: {
       completed: raw.onboarding?.completed ?? false
     }
@@ -159,6 +164,10 @@ export function getPublicSettings(): PublicAppSettings {
       defaultModel: raw.llm.defaultModel,
       temperature: raw.llm.temperature,
       hasApiKey: Boolean(raw.llm.apiKey?.value)
+    },
+    privacy: {
+      showSources: raw.privacy?.showSources ?? true,
+      redactSensitive: raw.privacy?.redactSensitive ?? false
     },
     onboarding: {
       completed: raw.onboarding?.completed ?? false
@@ -198,7 +207,10 @@ export function updateSettings(update: SettingsUpdate): PublicAppSettings {
           : current.llm.apiKey
     },
     defaults: { ...current.defaults, ...update.defaults },
-    privacy: { ...current.privacy, ...update.privacy },
+    privacy: {
+      showSources: update.privacy?.showSources ?? current.privacy?.showSources ?? true,
+      redactSensitive: update.privacy?.redactSensitive ?? current.privacy?.redactSensitive ?? false
+    },
     onboarding: {
       completed: update.onboarding?.completed ?? current.onboarding?.completed ?? false
     }
