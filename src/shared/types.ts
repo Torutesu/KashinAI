@@ -268,6 +268,9 @@ export type AppSettings = {
   privacy: {
     showSources: boolean
   }
+  onboarding: {
+    completed: boolean
+  }
 }
 
 /** Settings shape as returned to the renderer: secrets are masked, never sent in plaintext. */
@@ -286,6 +289,7 @@ export type SettingsUpdate = {
   llm?: Partial<Omit<AppSettings['llm'], 'apiKey'>> & { apiKey?: string }
   defaults?: Partial<AppSettings['defaults']>
   privacy?: Partial<AppSettings['privacy']>
+  onboarding?: Partial<AppSettings['onboarding']>
 }
 
 export type GenerateIpcResult = { ok: true; data: GenerateResult } | { ok: false; error: AppError }

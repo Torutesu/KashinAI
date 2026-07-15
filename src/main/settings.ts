@@ -67,6 +67,9 @@ const DEFAULT_SETTINGS: StoredSettings = {
   },
   privacy: {
     showSources: true
+  },
+  onboarding: {
+    completed: false
   }
 }
 
@@ -122,6 +125,9 @@ export function getSettings(): AppSettings {
     llm: {
       ...raw.llm,
       apiKey: decryptSecret(raw.llm.apiKey)
+    },
+    onboarding: {
+      completed: raw.onboarding?.completed ?? false
     }
   }
 }
@@ -153,6 +159,9 @@ export function getPublicSettings(): PublicAppSettings {
       defaultModel: raw.llm.defaultModel,
       temperature: raw.llm.temperature,
       hasApiKey: Boolean(raw.llm.apiKey?.value)
+    },
+    onboarding: {
+      completed: raw.onboarding?.completed ?? false
     }
   }
 }
@@ -189,7 +198,10 @@ export function updateSettings(update: SettingsUpdate): PublicAppSettings {
           : current.llm.apiKey
     },
     defaults: { ...current.defaults, ...update.defaults },
-    privacy: { ...current.privacy, ...update.privacy }
+    privacy: { ...current.privacy, ...update.privacy },
+    onboarding: {
+      completed: update.onboarding?.completed ?? current.onboarding?.completed ?? false
+    }
   }
 
   store.store = next

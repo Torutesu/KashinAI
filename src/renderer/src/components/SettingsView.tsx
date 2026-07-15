@@ -71,7 +71,8 @@ export default function SettingsView({
   onRequestAccessibility,
   onRequestScreenCapture,
   onBack,
-  onClose
+  onClose,
+  onReplayOnboarding
 }: {
   accessibilityGranted: boolean | null
   screenCaptureStatus: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'
@@ -79,6 +80,7 @@ export default function SettingsView({
   onRequestScreenCapture: () => void
   onBack: () => void
   onClose: () => void
+  onReplayOnboarding: () => void
 }) {
   const [form, setForm] = useState<FormState | null>(null)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
@@ -227,6 +229,12 @@ export default function SettingsView({
                   Open Screen Recording Settings
                 </button>
               )}
+              <button
+                onClick={onReplayOnboarding}
+                className="rounded-[14px] border border-white/12 bg-white/10 px-4 py-2 text-[13px] font-semibold text-white"
+              >
+                Run setup guide again
+              </button>
             </SettingsCard>
 
             <SettingsCard title="Backend diagnostics" subtitle="Checks live capture and GBrain retrieval on this Mac.">

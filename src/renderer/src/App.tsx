@@ -3,8 +3,9 @@ import type { ActionType, AppError, ChatMessage, ContextSource, CurrentContext, 
 import AssistantPanel from './components/AssistantPanel'
 import ResultView from './components/ResultView'
 import SettingsView from './components/SettingsView'
+import OnboardingView from './components/OnboardingView'
 
-type PanelView = 'assistant' | 'result' | 'settings'
+type PanelView = 'assistant' | 'result' | 'settings' | 'onboarding'
 
 function AssistantFlow() {
   const [context, setContext] = useState<CurrentContext | null>(null)
@@ -44,6 +45,9 @@ function AssistantFlow() {
     window.api.getSettings().then((settings) => {
       setAppDisplayName(settings.appDisplayName)
       setShowSources(settings.privacy.showSources)
+      if (!settings.onboarding.completed) {
+        setView('onboarding')
+      }
     })
 
     window.api.getWindowState().then((state) => setCollapsed(state.collapsed))
@@ -156,6 +160,11 @@ function AssistantFlow() {
     }
   }
 
+  async function completeOnboarding(): Promise<void> {
+    await window.api.setSettings({ onboarding: { completed: true } })
+    setView('assistant')
+  }
+
   async function requestAccessibility(): Promise<void> {
     const granted = await window.api.requestAccessibility()
     setAccessibilityGranted(granted)
@@ -217,6 +226,17 @@ function AssistantFlow() {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-transparent">
+      {view === 'onboarding' && (
+        <OnboardingView
+          appDisplayName={appDisplayName}
+          accessibilityGranted={accessibilityGranted}
+          screenCaptureStatus={screenCaptureStatus}
+          onRequestAccessibility={() => void requestAccessibility()}
+          onRequestScreenCapture={() => void requestScreenCapture()}
+          onFinish={() => void completeOnboarding()}
+          onSkip={() => void completeOnboarding()}
+        />
+      )}
       {view === 'assistant' && (
         <AssistantPanel
           appDisplayName={appDisplayName}
@@ -273,6 +293,7 @@ function AssistantFlow() {
           onClose={() => void window.api.hideWindow()}
           screenCaptureStatus={screenCaptureStatus}
           onRequestScreenCapture={() => void requestScreenCapture()}
+          onReplayOnboarding={() => setView('onboarding')}
         />
       )}
     </div>
