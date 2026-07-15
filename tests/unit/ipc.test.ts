@@ -837,3 +837,42 @@ test('assistant:generate leaves context untouched when redaction is disabled', a
   const pack = buildPromptCalls[0] as { currentContext: { pageText: string } }
   assert.equal(pack.currentContext.pageText, 'Email me at toru@example.com')
 })
+
+test('assistant:generate returns generation timings', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  const result = await handler(
+    {},
+    { currentContext: browserContext(), actionType: 'reply', userInstruction: '返信して', modifier: null }
+  )
+
+  assert.equal(result.ok, true)
+  const timings = result.data.timings
+  assert.ok(timings, 'timings should be present')
+  assert.equal(typeof timings.totalMs, 'number')
+  assert.equal(typeof timings.llmMs, 'number')
+  // browserContext searches GBrain, so gbrainMs is a number (not null).
+  assert.equal(typeof timings.gbrainMs, 'number')
+  assert.ok(timings.totalMs >= 0 && timings.llmMs >= 0 && timings.gbrainMs >= 0)
+})
+
+test('assistant:chat inline social fallback still reports timings with null gbrainMs', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:chat']
+  const result = await handler(
+    {},
+    {
+      currentContext: socialContext(),
+      messages: [{ role: 'user', content: '今すぐ貼り付けて使えるおすすめ文をください' }]
+    }
+  )
+
+  assert.equal(result.ok, true)
+  assert.ok(result.data.timings, 'timings should be present on the inline fallback')
+  assert.equal(result.data.timings.gbrainMs, null)
+  assert.equal(typeof result.data.timings.totalMs, 'number')
+})

@@ -11,6 +11,7 @@ import type {
 } from '../shared/types'
 import { buildChatPrompt, buildPrompt } from '../shared/prompts'
 import { redactCurrentContext } from '../shared/redaction'
+import { nowMs, type GenerationTimings } from '../shared/timing'
 import { getFrontmostAppInfo, captureCurrentContext, captureCurrentContextDetailed } from './context-reader'
 import {
   buildBackendDiagnostics,
@@ -62,6 +63,7 @@ function getScreenCaptureStatus(): BackendDiagnostics['screenCaptureStatus'] {
  * structured AppError with a distinct code so the renderer can render an actionable message.
  */
 async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResult> {
+  const startedAt = nowMs()
   try {
     const requestPlan = resolveGenerateRequestPlan(request)
     if (!requestPlan.canProceed) {
@@ -86,7 +88,9 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
     )
     const searchQuery = resolveSearchQuery(builtSearchQuery, request.searchQueryOverride)
 
+    const gbrainStartedAt = nowMs()
     const gbrain = executionPlan.shouldSearchGBrain ? await searchGBrain(searchQuery, settings, brainDir()) : null
+    const gbrainMs = executionPlan.shouldSearchGBrain ? nowMs() - gbrainStartedAt : null
     const { results, contextSource } = normalizeGBrainLookup(gbrain)
 
     const pack: ContextPack = {
@@ -105,6 +109,7 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
 
     const { system, user } = buildPrompt(pack, request.modifier)
 
+    const llmStartedAt = nowMs()
     const output = executionPlan.executionMode === 'llm'
       ? await generate({
           provider: settings.llm.provider,
@@ -121,6 +126,7 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
             sources: results
           })
         )
+    const timings: GenerationTimings = { gbrainMs, llmMs: nowMs() - llmStartedAt, totalMs: nowMs() - startedAt }
 
     recordHistoryEntry({
       kind: 'generate',
@@ -135,7 +141,7 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
 
     return {
       ok: true,
-      data: { output, sources: results, searchQuery, contextSource }
+      data: { output, sources: results, searchQuery, contextSource, timings }
     }
   } catch (err) {
     if (err instanceof LlmError) {
@@ -149,6 +155,7 @@ async function handleGenerate(request: GenerateRequest): Promise<GenerateIpcResu
 }
 
 async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
+  const startedAt = nowMs()
   try {
     const requestPlan = resolveChatRequestPlan(request)
     if (!requestPlan.canProceed) {
@@ -172,14 +179,19 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
     if (executionPlan.executionMode === 'inline-fallback') {
       return {
         ok: true,
-        data: buildInlineFallbackChatResult({
-          currentContext,
-          latestUserMessage: latestMessage
-        })
+        data: {
+          ...buildInlineFallbackChatResult({
+            currentContext,
+            latestUserMessage: latestMessage
+          }),
+          timings: { gbrainMs: null, llmMs: 0, totalMs: nowMs() - startedAt }
+        }
       }
     }
 
+    const gbrainStartedAt = nowMs()
     const gbrain = executionPlan.shouldSearchGBrain ? await searchGBrain(searchQuery, settings, brainDir()) : null
+    const gbrainMs = executionPlan.shouldSearchGBrain ? nowMs() - gbrainStartedAt : null
     const { results, contextSource } = normalizeGBrainLookup(gbrain)
     const { system, user } = buildChatPrompt({
       currentContext,
@@ -193,6 +205,7 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
       }
     })
 
+    const llmStartedAt = nowMs()
     const output = executionPlan.executionMode === 'llm'
       ? await generate({
           provider: settings.llm.provider,
@@ -209,6 +222,7 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
             sources: results
           })
         )
+    const timings: GenerationTimings = { gbrainMs, llmMs: nowMs() - llmStartedAt, totalMs: nowMs() - startedAt }
 
     recordHistoryEntry({
       kind: 'chat',
@@ -228,7 +242,8 @@ async function handleChat(request: ChatRequest): Promise<ChatIpcResult> {
         sources: results,
         searchQuery,
         contextSource,
-        currentContext
+        currentContext,
+        timings
       }
     }
   } catch (err) {

@@ -1,4 +1,5 @@
 import type { LanguagePreference } from './language'
+import type { CaptureStageTimings, GenerationTimings } from './timing'
 
 export type ActionType = 'reply' | 'summarize' | 'next_actions' | 'proposal' | 'translate' | 'custom'
 
@@ -87,6 +88,7 @@ export type GenerateResult = {
   sources: RetrievedContext[]
   searchQuery: string
   contextSource: ContextSource
+  timings?: GenerationTimings
 }
 
 export type ChatMessage = {
@@ -121,6 +123,7 @@ export type ChatResult = {
   searchQuery: string
   contextSource: ContextSource
   currentContext: CurrentContext
+  timings?: GenerationTimings
 }
 
 export type ContextPushPayload = {
@@ -223,6 +226,8 @@ export type BackendDiagnostics = {
         preferredCaptureMode: 'desktop-source' | 'native-screen'
       } | null
     }
+    /** Best-effort per-stage capture timings (ms). Unstable — redacted from saved fixtures. */
+    timings?: CaptureStageTimings
   }
   canFuseContext: boolean
   gbrain: {
