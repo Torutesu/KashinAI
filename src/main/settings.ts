@@ -10,9 +10,10 @@ type StoredSecret = {
   encrypted: boolean
 }
 
-type StoredSettings = Omit<AppSettings, 'gbrain' | 'llm'> & {
+type StoredSettings = Omit<AppSettings, 'gbrain' | 'llm' | 'account'> & {
   gbrain: Omit<AppSettings['gbrain'], 'token'> & { token: StoredSecret }
   llm: Omit<AppSettings['llm'], 'apiKey'> & { apiKey: StoredSecret }
+  account: Omit<AppSettings['account'], 'token'> & { token: StoredSecret }
 }
 
 function detectDefaultGbrainCliPath(): string {
@@ -59,6 +60,10 @@ const DEFAULT_SETTINGS: StoredSettings = {
     apiKey: { value: '', encrypted: false },
     defaultModel: 'claude-sonnet-4-5',
     temperature: 0.3
+  },
+  account: {
+    hostedUrl: '',
+    token: { value: '', encrypted: false }
   },
   defaults: {
     language: 'auto',
@@ -128,6 +133,10 @@ export function getSettings(): AppSettings {
       ...raw.llm,
       apiKey: decryptSecret(raw.llm.apiKey)
     },
+    account: {
+      hostedUrl: raw.account?.hostedUrl ?? '',
+      token: decryptSecret(raw.account?.token)
+    },
     privacy: {
       showSources: raw.privacy?.showSources ?? true,
       redactSensitive: raw.privacy?.redactSensitive ?? false,
@@ -166,6 +175,10 @@ export function getPublicSettings(): PublicAppSettings {
       defaultModel: raw.llm.defaultModel,
       temperature: raw.llm.temperature,
       hasApiKey: Boolean(raw.llm.apiKey?.value)
+    },
+    account: {
+      hostedUrl: raw.account?.hostedUrl ?? '',
+      hasToken: Boolean(raw.account?.token?.value)
     },
     privacy: {
       showSources: raw.privacy?.showSources ?? true,
@@ -208,6 +221,13 @@ export function updateSettings(update: SettingsUpdate): PublicAppSettings {
         update.llm?.apiKey !== undefined && update.llm.apiKey !== ''
           ? encryptSecret(update.llm.apiKey)
           : current.llm.apiKey
+    },
+    account: {
+      hostedUrl: update.account?.hostedUrl ?? current.account?.hostedUrl ?? '',
+      token:
+        update.account?.token !== undefined && update.account.token !== ''
+          ? encryptSecret(update.account.token)
+          : current.account?.token ?? { value: '', encrypted: false }
     },
     defaults: { ...current.defaults, ...update.defaults },
     privacy: {

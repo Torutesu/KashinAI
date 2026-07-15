@@ -363,6 +363,14 @@ export async function generate(payload: unknown): Promise<string> {
   return 'generated response'
 }
 
+export const generateHostedCalls: unknown[] = []
+export async function generateHosted(payload: unknown): Promise<string> {
+  generateHostedCalls.push(payload)
+  const onDelta = (payload as { onDelta?: (text: string) => void })?.onDelta
+  if (typeof onDelta === 'function') onDelta('hosted response')
+  return 'hosted response'
+}
+
 // --- settings.ts mock extensions ---
 export const updateSettingsCalls: unknown[] = []
 export let mockRegisteredShortcut: string | null = 'Option+Space'
@@ -375,6 +383,7 @@ export function getPublicSettings() {
     gbrain: { mode: 'cli', endpoint: 'http://localhost:3000', cliPath: 'gbrain', timeoutMs: 10000, hasToken: false },
     memory: { enabled: true, dir: '/tmp/memory' },
     llm: { provider: 'anthropic', defaultModel: 'claude-sonnet-4-5', temperature: 0.3, hasApiKey: false },
+    account: { hostedUrl: '', hasToken: false },
     defaults: { language: 'ja', tone: 'professional', length: 'medium' },
     privacy: { showSources: true }
   }
@@ -398,6 +407,13 @@ export function setMockLlmApiKey(next: string): void {
   mockLlmApiKey = next
 }
 
+export let mockHostedUrl = ''
+export let mockHostedToken = ''
+export function setMockHostedInference(url: string, token: string): void {
+  mockHostedUrl = url
+  mockHostedToken = token
+}
+
 export function getSettings() {
   return {
     appDisplayName: 'TestApp',
@@ -405,6 +421,7 @@ export function getSettings() {
     gbrain: { mode: 'cli', endpoint: 'http://localhost:3000', token: '', cliPath: 'gbrain', timeoutMs: 10000 },
     memory: { enabled: true, dir: '/tmp/memory' },
     llm: { provider: 'anthropic', apiKey: mockLlmApiKey, defaultModel: 'claude-sonnet-4-5', temperature: 0.3 },
+    account: { hostedUrl: mockHostedUrl, token: mockHostedToken },
     defaults: { language: 'ja', tone: 'professional', length: 'medium' },
     privacy: { showSources: true, redactSensitive: mockRedactSensitive }
   }
@@ -481,6 +498,9 @@ export function resetAllMocks(): void {
   clearHistoryCalls.length = 0
   mockRedactSensitive = false
   mockLlmApiKey = ''
+  mockHostedUrl = ''
+  mockHostedToken = ''
+  generateHostedCalls.length = 0
   registerIpcHandlersCalls.length = 0
   registerShortcutCalls.length = 0
   createAssistantWindowCalls.length = 0

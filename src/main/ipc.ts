@@ -33,7 +33,7 @@ import {
 } from './ipc-utils'
 import { buildSearchQuery } from './search-query'
 import { searchGBrain } from './gbrain'
-import { generate, LlmError } from './llm'
+import { generate, generateHosted, LlmError } from './llm'
 import { getPublicSettings, getSettings, updateSettings } from './settings'
 import { expandAssistantWindow, hideAssistantWindow, isAssistantCollapsed, openAssistantSettings } from './windows'
 import { insertText } from './insert'
@@ -45,6 +45,49 @@ import { clearHistory, listHistory, recordHistoryEntry, summarizeHistorySources 
 function resolveSearchQuery(builtQuery: string, override: string | null | undefined): string {
   const trimmed = override?.trim()
   return trimmed ? trimmed : builtQuery
+}
+
+type SettingsForGeneration = ReturnType<typeof getSettings>
+
+/** The app can generate if a hosted account token OR a BYOK API key is configured. */
+function hasGenerationCredentials(settings: SettingsForGeneration): boolean {
+  return Boolean(settings.account.token && settings.account.hostedUrl) || Boolean(settings.llm.apiKey)
+}
+
+/** Whether generation should route through the hosted KashinAI backend rather than a BYOK provider. */
+function usesHostedInference(settings: SettingsForGeneration): boolean {
+  return Boolean(settings.account.token && settings.account.hostedUrl)
+}
+
+/** Runs one generation via the hosted backend when configured, else the BYOK provider. */
+function runLlm(
+  settings: SettingsForGeneration,
+  system: string,
+  user: string,
+  hooks: StreamHooks
+): Promise<string> {
+  if (usesHostedInference(settings)) {
+    return generateHosted({
+      hostedUrl: settings.account.hostedUrl,
+      token: settings.account.token,
+      model: settings.llm.defaultModel,
+      temperature: settings.llm.temperature,
+      system,
+      user,
+      onDelta: hooks.onDelta,
+      signal: hooks.signal
+    })
+  }
+  return generate({
+    provider: settings.llm.provider,
+    apiKey: settings.llm.apiKey,
+    model: settings.llm.defaultModel,
+    temperature: settings.llm.temperature,
+    system,
+    user,
+    onDelta: hooks.onDelta,
+    signal: hooks.signal
+  })
 }
 
 function brainDir(): string {
@@ -113,7 +156,7 @@ async function handleGenerate(
       : request.currentContext
     const executionPlan = resolveGenerateExecutionPlan({
       requestPlan,
-      hasApiKey: Boolean(settings.llm.apiKey)
+      hasApiKey: hasGenerationCredentials(settings)
     })
     const { searchQuery: builtSearchQuery, detectedEntities } = buildSearchQuery(
       currentContext,
@@ -145,16 +188,7 @@ async function handleGenerate(
 
     const llmStartedAt = nowMs()
     const output = executionPlan.executionMode === 'llm'
-      ? await generate({
-          provider: settings.llm.provider,
-          apiKey: settings.llm.apiKey,
-          model: settings.llm.defaultModel,
-          temperature: settings.llm.temperature,
-          system,
-          user,
-          onDelta: hooks.onDelta,
-          signal: hooks.signal
-        })
+      ? await runLlm(settings, system, user, hooks)
       : buildRetrievalOnlyAnswer(
           buildRetrievalOnlyAnswerParams({
             currentContext,
@@ -167,7 +201,7 @@ async function handleGenerate(
     captureTelemetry('generation_completed', {
       kind: 'generate',
       context_kind: currentContext.contextKind,
-      provider: settings.llm.provider,
+      provider: usesHostedInference(settings) ? 'kashinai' : settings.llm.provider,
       model: settings.llm.defaultModel,
       success: true,
       latency_ms: timings.totalMs,
@@ -222,7 +256,7 @@ async function handleChat(request: ChatRequest, sender?: Electron.WebContents): 
       : request.currentContext
     const executionPlan = resolveChatExecutionPlan({
       requestPlan,
-      hasApiKey: Boolean(settings.llm.apiKey)
+      hasApiKey: hasGenerationCredentials(settings)
     })
     const { searchQuery: builtSearchQuery } = buildSearchQuery(currentContext, 'custom', latestMessage)
     const searchQuery = resolveSearchQuery(builtSearchQuery, request.searchQueryOverride)
@@ -257,16 +291,7 @@ async function handleChat(request: ChatRequest, sender?: Electron.WebContents): 
 
     const llmStartedAt = nowMs()
     const output = executionPlan.executionMode === 'llm'
-      ? await generate({
-          provider: settings.llm.provider,
-          apiKey: settings.llm.apiKey,
-          model: settings.llm.defaultModel,
-          temperature: settings.llm.temperature,
-          system,
-          user,
-          onDelta: hooks.onDelta,
-          signal: hooks.signal
-        })
+      ? await runLlm(settings, system, user, hooks)
       : buildRetrievalOnlyAnswer(
           buildRetrievalOnlyAnswerParams({
             currentContext,
@@ -279,7 +304,7 @@ async function handleChat(request: ChatRequest, sender?: Electron.WebContents): 
     captureTelemetry('generation_completed', {
       kind: 'chat',
       context_kind: currentContext.contextKind,
-      provider: settings.llm.provider,
+      provider: usesHostedInference(settings) ? 'kashinai' : settings.llm.provider,
       model: settings.llm.defaultModel,
       success: true,
       latency_ms: timings.totalMs,

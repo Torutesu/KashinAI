@@ -213,6 +213,7 @@ test('memory:save persists the current context and optional note through the mar
         gbrain: { mode: 'cli', endpoint: 'http://localhost:3000', token: '', cliPath: 'gbrain', timeoutMs: 10000 },
         memory: { enabled: true, dir: '/tmp/memory' },
         llm: { provider: 'anthropic', apiKey: '', defaultModel: 'claude-sonnet-4-5', temperature: 0.3 },
+        account: { hostedUrl: '', token: '' },
         defaults: { language: 'ja', tone: 'professional', length: 'medium' },
         privacy: { showSources: true, redactSensitive: false }
       },
@@ -962,4 +963,25 @@ test('generation:cancel handler is registered and returns true', async () => {
   const handler = electronMockState.ipcHandlers['generation:cancel']
   assert.ok(handler, 'generation:cancel handler should be registered')
   assert.equal(await handler({}, 'nonexistent-stream'), true)
+})
+
+test('assistant:generate routes through the hosted backend when an account token is set', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const { setMockHostedInference, generateHostedCalls, generateCalls } = await import('./__mocks__/mock-modules.ts')
+  setMockHostedInference('https://api.kashin.ai', 'account-token')
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  const result = await handler(
+    {},
+    { currentContext: browserContext(), actionType: 'reply', userInstruction: '返信して', modifier: null }
+  )
+
+  assert.equal(result.ok, true)
+  assert.equal(result.data.output, 'hosted response')
+  assert.equal(generateHostedCalls.length, 1)
+  assert.equal(generateCalls.length, 0)
+  const telem = captureTelemetryCalls.find((c) => c.event === 'generation_completed')
+  assert.equal((telem?.properties as Record<string, unknown>)?.provider, 'kashinai')
 })

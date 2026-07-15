@@ -178,6 +178,56 @@ async function generateGemini(params: GenerateParams): Promise<string> {
   return consumeStream(response, 'gemini', params.onDelta)
 }
 
+export type HostedGenerateParams = {
+  hostedUrl: string
+  token: string
+  model: string
+  temperature: number
+  system: string
+  user: string
+  onDelta?: (text: string) => void
+  signal?: AbortSignal
+}
+
+/**
+ * Generates via the KashinAI hosted backend (no user API key). POSTs to /v1/inference with the
+ * account token and streams the SSE response through the same parser. Maps a 429 to the
+ * 'quota_exceeded' error code so the renderer can surface the paywall.
+ */
+export async function generateHosted(params: HostedGenerateParams): Promise<string> {
+  const base = params.hostedUrl.replace(/\/+$/, '')
+  let response: Response
+  try {
+    response = await fetch(`${base}/v1/inference`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${params.token}`
+      },
+      body: JSON.stringify({
+        model: params.model,
+        temperature: params.temperature,
+        system: params.system,
+        user: params.user
+      }),
+      signal: params.signal
+    })
+  } catch (err) {
+    throw new LlmError('llm_request_failed', `Failed to reach KashinAI backend: ${(err as Error).message}`)
+  }
+
+  if (response.status === 429) {
+    throw new LlmError('quota_exceeded', 'You have reached your free daily limit. Upgrade to Pro for unlimited use.')
+  }
+  if (!response.ok) {
+    const errBody = await safeReadJson(response)
+    const message = (getNested(errBody, ['error']) as string) || `status ${response.status}`
+    throw new LlmError('llm_request_failed', `KashinAI backend error (${message}).`)
+  }
+
+  return consumeStream(response, 'anthropic', params.onDelta)
+}
+
 /**
  * Provider-agnostic text generation. Streams internally (forwarding deltas to params.onDelta when
  * provided) and returns the full text. Throws LlmError with a distinct code per brief 20.3 so the

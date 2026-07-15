@@ -264,6 +264,7 @@ export type ErrorCode =
   | 'llm_missing_api_key'
   | 'llm_request_failed'
   | 'llm_unknown_provider'
+  | 'quota_exceeded'
   | 'unknown'
 
 export type AppError = {
@@ -295,6 +296,11 @@ export type AppSettings = {
     defaultModel: string
     temperature: number
   }
+  /** Hosted inference (KashinAI backend). When a token is set, generation routes through it. */
+  account: {
+    hostedUrl: string
+    token: string
+  }
   defaults: {
     language: LanguagePreference
     tone: 'casual' | 'professional' | 'polite'
@@ -313,9 +319,10 @@ export type AppSettings = {
 }
 
 /** Settings shape as returned to the renderer: secrets are masked, never sent in plaintext. */
-export type PublicAppSettings = Omit<AppSettings, 'gbrain' | 'llm'> & {
+export type PublicAppSettings = Omit<AppSettings, 'gbrain' | 'llm' | 'account'> & {
   gbrain: Omit<AppSettings['gbrain'], 'token'> & { hasToken: boolean }
   llm: Omit<AppSettings['llm'], 'apiKey'> & { hasApiKey: boolean }
+  account: Omit<AppSettings['account'], 'token'> & { hasToken: boolean }
 }
 
 /** Partial settings update payload sent from the renderer's Settings form. Secrets (token /
@@ -326,6 +333,7 @@ export type SettingsUpdate = {
   gbrain?: Partial<Omit<AppSettings['gbrain'], 'token'>> & { token?: string }
   memory?: Partial<AppSettings['memory']>
   llm?: Partial<Omit<AppSettings['llm'], 'apiKey'>> & { apiKey?: string }
+  account?: Partial<Omit<AppSettings['account'], 'token'>> & { token?: string }
   defaults?: Partial<AppSettings['defaults']>
   privacy?: Partial<AppSettings['privacy']>
   onboarding?: Partial<AppSettings['onboarding']>

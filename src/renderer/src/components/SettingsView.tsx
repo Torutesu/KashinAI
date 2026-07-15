@@ -19,6 +19,9 @@ type FormState = {
   llmTemperature: number
   llmApiKey: string
   llmHasApiKey: boolean
+  accountHostedUrl: string
+  accountToken: string
+  accountHasToken: boolean
   language: LanguagePreference
   tone: 'casual' | 'professional' | 'polite'
   length: 'short' | 'medium' | 'long'
@@ -55,6 +58,9 @@ function toFormState(settings: PublicAppSettings): FormState {
     llmTemperature: settings.llm.temperature,
     llmApiKey: '',
     llmHasApiKey: settings.llm.hasApiKey,
+    accountHostedUrl: settings.account.hostedUrl,
+    accountToken: '',
+    accountHasToken: settings.account.hasToken,
     language: settings.defaults.language,
     tone: settings.defaults.tone,
     length: settings.defaults.length,
@@ -128,6 +134,10 @@ export default function SettingsView({
         defaultModel: current.llmDefaultModel,
         temperature: current.llmTemperature,
         ...(current.llmApiKey ? { apiKey: current.llmApiKey } : {})
+      },
+      account: {
+        hostedUrl: current.accountHostedUrl,
+        ...(current.accountToken ? { token: current.accountToken } : {})
       },
       defaults: { language: current.language, tone: current.tone, length: current.length },
       privacy: {
@@ -392,6 +402,31 @@ export default function SettingsView({
                 Analytics only cover anonymous events like install, permissions, and generation latency. Captured screen
                 text, generated output, and API keys are never sent.
               </p>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Hosted account"
+              subtitle="Use the KashinAI backend instead of your own API key. When a token is set, generation routes through it."
+            >
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Backend URL">
+                  <input
+                    value={form.accountHostedUrl}
+                    onChange={(e) => update('accountHostedUrl', e.target.value)}
+                    placeholder="https://api.kashin.ai"
+                    className="input"
+                  />
+                </Field>
+                <Field label={`Account token ${form.accountHasToken ? '(a token is saved)' : ''}`}>
+                  <input
+                    type="password"
+                    value={form.accountToken}
+                    onChange={(e) => update('accountToken', e.target.value)}
+                    placeholder="paste account token"
+                    className="input"
+                  />
+                </Field>
+              </div>
             </SettingsCard>
 
             <SettingsCard title="Assistant setup" subtitle="Core behavior for retrieval and generation.">

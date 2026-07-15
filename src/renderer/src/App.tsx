@@ -79,6 +79,8 @@ function AssistantFlow() {
       if (streamId === streamIdRef.current) setStreamingText((prev) => prev + delta)
     })
 
+    // (paywall telemetry is emitted from a dedicated effect below)
+
     window.api.getSettings().then((settings) => {
       setAppDisplayName(settings.appDisplayName)
       setShowSources(settings.privacy.showSources)
@@ -106,6 +108,10 @@ function AssistantFlow() {
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [])
+
+  useEffect(() => {
+    if (error?.code === 'quota_exceeded') void window.api.captureTelemetry('paywall_shown')
+  }, [error])
 
   async function autoRecommendForContext(nextContext: CurrentContext, autoInsert: boolean): Promise<void> {
     const recommendationRequest: ChatMessage = {
