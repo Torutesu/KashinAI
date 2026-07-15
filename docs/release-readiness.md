@@ -51,11 +51,13 @@ below.
       JWT auth + SSE inference proxy + KV usage meter), and the app-side hosted client is wired.
       **Remaining: deploy** — needs a Cloudflare (or Fly) account and an inference-provider key;
       then `wrangler deploy` and set the app's Hosted account URL. See `server/README.md`.
-- [ ] **#15 accounts + Stripe billing**: the app already maps the backend's `429` to a paywall
-      signal (`quota_exceeded` → upgrade message + `paywall_shown` telemetry). Still needs the
-      **account service that mints signed plan tokens**: auth (Clerk/Supabase) + Stripe
-      Checkout/Portal/webhooks. Needs Stripe + auth accounts. Prices/quota are already config
-      (`server/src/quota.ts`) so they can be finalized pre-launch.
+- [~] **#15 accounts + Stripe billing**: mostly built + contract-tested. The app maps `429` to a
+      paywall (`quota_exceeded` → upgrade message + `paywall_shown` telemetry); the backend has the
+      **Stripe webhook** (signature-verified, idempotent, drives the plan store) and **`/auth/token`
+      plan-token minting**. **Remaining (needs accounts/decisions):** wire an auth-provider adapter
+      (`verifyIdentity` for Clerk/Supabase), add a Stripe Checkout-session creation endpoint + the
+      web subscribe/portal flow, and configure the Stripe webhook + secrets. Prices/quota are config
+      (`server/src/quota.ts`).
 - [ ] **Sentry crash reporting**: the analytics half of #12 is done; crash reporting still needs
       `@sentry/electron` + a DSN (wire like the guarded updater/telemetry init).
 - [ ] **Landing page + Privacy Policy + Terms** (#17): download page with the "Option-tap" demo
