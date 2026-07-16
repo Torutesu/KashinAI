@@ -1,31 +1,30 @@
 import { Hono } from 'hono'
-import { bearerFromHeader, signJwt, verifyJwt, type Plan, type TokenPayload } from './auth.ts'
-import { checkQuota, dayBucket, entitlement, type UsageStore } from './quota.ts'
+import { bearerFromHeader, signJwt, verifyJwt, type TokenPayload } from './auth.ts'
+import { licenseFor } from './plans.ts'
 import type { PlanStore } from './plan-store.ts'
 import { planFromStripeEvent, verifyStripeSignature } from './stripe.ts'
 import type { Billing } from './billing.ts'
 import { verifyOrRegisterDevice, type DeviceStore } from './device.ts'
-import type { InferenceRequest, Upstream } from './upstream.ts'
 
 /**
- * Dependencies are injected so the app is deployable (real deps in index.ts) and testable (mocks in
- * the contract tests). The service is intentionally thin: authenticate, meter, proxy the stream.
- * It never stores screen text or generated output.
+ * License server for the BYOK + subscription model. It never sees or runs inference — users generate
+ * with their own API key on their machine. This service only:
+ *   - authenticates a device (or JWT),
+ *   - reports the device's plan (free/pro),
+ *   - runs Stripe Checkout + webhooks to move a device to Pro.
+ * No provider key lives here, so the operator's inference key can never be used by anyone.
  */
 export type AppDeps = {
   jwtSecret: string
-  usageStore: UsageStore
-  upstream: Upstream
-  defaultModel?: string
-  /** Injectable clock (ms) for deterministic quota-bucket tests. */
+  /** Injectable clock (ms) for deterministic tests. */
   now?: () => number
-  /** Plan lookup/update (Stripe-driven). Required for /v1/token and the Stripe webhook. */
+  /** Plan lookup/update (Stripe-driven). Required for licensing and the Stripe webhook. */
   planStore?: PlanStore
   /** Stripe webhook signing secret; when unset the webhook route is disabled. */
   stripeWebhookSecret?: string
   /**
-   * Verifies the caller's identity for token minting (the auth provider adapter, e.g. Clerk/Supabase).
-   * When unset, /v1/token responds 501 (auth provider not wired yet).
+   * Verifies the caller's identity for token minting (an optional auth provider, e.g. Clerk/Supabase).
+   * When unset, /auth/token responds 501. Not needed for the device model.
    */
   verifyIdentity?: (headers: Headers) => Promise<{ userId: string } | null>
   /** Minted-token lifetime in seconds (default 1h). */
@@ -38,16 +37,13 @@ export type AppDeps = {
 
 type Vars = { user: TokenPayload }
 
-const MAX_FIELD = 200_000
-
 export function createApp(deps: AppDeps): Hono<{ Variables: Vars }> {
   const app = new Hono<{ Variables: Vars }>()
   const now = deps.now ?? (() => Date.now())
 
   app.get('/health', (c) => c.json({ ok: true }))
 
-  // Mints a signed plan token after the auth provider verifies the caller. Not under the JWT
-  // middleware (that would be circular) — identity comes from `verifyIdentity`.
+  // Optional web/login path: mint a signed plan token once an auth provider verifies the caller.
   app.post('/auth/token', async (c) => {
     if (!deps.verifyIdentity || !deps.planStore) return c.json({ error: 'auth_not_configured' }, 501)
     const identity = await deps.verifyIdentity(c.req.raw.headers)
@@ -105,78 +101,21 @@ export function createApp(deps: AppDeps): Hono<{ Variables: Vars }> {
     await next()
   })
 
-  // Creates a Stripe Checkout session for the authenticated user; the app opens the returned URL.
+  // The app polls this to know whether the device is Pro (unlimited) or Free (client-limited).
+  app.get('/v1/license', (c) => {
+    return c.json(licenseFor(c.get('user').plan))
+  })
+
+  // Creates a Stripe Checkout session for the authenticated device; the app opens the returned URL.
   app.post('/v1/billing/checkout', async (c) => {
     if (!deps.billing) return c.json({ error: 'billing_not_configured' }, 501)
-    const user = c.get('user')
     try {
-      const { url } = await deps.billing.createCheckoutSession(user.sub)
+      const { url } = await deps.billing.createCheckoutSession(c.get('user').sub)
       return c.json({ url })
     } catch {
       return c.json({ error: 'checkout_failed' }, 502)
     }
   })
 
-  app.get('/v1/entitlement', async (c) => {
-    const user = c.get('user')
-    const used = await deps.usageStore.get(user.sub, dayBucket(now()))
-    return c.json(entitlement(user.plan, used))
-  })
-
-  app.post('/v1/inference', async (c) => {
-    const user = c.get('user')
-
-    const { allowed, entitlement: ent } = await checkQuota(deps.usageStore, user.sub, user.plan, now())
-    if (!allowed) {
-      return c.json(
-        { error: 'quota_exceeded', entitlement: serializeEntitlement(ent) },
-        429,
-        { 'x-quota-remaining': '0' }
-      )
-    }
-
-    let body: Partial<InferenceRequest>
-    try {
-      body = (await c.req.json()) as Partial<InferenceRequest>
-    } catch {
-      return c.json({ error: 'invalid_json' }, 400)
-    }
-
-    const system = typeof body.system === 'string' ? body.system.slice(0, MAX_FIELD) : ''
-    const userText = typeof body.user === 'string' ? body.user.slice(0, MAX_FIELD) : ''
-    if (!userText) return c.json({ error: 'missing_user_prompt' }, 400)
-
-    const model = typeof body.model === 'string' && body.model ? body.model : deps.defaultModel ?? 'claude-sonnet-4-5'
-    const temperature = typeof body.temperature === 'number' ? body.temperature : 0.3
-
-    // Meter first so a mid-stream disconnect still counts against the quota.
-    await deps.usageStore.increment(user.sub, dayBucket(now()))
-
-    let upstreamResponse: Response
-    try {
-      upstreamResponse = await deps.upstream.stream({ model, system, user: userText, temperature })
-    } catch {
-      return c.json({ error: 'upstream_unreachable' }, 502)
-    }
-
-    if (!upstreamResponse.ok || !upstreamResponse.body) {
-      return c.json({ error: 'upstream_error', status: upstreamResponse.status }, 502)
-    }
-
-    return new Response(upstreamResponse.body, {
-      status: 200,
-      headers: {
-        'content-type': 'text/event-stream; charset=utf-8',
-        'cache-control': 'no-cache',
-        'x-plan': user.plan
-      }
-    })
-  })
-
   return app
-}
-
-function serializeEntitlement(ent: { plan: Plan; dailyLimit: number; used: number; remaining: number }) {
-  const inf = (n: number) => (n === Number.POSITIVE_INFINITY ? null : n)
-  return { plan: ent.plan, dailyLimit: inf(ent.dailyLimit), used: ent.used, remaining: inf(ent.remaining) }
 }

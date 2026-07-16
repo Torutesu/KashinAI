@@ -2,19 +2,18 @@ name = "kashinai-server"
 main = "src/index.ts"
 compatibility_date = "2025-07-01"
 
-# Anonymous/account subject + plan are carried in a signed JWT; usage counters live in KV.
-# Bind a KV namespace named USAGE_KV (create with: wrangler kv namespace create USAGE_KV).
+# BYOK license server: it never runs inference and holds no provider key. It stores each device's
+# plan (free/pro) and device-secret hashes in KV, and moves devices to Pro via Stripe.
+# Bind a KV namespace named LICENSE_KV (create with: wrangler kv namespace create LICENSE_KV).
 # [[kv_namespaces]]
-# binding = "USAGE_KV"
+# binding = "LICENSE_KV"
 # id = "<your-kv-namespace-id>"
 
 [vars]
-DEFAULT_MODEL = "claude-sonnet-4-5"
 # CHECKOUT_SUCCESS_URL / CHECKOUT_CANCEL_URL can also be set here (non-secret).
 
 # Secrets (set with `wrangler secret put <NAME>`, never commit):
 #   JWT_SECRET             - HMAC secret used to sign/verify account tokens
-#   ANTHROPIC_API_KEY      - upstream inference key (server-side only)
 #   STRIPE_WEBHOOK_SECRET  - Stripe webhook signing secret (enables /webhooks/stripe)
 #   STRIPE_SECRET_KEY      - Stripe API key (enables /v1/billing/checkout)
 #   STRIPE_PRICE_ID        - the Pro subscription price id (price_...)

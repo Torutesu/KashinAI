@@ -2,135 +2,84 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createApp } from '../src/app.ts'
 import { signJwt } from '../src/auth.ts'
-import { MemoryUsageStore, PLAN_DAILY_LIMIT, dayBucket } from '../src/quota.ts'
-import type { Upstream, InferenceRequest } from '../src/upstream.ts'
+import { MemoryPlanStore } from '../src/plan-store.ts'
+import { MemoryDeviceStore } from '../src/device.ts'
+import { FREE_DAILY_LIMIT } from '../src/plans.ts'
 
 const SECRET = 'test-secret'
 const NOW = Date.UTC(2026, 6, 15, 12, 0, 0)
-
-function mockUpstream(overrides: Partial<Upstream> = {}): Upstream & { calls: InferenceRequest[] } {
-  const calls: InferenceRequest[] = []
-  return {
-    calls,
-    async stream(req: InferenceRequest): Promise<Response> {
-      calls.push(req)
-      return new Response('data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"hi"}}\n\n', {
-        status: 200,
-        headers: { 'content-type': 'text/event-stream' }
-      })
-    },
-    ...overrides
-  }
-}
+const DEVICE = 'device-abc'
+const DEVICE_SECRET = 'a-sufficiently-long-device-secret'
 
 function makeApp(overrides: Partial<Parameters<typeof createApp>[0]> = {}) {
   return createApp({
     jwtSecret: SECRET,
-    usageStore: new MemoryUsageStore(),
-    upstream: mockUpstream(),
+    planStore: new MemoryPlanStore(),
+    deviceStore: new MemoryDeviceStore(),
     now: () => NOW,
     ...overrides
   })
 }
 
-async function token(plan: 'free' | 'pro' = 'free', sub = 'user-1') {
-  return signJwt({ sub, plan }, SECRET, { ttlSeconds: 3600, nowSeconds: Math.floor(NOW / 1000) })
+function deviceHeaders() {
+  return { 'x-device-id': DEVICE, 'x-device-secret': DEVICE_SECRET }
 }
 
-test('rejects requests without a valid bearer token', async () => {
-  const app = makeApp()
-  const res = await app.request('/v1/entitlement')
+test('health needs no auth', async () => {
+  const res = await makeApp().request('/health')
+  assert.equal(res.status, 200)
+  assert.deepEqual(await res.json(), { ok: true })
+})
+
+test('/v1/* rejects requests without credentials', async () => {
+  const res = await makeApp().request('/v1/license')
   assert.equal(res.status, 401)
 })
 
-test('returns entitlement for an authenticated free user', async () => {
-  const app = makeApp()
-  const res = await app.request('/v1/entitlement', {
-    headers: { authorization: `Bearer ${await token('free')}` }
-  })
+test('device credentials authorize and default to the free plan', async () => {
+  const res = await makeApp().request('/v1/license', { headers: deviceHeaders() })
   assert.equal(res.status, 200)
+  assert.deepEqual(await res.json(), { plan: 'free', freeDailyLimit: FREE_DAILY_LIMIT })
+})
+
+test('/v1/license reflects a Stripe-driven pro plan', async () => {
+  const planStore = new MemoryPlanStore()
+  await planStore.setPlan(DEVICE, 'pro')
+  const res = await makeApp({ planStore }).request('/v1/license', { headers: deviceHeaders() })
   const body = await res.json()
-  assert.equal(body.plan, 'free')
-  assert.equal(body.dailyLimit, PLAN_DAILY_LIMIT.free)
-  assert.equal(body.used, 0)
+  assert.equal(body.plan, 'pro')
 })
 
-test('inference streams the upstream body and meters usage', async () => {
-  const store = new MemoryUsageStore()
-  const upstream = mockUpstream()
-  const app = makeApp({ usageStore: store, upstream })
-  const res = await app.request('/v1/inference', {
-    method: 'POST',
-    headers: { authorization: `Bearer ${await token('free')}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ system: 'sys', user: 'hello', temperature: 0.2, model: 'claude-x' })
+test('a wrong device secret is rejected once registered (TOFU)', async () => {
+  const deviceStore = new MemoryDeviceStore()
+  const app = makeApp({ deviceStore })
+  await app.request('/v1/license', { headers: deviceHeaders() }) // register
+  const res = await app.request('/v1/license', {
+    headers: { 'x-device-id': DEVICE, 'x-device-secret': 'another-long-secret-value-xyz' }
   })
+  assert.equal(res.status, 401)
+})
+
+test('a JWT bearer also authorizes /v1/*', async () => {
+  const token = await signJwt({ sub: 'u1', plan: 'pro' }, SECRET, { ttlSeconds: 3600, nowSeconds: Math.floor(NOW / 1000) })
+  const res = await makeApp().request('/v1/license', { headers: { authorization: `Bearer ${token}` } })
+  assert.equal((await res.json()).plan, 'pro')
+})
+
+test('/v1/billing/checkout returns the url for an authenticated device', async () => {
+  const app = makeApp({ billing: { createCheckoutSession: async (id) => ({ url: `https://checkout/${id}` }) } })
+  const res = await app.request('/v1/billing/checkout', { method: 'POST', headers: deviceHeaders() })
   assert.equal(res.status, 200)
-  assert.match(res.headers.get('content-type') ?? '', /text\/event-stream/)
-  const text = await res.text()
-  assert.match(text, /text_delta/)
-  assert.equal(upstream.calls.length, 1)
-  assert.equal(upstream.calls[0].user, 'hello')
-  // Usage was metered.
-  assert.equal(await store.get('user-1', dayBucket(NOW)), 1)
+  assert.deepEqual(await res.json(), { url: `https://checkout/${DEVICE}` })
 })
 
-test('inference returns 429 when the free quota is exhausted', async () => {
-  const store = new MemoryUsageStore()
-  for (let i = 0; i < PLAN_DAILY_LIMIT.free; i++) await store.increment('user-1', dayBucket(NOW))
-  const upstream = mockUpstream()
-  const app = makeApp({ usageStore: store, upstream })
-  const res = await app.request('/v1/inference', {
-    method: 'POST',
-    headers: { authorization: `Bearer ${await token('free')}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ user: 'hello' })
-  })
-  assert.equal(res.status, 429)
-  const body = await res.json()
-  assert.equal(body.error, 'quota_exceeded')
-  // No upstream call was made once over quota.
-  assert.equal(upstream.calls.length, 0)
+test('/v1/billing/checkout is 501 when billing is not configured, 401 without auth', async () => {
+  assert.equal((await makeApp().request('/v1/billing/checkout', { method: 'POST', headers: deviceHeaders() })).status, 501)
+  const withBilling = makeApp({ billing: { createCheckoutSession: async () => ({ url: 'x' }) } })
+  assert.equal((await withBilling.request('/v1/billing/checkout', { method: 'POST' })).status, 401)
 })
 
-test('pro users are not rate-limited', async () => {
-  const store = new MemoryUsageStore()
-  for (let i = 0; i < 100; i++) await store.increment('user-1', dayBucket(NOW))
-  const app = makeApp({ usageStore: store })
-  const res = await app.request('/v1/inference', {
-    method: 'POST',
-    headers: { authorization: `Bearer ${await token('pro')}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ user: 'hello' })
-  })
-  assert.equal(res.status, 200)
-})
-
-test('inference rejects a missing user prompt', async () => {
-  const app = makeApp()
-  const res = await app.request('/v1/inference', {
-    method: 'POST',
-    headers: { authorization: `Bearer ${await token('free')}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ system: 'sys' })
-  })
-  assert.equal(res.status, 400)
-})
-
-test('inference surfaces an upstream failure as 502', async () => {
-  const failing: Upstream = {
-    async stream(): Promise<Response> {
-      return new Response('boom', { status: 500 })
-    }
-  }
-  const app = makeApp({ upstream: failing })
-  const res = await app.request('/v1/inference', {
-    method: 'POST',
-    headers: { authorization: `Bearer ${await token('free')}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ user: 'hello' })
-  })
-  assert.equal(res.status, 502)
-})
-
-test('health endpoint needs no auth', async () => {
-  const app = makeApp()
-  const res = await app.request('/health')
-  assert.equal(res.status, 200)
-  assert.deepEqual(await res.json(), { ok: true })
+test('device auth is 501 when no device store is configured', async () => {
+  const res = await makeApp({ deviceStore: undefined }).request('/v1/license', { headers: deviceHeaders() })
+  assert.equal(res.status, 501)
 })

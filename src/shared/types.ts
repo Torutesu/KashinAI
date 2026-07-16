@@ -296,10 +296,11 @@ export type AppSettings = {
     defaultModel: string
     temperature: number
   }
-  /** Hosted inference (KashinAI backend). When a URL is set, generation routes through it using an
-   * auto-generated device credential (managed outside settings) — no login or API key needed. */
+  /** KashinAI license server (BYOK model). Optional URL of the license/billing backend. Generation
+   * always uses the user's own API key; this server only reports the device's plan (free/pro) and
+   * runs Stripe Checkout. It never sees or runs inference. */
   account: {
-    hostedUrl: string
+    licenseUrl: string
   }
   defaults: {
     language: LanguagePreference

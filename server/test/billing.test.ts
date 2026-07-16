@@ -2,27 +2,17 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createApp } from '../src/app.ts'
 import { verifyJwt } from '../src/auth.ts'
-import { MemoryUsageStore } from '../src/quota.ts'
 import { MemoryPlanStore } from '../src/plan-store.ts'
 import { signStripePayload } from '../src/stripe.ts'
-import type { Upstream } from '../src/upstream.ts'
 
 const SECRET = 'test-secret'
 const STRIPE_SECRET = 'whsec_test'
 const NOW = Date.UTC(2026, 6, 15, 12, 0, 0)
 
-const noopUpstream: Upstream = {
-  async stream(): Promise<Response> {
-    return new Response('data: {}\n\n', { status: 200 })
-  }
-}
-
 function makeApp(overrides: Partial<Parameters<typeof createApp>[0]> = {}) {
   return createApp({
     jwtSecret: SECRET,
-    usageStore: new MemoryUsageStore(),
     planStore: new MemoryPlanStore(),
-    upstream: noopUpstream,
     stripeWebhookSecret: STRIPE_SECRET,
     now: () => NOW,
     ...overrides

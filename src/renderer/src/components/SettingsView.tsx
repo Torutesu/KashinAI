@@ -19,7 +19,7 @@ type FormState = {
   llmTemperature: number
   llmApiKey: string
   llmHasApiKey: boolean
-  accountHostedUrl: string
+  accountLicenseUrl: string
   language: LanguagePreference
   tone: 'casual' | 'professional' | 'polite'
   length: 'short' | 'medium' | 'long'
@@ -56,7 +56,7 @@ function toFormState(settings: PublicAppSettings): FormState {
     llmTemperature: settings.llm.temperature,
     llmApiKey: '',
     llmHasApiKey: settings.llm.hasApiKey,
-    accountHostedUrl: settings.account.hostedUrl,
+    accountLicenseUrl: settings.account.licenseUrl,
     language: settings.defaults.language,
     tone: settings.defaults.tone,
     length: settings.defaults.length,
@@ -132,7 +132,7 @@ export default function SettingsView({
         ...(current.llmApiKey ? { apiKey: current.llmApiKey } : {})
       },
       account: {
-        hostedUrl: current.accountHostedUrl
+        licenseUrl: current.accountLicenseUrl
       },
       defaults: { language: current.language, tone: current.tone, length: current.length },
       privacy: {
@@ -400,13 +400,13 @@ export default function SettingsView({
             </SettingsCard>
 
             <SettingsCard
-              title="Hosted account"
-              subtitle="Set a backend URL to generate without your own API key. Your device is registered automatically — no login or token needed. Free daily limit; upgrade to Pro for unlimited."
+              title="Plan & billing"
+              subtitle="You generate with your own API key. The free plan allows a limited number of generations per day; upgrade to Pro for unlimited use. Optional — set your license server URL to unlock Pro."
             >
-              <Field label="Backend URL">
+              <Field label="License server URL">
                 <input
-                  value={form.accountHostedUrl}
-                  onChange={(e) => update('accountHostedUrl', e.target.value)}
+                  value={form.accountLicenseUrl}
+                  onChange={(e) => update('accountLicenseUrl', e.target.value)}
                   placeholder="https://api.kashin.ai"
                   className="input"
                 />

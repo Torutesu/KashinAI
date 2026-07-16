@@ -33,7 +33,8 @@ import {
 } from './ipc-utils'
 import { buildSearchQuery } from './search-query'
 import { searchGBrain } from './gbrain'
-import { generate, generateHosted, LlmError } from './llm'
+import { generate, LlmError } from './llm'
+import { assertWithinFreeQuota, recordGeneration } from './license'
 import { getDeviceCredentials } from './device-identity'
 import { getPublicSettings, getSettings, updateSettings } from './settings'
 import { expandAssistantWindow, hideAssistantWindow, isAssistantCollapsed, openAssistantSettings } from './windows'
@@ -50,38 +51,24 @@ function resolveSearchQuery(builtQuery: string, override: string | null | undefi
 
 type SettingsForGeneration = ReturnType<typeof getSettings>
 
-/** The app can generate via the hosted backend (a URL is set) OR a BYOK API key. */
+/** Generation is always BYOK: it needs the user's own provider API key. */
 function hasGenerationCredentials(settings: SettingsForGeneration): boolean {
-  return Boolean(settings.account.hostedUrl) || Boolean(settings.llm.apiKey)
+  return Boolean(settings.llm.apiKey)
 }
 
-/** Whether generation should route through the hosted KashinAI backend rather than a BYOK provider. */
-function usesHostedInference(settings: SettingsForGeneration): boolean {
-  return Boolean(settings.account.hostedUrl)
-}
-
-/** Runs one generation via the hosted backend when configured, else the BYOK provider. */
-function runLlm(
+/**
+ * Runs one BYOK generation with the user's own API key. Enforces the client-side free daily cap
+ * first (Pro is unlimited) and records the generation on success, so the operator's key is never
+ * involved — only the user's key ever performs inference.
+ */
+async function runLlm(
   settings: SettingsForGeneration,
   system: string,
   user: string,
   hooks: StreamHooks
 ): Promise<string> {
-  if (usesHostedInference(settings)) {
-    const { deviceId, deviceSecret } = getDeviceCredentials()
-    return generateHosted({
-      hostedUrl: settings.account.hostedUrl,
-      deviceId,
-      deviceSecret,
-      model: settings.llm.defaultModel,
-      temperature: settings.llm.temperature,
-      system,
-      user,
-      onDelta: hooks.onDelta,
-      signal: hooks.signal
-    })
-  }
-  return generate({
+  await assertWithinFreeQuota(settings.account.licenseUrl)
+  const output = await generate({
     provider: settings.llm.provider,
     apiKey: settings.llm.apiKey,
     model: settings.llm.defaultModel,
@@ -91,6 +78,8 @@ function runLlm(
     onDelta: hooks.onDelta,
     signal: hooks.signal
   })
+  recordGeneration()
+  return output
 }
 
 function brainDir(): string {
@@ -204,7 +193,7 @@ async function handleGenerate(
     captureTelemetry('generation_completed', {
       kind: 'generate',
       context_kind: currentContext.contextKind,
-      provider: usesHostedInference(settings) ? 'kashinai' : settings.llm.provider,
+      provider: settings.llm.provider,
       model: settings.llm.defaultModel,
       success: true,
       latency_ms: timings.totalMs,
@@ -307,7 +296,7 @@ async function handleChat(request: ChatRequest, sender?: Electron.WebContents): 
     captureTelemetry('generation_completed', {
       kind: 'chat',
       context_kind: currentContext.contextKind,
-      provider: usesHostedInference(settings) ? 'kashinai' : settings.llm.provider,
+      provider: settings.llm.provider,
       model: settings.llm.defaultModel,
       success: true,
       latency_ms: timings.totalMs,
@@ -449,12 +438,12 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('billing:checkout', async () => {
     const settings = getSettings()
-    if (!settings.account.hostedUrl) {
-      return { ok: false as const, error: { code: 'unknown' as const, message: 'Set your KashinAI backend URL in Settings first.' } }
+    if (!settings.account.licenseUrl) {
+      return { ok: false as const, error: { code: 'unknown' as const, message: 'Set your KashinAI license server URL in Settings first.' } }
     }
     try {
       const { deviceId, deviceSecret } = getDeviceCredentials()
-      const base = settings.account.hostedUrl.replace(/\/+$/, '')
+      const base = settings.account.licenseUrl.replace(/\/+$/, '')
       const res = await fetch(`${base}/v1/billing/checkout`, {
         method: 'POST',
         headers: { 'x-device-id': deviceId, 'x-device-secret': deviceSecret }

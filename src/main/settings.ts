@@ -61,7 +61,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
     temperature: 0.3
   },
   account: {
-    hostedUrl: ''
+    licenseUrl: ''
   },
   defaults: {
     language: 'auto',
@@ -132,7 +132,7 @@ export function getSettings(): AppSettings {
       apiKey: decryptSecret(raw.llm.apiKey)
     },
     account: {
-      hostedUrl: raw.account?.hostedUrl ?? ''
+      licenseUrl: raw.account?.licenseUrl ?? ''
     },
     privacy: {
       showSources: raw.privacy?.showSources ?? true,
@@ -174,7 +174,7 @@ export function getPublicSettings(): PublicAppSettings {
       hasApiKey: Boolean(raw.llm.apiKey?.value)
     },
     account: {
-      hostedUrl: raw.account?.hostedUrl ?? ''
+      licenseUrl: raw.account?.licenseUrl ?? ''
     },
     privacy: {
       showSources: raw.privacy?.showSources ?? true,
@@ -219,7 +219,7 @@ export function updateSettings(update: SettingsUpdate): PublicAppSettings {
           : current.llm.apiKey
     },
     account: {
-      hostedUrl: update.account?.hostedUrl ?? current.account?.hostedUrl ?? ''
+      licenseUrl: update.account?.licenseUrl ?? current.account?.licenseUrl ?? ''
     },
     defaults: { ...current.defaults, ...update.defaults },
     privacy: {

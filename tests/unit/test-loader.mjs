@@ -30,7 +30,8 @@ const ipcSiblingSpecifiers = [
   './memory',
   './history',
   './telemetry',
-  './device-identity'
+  './device-identity',
+  './license'
 ]
 
 export async function resolve(specifier, context, next) {

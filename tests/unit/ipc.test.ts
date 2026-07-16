@@ -213,7 +213,7 @@ test('memory:save persists the current context and optional note through the mar
         gbrain: { mode: 'cli', endpoint: 'http://localhost:3000', token: '', cliPath: 'gbrain', timeoutMs: 10000 },
         memory: { enabled: true, dir: '/tmp/memory' },
         llm: { provider: 'anthropic', apiKey: '', defaultModel: 'claude-sonnet-4-5', temperature: 0.3 },
-        account: { hostedUrl: '' },
+        account: { licenseUrl: '' },
         defaults: { language: 'ja', tone: 'professional', length: 'medium' },
         privacy: { showSources: true, redactSensitive: false }
       },
@@ -965,12 +965,14 @@ test('generation:cancel handler is registered and returns true', async () => {
   assert.equal(await handler({}, 'nonexistent-stream'), true)
 })
 
-test('assistant:generate routes through the hosted backend when an account token is set', async () => {
+test('assistant:generate always generates BYOK and records the generation after a successful run', async () => {
   const { registerIpcHandlers } = await importIpc()
   registerIpcHandlers()
 
-  const { setMockHostedInference, generateHostedCalls, generateCalls } = await import('./__mocks__/mock-modules.ts')
-  setMockHostedInference('https://api.kashin.ai')
+  const { setMockLlmApiKey, generateCalls, assertWithinFreeQuotaCalls, recordGenerationCalls } = await import(
+    './__mocks__/mock-modules.ts'
+  )
+  setMockLlmApiKey('sk-user-key')
 
   const handler = electronMockState.ipcHandlers['assistant:generate']
   const result = await handler(
@@ -979,19 +981,44 @@ test('assistant:generate routes through the hosted backend when an account token
   )
 
   assert.equal(result.ok, true)
-  assert.equal(result.data.output, 'hosted response')
-  assert.equal(generateHostedCalls.length, 1)
-  assert.equal(generateCalls.length, 0)
+  assert.equal(result.data.output, 'generated response')
+  // BYOK generate is used; the free-quota gate runs before and the generation is recorded after.
+  assert.equal(generateCalls.length, 1)
+  assert.equal(assertWithinFreeQuotaCalls.length, 1)
+  assert.equal(recordGenerationCalls.length, 1)
   const telem = captureTelemetryCalls.find((c) => c.event === 'generation_completed')
-  assert.equal((telem?.properties as Record<string, unknown>)?.provider, 'kashinai')
+  assert.equal((telem?.properties as Record<string, unknown>)?.provider, 'anthropic')
 })
 
-test('billing:checkout opens the Stripe URL returned by the backend', async () => {
+test('assistant:generate returns quota_exceeded and skips generation when the free cap is hit', async () => {
   const { registerIpcHandlers } = await importIpc()
   registerIpcHandlers()
 
-  const { setMockHostedInference } = await import('./__mocks__/mock-modules.ts')
-  setMockHostedInference('https://api.kashin.ai')
+  const { setMockLlmApiKey, setMockQuotaExceeded, generateCalls, recordGenerationCalls } = await import(
+    './__mocks__/mock-modules.ts'
+  )
+  setMockLlmApiKey('sk-user-key')
+  setMockQuotaExceeded(true)
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  const result = await handler(
+    {},
+    { currentContext: browserContext(), actionType: 'reply', userInstruction: '返信して', modifier: null }
+  )
+
+  assert.equal(result.ok, false)
+  assert.equal(result.error.code, 'quota_exceeded')
+  // The BYOK generation never ran and nothing was recorded against the counter.
+  assert.equal(generateCalls.length, 0)
+  assert.equal(recordGenerationCalls.length, 0)
+})
+
+test('billing:checkout opens the Stripe URL returned by the license server', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const { setMockLicenseUrl } = await import('./__mocks__/mock-modules.ts')
+  setMockLicenseUrl('https://api.kashin.ai')
 
   const originalFetch = globalThis.fetch
   // @ts-expect-error test stub

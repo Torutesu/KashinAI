@@ -363,12 +363,37 @@ export async function generate(payload: unknown): Promise<string> {
   return 'generated response'
 }
 
-export const generateHostedCalls: unknown[] = []
-export async function generateHosted(payload: unknown): Promise<string> {
-  generateHostedCalls.push(payload)
-  const onDelta = (payload as { onDelta?: (text: string) => void })?.onDelta
-  if (typeof onDelta === 'function') onDelta('hosted response')
-  return 'hosted response'
+// --- license.ts mock ---
+export const FREE_DAILY_LIMIT = 20
+export const assertWithinFreeQuotaCalls: string[] = []
+export const recordGenerationCalls: number[] = []
+export let mockQuotaExceeded = false
+export let mockPlan: 'free' | 'pro' = 'free'
+
+export function setMockQuotaExceeded(next: boolean): void {
+  mockQuotaExceeded = next
+}
+export function setMockPlan(next: 'free' | 'pro'): void {
+  mockPlan = next
+}
+
+export async function assertWithinFreeQuota(licenseUrl: string): Promise<void> {
+  assertWithinFreeQuotaCalls.push(licenseUrl)
+  if (mockQuotaExceeded) {
+    throw new LlmError('quota_exceeded', 'Free daily limit reached.')
+  }
+}
+
+export function recordGeneration(): void {
+  recordGenerationCalls.push(1)
+}
+
+export async function getPlan(): Promise<'free' | 'pro'> {
+  return mockPlan
+}
+
+export async function getUsageSnapshot(): Promise<{ plan: 'free' | 'pro'; used: number; limit: number; remaining: number }> {
+  return { plan: mockPlan, used: recordGenerationCalls.length, limit: FREE_DAILY_LIMIT, remaining: FREE_DAILY_LIMIT }
 }
 
 // --- settings.ts mock extensions ---
@@ -383,7 +408,7 @@ export function getPublicSettings() {
     gbrain: { mode: 'cli', endpoint: 'http://localhost:3000', cliPath: 'gbrain', timeoutMs: 10000, hasToken: false },
     memory: { enabled: true, dir: '/tmp/memory' },
     llm: { provider: 'anthropic', defaultModel: 'claude-sonnet-4-5', temperature: 0.3, hasApiKey: false },
-    account: { hostedUrl: '' },
+    account: { licenseUrl: mockLicenseUrl },
     defaults: { language: 'ja', tone: 'professional', length: 'medium' },
     privacy: { showSources: true }
   }
@@ -407,9 +432,9 @@ export function setMockLlmApiKey(next: string): void {
   mockLlmApiKey = next
 }
 
-export let mockHostedUrl = ''
-export function setMockHostedInference(url: string): void {
-  mockHostedUrl = url
+export let mockLicenseUrl = ''
+export function setMockLicenseUrl(url: string): void {
+  mockLicenseUrl = url
 }
 
 // --- device-identity.ts mock ---
@@ -424,7 +449,7 @@ export function getSettings() {
     gbrain: { mode: 'cli', endpoint: 'http://localhost:3000', token: '', cliPath: 'gbrain', timeoutMs: 10000 },
     memory: { enabled: true, dir: '/tmp/memory' },
     llm: { provider: 'anthropic', apiKey: mockLlmApiKey, defaultModel: 'claude-sonnet-4-5', temperature: 0.3 },
-    account: { hostedUrl: mockHostedUrl },
+    account: { licenseUrl: mockLicenseUrl },
     defaults: { language: 'ja', tone: 'professional', length: 'medium' },
     privacy: { showSources: true, redactSensitive: mockRedactSensitive }
   }
@@ -501,8 +526,11 @@ export function resetAllMocks(): void {
   clearHistoryCalls.length = 0
   mockRedactSensitive = false
   mockLlmApiKey = ''
-  mockHostedUrl = ''
-  generateHostedCalls.length = 0
+  mockLicenseUrl = ''
+  mockQuotaExceeded = false
+  mockPlan = 'free'
+  assertWithinFreeQuotaCalls.length = 0
+  recordGenerationCalls.length = 0
   registerIpcHandlersCalls.length = 0
   registerShortcutCalls.length = 0
   createAssistantWindowCalls.length = 0
