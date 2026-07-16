@@ -248,7 +248,8 @@ async function handleChat(request: ChatRequest, sender?: Electron.WebContents): 
       : request.currentContext
     const executionPlan = resolveChatExecutionPlan({
       requestPlan,
-      hasApiKey: hasGenerationCredentials(settings)
+      hasApiKey: hasGenerationCredentials(settings),
+      skipMemory: request.skipMemory
     })
     const { searchQuery: builtSearchQuery } = buildSearchQuery(currentContext, 'custom', latestMessage)
     const searchQuery = resolveSearchQuery(builtSearchQuery, request.searchQueryOverride)

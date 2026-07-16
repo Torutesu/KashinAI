@@ -362,6 +362,8 @@ export function resolveChatRequestPlan(request: Pick<ChatRequest, 'currentContex
 export function resolveChatExecutionPlan(params: {
   requestPlan: ChatRequestPlan
   hasApiKey: boolean
+  /** Caller-requested fast path: answer from the visible context only, skipping GBrain retrieval. */
+  skipMemory?: boolean
 }): ChatExecutionPlan {
   if (params.requestPlan.shouldUseInlineFallback) {
     return {
@@ -371,7 +373,7 @@ export function resolveChatExecutionPlan(params: {
   }
 
   return {
-    shouldSearchGBrain: true,
+    shouldSearchGBrain: !params.skipMemory,
     executionMode: params.hasApiKey ? 'llm' : 'retrieval-only'
   }
 }

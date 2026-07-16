@@ -571,6 +571,24 @@ test('resolveChatExecutionPlan skips retrieval for inline fallback and otherwise
       executionMode: 'retrieval-only'
     }
   )
+
+  // skipMemory forces the fast path: no GBrain retrieval, but the LLM still runs.
+  assert.deepEqual(
+    resolveChatExecutionPlan({
+      requestPlan: {
+        canProceed: true,
+        latestMessage: 'draft a reply',
+        memoryPlan: { suppressMemory: false, shouldUseInlineFallback: false, reason: 'normal' },
+        shouldUseInlineFallback: false
+      },
+      hasApiKey: true,
+      skipMemory: true
+    }),
+    {
+      shouldSearchGBrain: false,
+      executionMode: 'llm'
+    }
+  )
 })
 
 test('resolveShortcutUpdateResolution encodes shortcut swap rollback behavior explicitly', () => {

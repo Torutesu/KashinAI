@@ -111,6 +111,9 @@ export type ChatRequest = {
   searchQueryOverride?: string | null
   /** When set, streamed text deltas are pushed to the renderer via generation:chunk events. */
   streamId?: string
+  /** Skip memory/GBrain retrieval and answer from the visible context only (fast path, e.g. the
+   * onboarding demo where a retrieval round-trip would delay the first draft). */
+  skipMemory?: boolean
 }
 
 /** A single saved generation, shown in the History view so past outputs can be reused. */

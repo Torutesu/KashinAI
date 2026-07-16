@@ -26,13 +26,18 @@ const store = new Store<LicenseState>({
   defaults: { usageDay: '', usageCount: 0, cachedPlan: 'free', cachedPlanAt: 0 }
 })
 
-/** Asks the license server for this device's plan. Returns null on any network/server error. */
+/** Hard cap on how long we'll wait for the license server before treating it as unreachable (ms). */
+const LICENSE_FETCH_TIMEOUT_MS = 4000
+
+/** Asks the license server for this device's plan. Returns null on any network/server error or timeout. */
 async function fetchPlan(licenseUrl: string): Promise<Plan | null> {
   const base = licenseUrl.trim().replace(/\/+$/, '')
   try {
     const { deviceId, deviceSecret } = getDeviceCredentials()
     const res = await fetch(`${base}/v1/license`, {
-      headers: { 'x-device-id': deviceId, 'x-device-secret': deviceSecret }
+      headers: { 'x-device-id': deviceId, 'x-device-secret': deviceSecret },
+      // Never let a slow/hung license server block generation — it must not gate BYOK inference.
+      signal: AbortSignal.timeout(LICENSE_FETCH_TIMEOUT_MS)
     })
     if (!res.ok) return null
     const body = (await res.json().catch(() => null)) as { plan?: string } | null
@@ -48,19 +53,22 @@ export async function getPlan(licenseUrl: string, now: number = Date.now()): Pro
 }
 
 /**
- * Enforces the client-side free daily cap before a BYOK generation. Pro devices pass through; a free
- * device that has hit FREE_DAILY_LIMIT gets an LlmError('quota_exceeded'), which the renderer turns
- * into the upgrade prompt. Never blocks on the license server being reachable.
+ * Enforces the client-side free daily cap before a BYOK generation. Under the cap the generation is
+ * allowed regardless of plan, so we don't touch the license server on the hot path — the plan only
+ * matters once the cap is hit, where we confirm Pro (unlimited) before blocking. A free device at
+ * the cap gets an LlmError('quota_exceeded'), which the renderer turns into the upgrade prompt.
  */
 export async function assertWithinFreeQuota(licenseUrl: string, now: number = Date.now()): Promise<void> {
-  const plan = await getPlan(licenseUrl, now)
-  if (plan === 'pro') return
-  if (isOverFreeLimit(store, now)) {
-    throw new LlmError(
-      'quota_exceeded',
-      `無料プランの上限（1日${FREE_DAILY_LIMIT}回）に達しました。Proにアップグレードすると無制限に使えます。`
-    )
-  }
+  // No license server configured → monetization isn't wired and there'd be no way to upgrade, so
+  // don't cap. The paywall only appears in builds that ship a license server URL.
+  if (!licenseUrl.trim()) return
+  if (!isOverFreeLimit(store, now)) return
+  // At the cap: the only thing that lifts it is a verified Pro plan.
+  if ((await getPlan(licenseUrl, now)) === 'pro') return
+  throw new LlmError(
+    'quota_exceeded',
+    `無料プランの上限（1日${FREE_DAILY_LIMIT}回）に達しました。Proにアップグレードすると無制限に使えます。`
+  )
 }
 
 /** Records one successful generation against today's local counter. */

@@ -182,6 +182,27 @@ test('assistant:chat uses GBrain retrieval path for normal browser chat', async 
   assert.match(result.data.message.content, /retrieval-only backend check|The backend successfully fused/)
 })
 
+test('assistant:chat skipMemory answers from context only (no GBrain) but still generates', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  setMockLlmApiKey('sk-test-key')
+  const handler = electronMockState.ipcHandlers['assistant:chat']
+  const result = await handler(
+    {},
+    {
+      currentContext: browserContext(),
+      messages: [{ role: 'user', content: 'draft a reply' }],
+      skipMemory: true
+    }
+  )
+
+  assert.equal(result.ok, true)
+  assert.equal(searchGBrainCalls.length, 0)
+  assert.equal(generateCalls.length, 1)
+  assert.equal(result.data.contextSource, 'none')
+})
+
 test('output:insert forwards the generated text and active app to the native insert bridge', async () => {
   const { registerIpcHandlers } = await importIpc()
   registerIpcHandlers()

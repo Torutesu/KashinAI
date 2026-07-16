@@ -104,7 +104,9 @@ export default function OnboardingView({
     setDemoOutput('')
     const res = await window.api.chat({
       currentContext: buildSampleContext(),
-      messages: [{ role: 'user', content: SAMPLE_INSTRUCTION }]
+      messages: [{ role: 'user', content: SAMPLE_INSTRUCTION }],
+      // Answer straight from the sample so the very first draft never waits on a memory lookup.
+      skipMemory: true
     })
     if (res.ok && res.data.message.content.trim()) {
       setDemoOutput(res.data.message.content.trim())
