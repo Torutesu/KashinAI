@@ -18,6 +18,7 @@
     "debug:context:fixture": "node ./scripts/save-context-fixture.mjs",
     "debug:context:coverage": "node ./scripts/check-context-fixture-coverage.mjs",
     "debug:context:next": "node ./scripts/print-next-context-fixture-command.mjs",
+    "bench:capture": "electron ./scripts/benchmark-capture.mjs",
     "smoke:fusion": "node scripts/smoke-fusion.mjs",
     "smoke:live-context": "node scripts/smoke-live-context.mjs",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
