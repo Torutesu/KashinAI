@@ -413,7 +413,7 @@ export default function SettingsView({
               </Field>
             </SettingsCard>
 
-            <SettingsCard title="Assistant setup" subtitle="Core behavior for retrieval and generation.">
+            <SettingsCard title="Assistant setup" subtitle="How KashinAI finds context and writes replies.">
               <div className="grid gap-3 md:grid-cols-2">
                 <Field label="Display name">
                   <input value={form.appDisplayName} onChange={(e) => update('appDisplayName', e.target.value)} className="input" />
@@ -421,14 +421,14 @@ export default function SettingsView({
                 <Field label="Shortcut">
                   <input value={form.shortcut} onChange={(e) => update('shortcut', e.target.value)} className="input" />
                 </Field>
-                <Field label="GBrain mode">
+                <Field label="Memory source">
                   <select value={form.gbrainMode} onChange={(e) => update('gbrainMode', e.target.value as GBrainMode)} className="input">
-                    <option value="local">Local</option>
-                    <option value="cli">CLI</option>
-                    <option value="http">HTTP</option>
+                    <option value="local">Built-in</option>
+                    <option value="cli">GBrain (command line)</option>
+                    <option value="http">GBrain (server)</option>
                   </select>
                 </Field>
-                <Field label="CLI path">
+                <Field label="Memory tool path">
                   <input value={form.gbrainCliPath} onChange={(e) => update('gbrainCliPath', e.target.value)} className="input" />
                 </Field>
                 <Field label="Memory folder">
