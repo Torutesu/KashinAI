@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ContextAssistantApi, ContextPushPayload, CurrentContext } from '../shared/types'
+import type { KashinAiApi, ContextPushPayload, CurrentContext } from '../shared/types'
 
-const api: ContextAssistantApi = {
+const api: KashinAiApi = {
   captureContext: () => ipcRenderer.invoke('context:capture'),
 
   generate: (request) => ipcRenderer.invoke('assistant:generate', request),
@@ -17,6 +17,23 @@ const api: ContextAssistantApi = {
   setSettings: (update) => ipcRenderer.invoke('settings:set', update),
 
   saveMemory: (request) => ipcRenderer.invoke('memory:save', request),
+
+  getHistory: () => ipcRenderer.invoke('history:list'),
+
+  clearHistory: () => ipcRenderer.invoke('history:clear'),
+
+  captureTelemetry: (event, properties) => ipcRenderer.invoke('telemetry:capture', { event, properties }),
+
+  cancelGeneration: (streamId) => ipcRenderer.invoke('generation:cancel', streamId),
+
+  openCheckout: () => ipcRenderer.invoke('billing:checkout'),
+
+  onGenerationChunk: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, chunk: { streamId: string; delta: string }): void =>
+      callback(chunk)
+    ipcRenderer.on('generation:chunk', listener)
+    return () => ipcRenderer.removeListener('generation:chunk', listener)
+  },
 
   getWindowState: () => ipcRenderer.invoke('window:getState'),
 

@@ -659,7 +659,7 @@ test('browser automation script builders stay pure and escape app names safely',
   const bodyAppleScript = buildChromiumTabBodyTextAppleScript('Dia')
   assert.match(bodyAppleScript, /tell application "Dia"/)
   assert.match(bodyAppleScript, /execute active tab of front window javascript/)
-  assert.match(bodyAppleScript, /document\.querySelector\(\\\"main\\\"\)/)
+  assert.match(bodyAppleScript, /document\.querySelector\(\\"main\\"\)/)
 
   const safariScript = buildSafariPageCaptureAppleScript('Safari')
   assert.match(safariScript, /exists front document/)

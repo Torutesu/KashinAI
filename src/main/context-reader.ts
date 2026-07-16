@@ -6,6 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import type { CurrentContext } from '../shared/types'
+import { nowMs, type CaptureStageTimings } from '../shared/timing'
 import {
   parseAccessibilityHelperOutput,
   resolveAccessibilityCaptureOutcome,
@@ -646,8 +647,11 @@ export async function captureCurrentContextDetailed(
   captureTrace: NonNullable<import('../shared/types').BackendDiagnostics['captureTrace']>
   accessibilityDiagnostics: AccessibilityDiagnostics
 }> {
+  const captureStartedAt = nowMs()
   const originalClipboard = clipboard.readText()
+  const accessibilityStartedAt = nowMs()
   const accessibilityOutcome = await captureAccessibilityOutcome()
+  const accessibilityMs = nowMs() - accessibilityStartedAt
   const accessibilityContext = accessibilityOutcome.extraction
   const capturePreparation = resolveContextCapturePreparation({
     frontmost,
@@ -655,9 +659,13 @@ export async function captureCurrentContextDetailed(
     accessibilityDiagnostics: accessibilityOutcome.diagnostics,
     clipboardSelectedText: null
   })
+  const clipboardSelectionStartedAt = nowMs()
   const clipboardSelectedText = capturePreparation.shouldAttemptClipboardSelection
     ? await captureSelectionViaClipboard(originalClipboard)
     : null
+  const clipboardSelectionMs = capturePreparation.shouldAttemptClipboardSelection
+    ? nowMs() - clipboardSelectionStartedAt
+    : undefined
   const {
     resolvedActiveApp,
     resolvedWindowTitle,
@@ -674,9 +682,10 @@ export async function captureCurrentContextDetailed(
     overrides
   })
 
-  let pageContext: BrowserPageContext = initialPageContext
+  const pageContext: BrowserPageContext = initialPageContext
   let browserLoopState = initialBrowserLoopState
 
+  const browserStartedAt = nowMs()
   while (true) {
     const iteration = resolveBrowserCaptureLoopIteration(browserLoopState)
     if (!iteration.hasRequest) break
@@ -698,6 +707,7 @@ export async function captureCurrentContextDetailed(
       }
     })
   }
+  const browserMs = nowMs() - browserStartedAt
   const finalPageContext = browserLoopState.execution.plan.final.finalPageContext
   const screenCaptureRequest = resolveScreenContextCaptureRequest({
     accessibilityText: accessibilityContext.accessibilityText,
@@ -707,10 +717,13 @@ export async function captureCurrentContextDetailed(
     overrides
   })
   const screenCaptureExecution = resolveScreenContextExecutionPlan(screenCaptureRequest)
+  const screenStartedAt = nowMs()
   const screenCaptureResult =
     screenCaptureExecution.shouldCapture && screenCaptureExecution.options
       ? await captureScreenContext(frontmost, screenCaptureExecution.options)
       : screenCaptureExecution.skippedResult
+  const screenMs =
+    screenCaptureExecution.shouldCapture && screenCaptureExecution.options ? nowMs() - screenStartedAt : undefined
   const result = finalizeContextCaptureResult({
     resolvedActiveApp,
     resolvedWindowTitle,
@@ -726,6 +739,15 @@ export async function captureCurrentContextDetailed(
     screenSourceSelection: screenCaptureResult.sourceSelection,
     timestamp: new Date().toISOString()
   })
+
+  const timings: CaptureStageTimings = {
+    accessibilityMs,
+    clipboardSelectionMs,
+    browserMs,
+    screenMs,
+    totalMs: nowMs() - captureStartedAt
+  }
+  result.captureTrace.timings = timings
 
   return {
     ...result,

@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck & Unit Tests
+    runs-on: ubuntu-latest
+    env:
+      # The Electron binary is not needed for typecheck or the unit tests (they use an
+      # electron mock), and downloading it just slows CI down / can fail behind proxies.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+  server:
+    name: Backend (typecheck & contract tests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install server dependencies
+        working-directory: server
+        run: pnpm install --ignore-workspace --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: server
+        run: pnpm typecheck
+
+      - name: Contract tests
+        working-directory: server
+        run: pnpm test
+
+      - name: Worker build (dry-run — verifies Workers-runtime compatibility)
+        working-directory: server
+        run: pnpm build
+
+  macos:
+    name: macOS (helpers & packaging smoke)
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Parse Swift helpers
+        # Catches syntax breakage in the native capture/paste helpers, which the Ubuntu
+        # unit tests (electron-mocked) can't see.
+        run: |
+          for f in scripts/*.swift; do
+            echo "swiftc -parse $f"
+            swiftc -parse "$f"
+          done
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: Packaging smoke (unsigned dir build)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          pnpm build
+          pnpm exec electron-builder --mac dir

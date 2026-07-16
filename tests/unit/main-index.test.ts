@@ -6,7 +6,9 @@ import {
   createAssistantWindowCalls,
   getFrontmostAppInfoCalls,
   hideAssistantWindowCalls,
-  insertTextCalls,
+  initAutoUpdaterCalls,
+  initTelemetryCalls,
+  shutdownTelemetryCalls,
   registerIpcHandlersCalls,
   registerShortcutCalls,
   resetAllMocks,
@@ -52,6 +54,8 @@ test('registers app services when Electron becomes ready', async () => {
   assert.equal(registerShortcutCalls[0]?.accelerator, 'Option+Space')
   assert.equal(startOptionListenerCalls.length, 1)
   assert.equal(warmContextHelpersCalls.length, 1)
+  assert.equal(initAutoUpdaterCalls.length, 1)
+  assert.equal(initTelemetryCalls.length, 1)
   assert.equal(showAssistantWindowCalls.length, 1)
   assert.equal(electronMockState.trayCreated, true)
   assert.equal(electronMockState.trayTitle, 'CA')
@@ -88,20 +92,22 @@ test('global shortcut captures context and pushes it to the assistant window', a
   })
 })
 
-test('option tap pastes the next demo text into the frontmost app', async () => {
+test('option tap captures context and pushes it with autoInsert enabled', async () => {
   await bootApp()
 
   const optionTap = startOptionListenerCalls[0]?.onOptionTap
   assert.ok(optionTap, 'option tap listener should be registered')
 
   optionTap()
-  await Promise.resolve()
-  await Promise.resolve()
+  // The autoInsert path hides the window and waits ~90ms before capturing, so allow real time.
+  await new Promise((resolve) => setTimeout(resolve, 160))
 
   assert.equal(getFrontmostAppInfoCalls.length, 1)
-  assert.equal(insertTextCalls.length, 1)
-  assert.equal(insertTextCalls[0]?.activeApp, 'Safari')
-  assert.match(insertTextCalls[0]?.text ?? '', /KashinAI/)
+  assert.equal(captureCurrentContextCalls.length, 1)
+
+  const last = sentEvents.at(-1)
+  assert.equal(last?.channel, 'context:pushed')
+  assert.equal((last?.data as { autoInsert?: boolean } | undefined)?.autoInsert, true)
 })
 
 test('before-quit stops the option listener', async () => {
@@ -113,6 +119,7 @@ test('before-quit stops the option listener', async () => {
   beforeQuit()
 
   assert.equal(stopOptionListenerCalls.length, 1)
+  assert.equal(shutdownTelemetryCalls.length, 1)
 })
 
 test('second-instance shows the assistant window again', async () => {
@@ -126,14 +133,15 @@ test('second-instance shows the assistant window again', async () => {
   assert.equal(showAssistantWindowCalls.length, 2)
 })
 
-test('option-triggered paste path does not hide the assistant window', async () => {
+test('option tap hides the assistant window before capturing context', async () => {
   await bootApp()
 
   const optionTap = startOptionListenerCalls[0]?.onOptionTap
   assert.ok(optionTap, 'option tap listener should be registered')
 
   optionTap()
-  await Promise.resolve()
+  await new Promise((resolve) => setTimeout(resolve, 160))
 
-  assert.equal(hideAssistantWindowCalls.length, 0)
+  // autoInsert captures the previous frontmost app, so our own window is hidden first.
+  assert.equal(hideAssistantWindowCalls.length, 1)
 })

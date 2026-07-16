@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { BackendDiagnostics, GBrainMode, LlmProvider, PublicAppSettings } from '@shared/types'
+import type { LanguagePreference } from '@shared/language'
 
 type FormState = {
   appDisplayName: string
@@ -18,10 +19,13 @@ type FormState = {
   llmTemperature: number
   llmApiKey: string
   llmHasApiKey: boolean
-  language: 'ja' | 'en'
+  accountLicenseUrl: string
+  language: LanguagePreference
   tone: 'casual' | 'professional' | 'polite'
   length: 'short' | 'medium' | 'long'
   showSources: boolean
+  redactSensitive: boolean
+  telemetryEnabled: boolean
 }
 
 type NavKey = 'account' | 'privacy' | 'appearance' | 'identity' | 'memory' | 'shortcuts'
@@ -52,10 +56,13 @@ function toFormState(settings: PublicAppSettings): FormState {
     llmTemperature: settings.llm.temperature,
     llmApiKey: '',
     llmHasApiKey: settings.llm.hasApiKey,
+    accountLicenseUrl: settings.account.licenseUrl,
     language: settings.defaults.language,
     tone: settings.defaults.tone,
     length: settings.defaults.length,
-    showSources: settings.privacy.showSources
+    showSources: settings.privacy.showSources,
+    redactSensitive: settings.privacy.redactSensitive,
+    telemetryEnabled: settings.privacy.telemetryEnabled
   }
 }
 
@@ -71,7 +78,8 @@ export default function SettingsView({
   onRequestAccessibility,
   onRequestScreenCapture,
   onBack,
-  onClose
+  onClose,
+  onReplayOnboarding
 }: {
   accessibilityGranted: boolean | null
   screenCaptureStatus: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'
@@ -79,6 +87,7 @@ export default function SettingsView({
   onRequestScreenCapture: () => void
   onBack: () => void
   onClose: () => void
+  onReplayOnboarding: () => void
 }) {
   const [form, setForm] = useState<FormState | null>(null)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
@@ -122,8 +131,15 @@ export default function SettingsView({
         temperature: current.llmTemperature,
         ...(current.llmApiKey ? { apiKey: current.llmApiKey } : {})
       },
+      account: {
+        licenseUrl: current.accountLicenseUrl
+      },
       defaults: { language: current.language, tone: current.tone, length: current.length },
-      privacy: { showSources: current.showSources }
+      privacy: {
+        showSources: current.showSources,
+        redactSensitive: current.redactSensitive,
+        telemetryEnabled: current.telemetryEnabled
+      }
     })
     setForm(toFormState(updated))
     setSaveState('saved')
@@ -227,6 +243,12 @@ export default function SettingsView({
                   Open Screen Recording Settings
                 </button>
               )}
+              <button
+                onClick={onReplayOnboarding}
+                className="rounded-[14px] border border-white/12 bg-white/10 px-4 py-2 text-[13px] font-semibold text-white"
+              >
+                Run setup guide again
+              </button>
             </SettingsCard>
 
             <SettingsCard title="Backend diagnostics" subtitle="Checks live capture and GBrain retrieval on this Mac.">
@@ -338,7 +360,60 @@ export default function SettingsView({
               )}
             </SettingsCard>
 
-            <SettingsCard title="Assistant setup" subtitle="Core behavior for retrieval and generation.">
+            <SettingsCard title="Privacy" subtitle="Control what leaves your machine and how results are shown.">
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Show sources">
+                  <select
+                    value={form.showSources ? 'on' : 'off'}
+                    onChange={(e) => update('showSources', e.target.value === 'on')}
+                    className="input"
+                  >
+                    <option value="on">Show retrieved sources</option>
+                    <option value="off">Hide sources</option>
+                  </select>
+                </Field>
+                <Field label="Redact sensitive text before sending to the LLM">
+                  <select
+                    value={form.redactSensitive ? 'on' : 'off'}
+                    onChange={(e) => update('redactSensitive', e.target.value === 'on')}
+                    className="input"
+                  >
+                    <option value="off">Off (send captured text as-is)</option>
+                    <option value="on">On (mask emails, keys, long numbers)</option>
+                  </select>
+                </Field>
+                <Field label="Anonymous usage analytics">
+                  <select
+                    value={form.telemetryEnabled ? 'on' : 'off'}
+                    onChange={(e) => update('telemetryEnabled', e.target.value === 'on')}
+                    className="input"
+                  >
+                    <option value="on">On (never includes screen text or output)</option>
+                    <option value="off">Off</option>
+                  </select>
+                </Field>
+              </div>
+              <p className="mt-3 text-[12px] leading-5 text-white/40">
+                Analytics only cover anonymous events like install, permissions, and generation latency. Captured screen
+                text, generated output, and API keys are never sent.
+              </p>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Plan & billing"
+              subtitle="You generate with your own API key. The free plan allows a limited number of generations per day; upgrade to Pro for unlimited use. Optional — set your license server URL to unlock Pro."
+            >
+              <Field label="License server URL">
+                <input
+                  value={form.accountLicenseUrl}
+                  onChange={(e) => update('accountLicenseUrl', e.target.value)}
+                  placeholder="https://api.kashin.ai"
+                  className="input"
+                />
+              </Field>
+            </SettingsCard>
+
+            <SettingsCard title="Assistant setup" subtitle="How KashinAI finds context and writes replies.">
               <div className="grid gap-3 md:grid-cols-2">
                 <Field label="Display name">
                   <input value={form.appDisplayName} onChange={(e) => update('appDisplayName', e.target.value)} className="input" />
@@ -346,14 +421,14 @@ export default function SettingsView({
                 <Field label="Shortcut">
                   <input value={form.shortcut} onChange={(e) => update('shortcut', e.target.value)} className="input" />
                 </Field>
-                <Field label="GBrain mode">
+                <Field label="Memory source">
                   <select value={form.gbrainMode} onChange={(e) => update('gbrainMode', e.target.value as GBrainMode)} className="input">
-                    <option value="local">Local</option>
-                    <option value="cli">CLI</option>
-                    <option value="http">HTTP</option>
+                    <option value="local">Built-in</option>
+                    <option value="cli">GBrain (command line)</option>
+                    <option value="http">GBrain (server)</option>
                   </select>
                 </Field>
-                <Field label="CLI path">
+                <Field label="Memory tool path">
                   <input value={form.gbrainCliPath} onChange={(e) => update('gbrainCliPath', e.target.value)} className="input" />
                 </Field>
                 <Field label="Memory folder">
@@ -367,6 +442,17 @@ export default function SettingsView({
                   >
                     <option value="enabled">Enabled</option>
                     <option value="disabled">Disabled</option>
+                  </select>
+                </Field>
+                <Field label="Output language">
+                  <select
+                    value={form.language}
+                    onChange={(e) => update('language', e.target.value as LanguagePreference)}
+                    className="input"
+                  >
+                    <option value="auto">Auto (match the screen)</option>
+                    <option value="ja">Japanese</option>
+                    <option value="en">English</option>
                   </select>
                 </Field>
                 <Field label="LLM provider">

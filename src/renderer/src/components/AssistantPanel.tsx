@@ -12,8 +12,12 @@ type Props = {
   context: CurrentContext | null
   customInstruction: string
   messages: ChatMessage[]
+  streamingText: string
   lastContextSource: ContextSource | null
   lastSearchQuery: string
+  searchQueryOverride: string
+  onSearchQueryOverrideChange: (value: string) => void
+  onOpenHistory: () => void
   onCustomInstructionChange: (value: string) => void
   onSelectAction: (actionType: ActionType) => void
   onGenerateCustom: () => void
@@ -57,25 +61,25 @@ function buildContextItems(context: CurrentContext | null): ContextItem[] {
 
   if (context.selectedText) {
     items.push({
-      title: `Selection: ${compact(context.selectedText)}`,
+      title: `Selected text — ${compact(context.selectedText)}`,
       time: 'now',
       instruction: context.selectedText
     })
   }
 
   if (context.activeApp || context.windowTitle) {
-    const location = [context.activeApp, context.windowTitle].filter(Boolean).join(' / ')
+    const location = [context.activeApp, context.windowTitle].filter(Boolean).join(' — ')
     items.push({
-      title: `Working context: ${compact(location || 'Unknown app')}`,
+      title: `You're in ${compact(location || 'this app')}`,
       time: 'now',
       instruction: `Use the current ${location || 'macOS'} context.`
     })
   }
 
   if (context.pageTitle || context.pageUrl || context.pageText) {
-    const pageLabel = [context.pageTitle, context.pageUrl].filter(Boolean).join(' / ')
+    const pageLabel = [context.pageTitle, context.pageUrl].filter(Boolean).join(' — ')
     items.push({
-      title: `Open page (${context.pageCaptureMethod}): ${compact(pageLabel || context.pageText || 'Captured page')}`,
+      title: `Open page — ${compact(pageLabel || context.pageText || 'Captured page')}`,
       time: 'now',
       instruction: [context.pageTitle, context.pageUrl, context.pageText].filter(Boolean).join('\n\n')
     })
@@ -83,7 +87,7 @@ function buildContextItems(context: CurrentContext | null): ContextItem[] {
 
   if (context.accessibilityText) {
     items.push({
-      title: `App text (${context.accessibilityCaptureMethod}): ${compact(context.accessibilityText)}`,
+      title: `On screen — ${compact(context.accessibilityText)}`,
       time: 'now',
       instruction: context.accessibilityText
     })
@@ -91,7 +95,7 @@ function buildContextItems(context: CurrentContext | null): ContextItem[] {
 
   if (context.screenshotPath || context.screenText) {
     items.push({
-      title: `Screen (${context.screenCaptureMethod}): ${compact(context.screenText || context.screenshotPath || 'Screenshot captured')}`,
+      title: `Screen text — ${compact(context.screenText || 'Screenshot captured')}`,
       time: 'now',
       instruction: [context.screenText, context.screenshotPath ? `Screenshot: ${context.screenshotPath}` : null]
         .filter(Boolean)
@@ -101,7 +105,7 @@ function buildContextItems(context: CurrentContext | null): ContextItem[] {
 
   if (!context.selectedText && context.clipboardText) {
     items.push({
-      title: `Clipboard fallback: ${compact(context.clipboardText)}`,
+      title: `From your clipboard — ${compact(context.clipboardText)}`,
       time: 'now',
       instruction: context.clipboardText
     })
@@ -109,7 +113,7 @@ function buildContextItems(context: CurrentContext | null): ContextItem[] {
 
   if (items.length === 0) {
     items.push({
-      title: 'Context is empty. Select text in another app, then refresh.',
+      title: 'Nothing captured yet. Select some text in another app, then refresh.',
       time: 'now',
       tone: 'alert',
       instruction: ''
@@ -124,8 +128,12 @@ export default function AssistantPanel({
   context,
   customInstruction,
   messages,
+  streamingText,
   lastContextSource,
   lastSearchQuery,
+  searchQueryOverride,
+  onSearchQueryOverrideChange,
+  onOpenHistory,
   onCustomInstructionChange,
   onSelectAction,
   onGenerateCustom,
@@ -181,59 +189,53 @@ export default function AssistantPanel({
       <div className="relative flex h-full flex-col px-2.5 pb-2.5 pt-2">
         <header className="drop-in flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPanelMode('focus')}
-              className="overlay-icon-button text-transparent"
-              aria-label="Focus mode"
-              title="Focus mode"
-            >
-              ○
-            </button>
-            <button onClick={onOpenSettings} className="overlay-icon-button" aria-label="Settings">
+            <button onClick={onOpenSettings} className="overlay-icon-button" aria-label="Settings" title="Settings">
               ⚙
             </button>
             <button
               onClick={onRefreshContext}
               className="overlay-icon-button"
-              aria-label="Refresh context"
-              title="Refresh context"
+              aria-label="Refresh what I can see"
+              title="Refresh what I can see"
             >
               ⤴
             </button>
             <button
               onClick={onSaveMemory}
               className="overlay-icon-button"
-              aria-label="Save memory"
-              title="Save memory"
+              aria-label="Save to memory"
+              title="Save to memory"
             >
               ⎘
             </button>
             <button
-              onClick={() => setPanelMode((prev) => (prev === 'inbox' ? 'focus' : 'inbox'))}
+              onClick={onOpenHistory}
               className="overlay-icon-button"
-              aria-label="Toggle layout"
-              title="Toggle layout"
+              aria-label="History"
+              title="History"
             >
-              ⌁
+              ⏱
             </button>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setPanelMode('inbox')}
+              onClick={() => setPanelMode((prev) => (prev === 'inbox' ? 'focus' : 'inbox'))}
               className="overlay-icon-button relative"
-              aria-label="Inbox"
-              title="Inbox"
+              aria-label="Toggle compact view"
+              title="Toggle compact view"
             >
-              ⌂
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-semibold text-white">
-                {unreadCount}
-              </span>
+              {panelMode === 'inbox' ? '▢' : '▣'}
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-semibold text-white">
+                  {unreadCount}
+                </span>
+              )}
             </button>
-            <button onClick={handleResetComposer} className="overlay-icon-button" aria-label="New" title="New composer">
+            <button onClick={handleResetComposer} className="overlay-icon-button" aria-label="New message" title="New message">
               ＋
             </button>
-            <button onClick={onClose} className="overlay-icon-button wide" aria-label="Escape" title="Close">
+            <button onClick={onClose} className="overlay-icon-button wide" aria-label="Close" title="Close">
               esc
             </button>
           </div>
@@ -242,13 +244,13 @@ export default function AssistantPanel({
         <main className="mx-auto flex w-full max-w-[560px] flex-1 flex-col justify-between">
           <section className="drop-in mt-2.5 overflow-hidden rounded-[18px] border border-white/12 bg-[rgba(36,28,28,0.66)] shadow-[0_10px_28px_rgba(0,0,0,0.12)] backdrop-blur-md">
             <div className="flex items-center justify-between border-b border-white/8 px-3.5 py-2">
-              <div className="text-[12px] font-semibold text-white/48">Chat with fused context</div>
+              <div className="text-[12px] font-semibold text-white/48">Chat</div>
               <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/34">
-                {lastContextSource && lastContextSource !== 'none' ? `memory: ${lastContextSource}` : 'live context'}
+                {lastContextSource && lastContextSource !== 'none' ? 'using your memory' : 'using live context'}
               </div>
             </div>
             <div className="max-h-[136px] overflow-y-auto px-3.5 py-3">
-              {messages.length === 0 ? (
+              {messages.length === 0 && !streamingText ? (
                 <p className="text-[13px] leading-6 text-white/50">
                   Ask about the current app. KashinAI will use the visible context first.
                 </p>
@@ -267,19 +269,51 @@ export default function AssistantPanel({
                       <div className="whitespace-pre-wrap">{message.content}</div>
                     </div>
                   ))}
+                  {streamingText && (
+                    <div className="rounded-[14px] bg-orange-400/10 px-3 py-2 text-[13px] leading-5 text-white/88">
+                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">
+                        KashinAI
+                      </div>
+                      <div className="whitespace-pre-wrap">
+                        {streamingText}
+                        <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-white/50 align-middle" />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-            {lastSearchQuery && (
-              <div className="border-t border-white/8 px-3.5 py-2 text-[11px] text-white/36">
-                Context query: {lastSearchQuery}
+            <div className="border-t border-white/8 px-3.5 py-2">
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/34">
+                  Search terms
+                </label>
+                {searchQueryOverride.trim() && (
+                  <button
+                    onClick={() => onSearchQueryOverrideChange('')}
+                    className="text-[10px] font-medium text-white/40 transition hover:text-white/70"
+                  >
+                    Reset
+                  </button>
+                )}
               </div>
-            )}
+              <input
+                value={searchQueryOverride}
+                onChange={(e) => onSearchQueryOverrideChange(e.target.value)}
+                placeholder={lastSearchQuery || 'Automatic — from what’s on screen'}
+                className="w-full rounded-[10px] border border-white/10 bg-black/20 px-2.5 py-1.5 text-[11px] text-white/80 placeholder:text-white/30 focus:border-white/25 focus:outline-none"
+              />
+              <p className="mt-1 text-[10px] text-white/28">
+                {searchQueryOverride.trim()
+                  ? 'These terms will be used for the next reply.'
+                  : 'Leave blank to search automatically. Type here to guide the search yourself.'}
+              </p>
+            </div>
           </section>
 
           <section className="drop-in mt-2.5 overflow-hidden rounded-[18px] border border-white/12 bg-[rgba(36,28,28,0.66)] shadow-[0_10px_28px_rgba(0,0,0,0.12)] backdrop-blur-md">
             <div className="flex items-center justify-between border-b border-white/8 px-3.5 py-2">
-              <div className="text-[12px] font-semibold text-white/48">⌕&nbsp;&nbsp;Live context</div>
+              <div className="text-[12px] font-semibold text-white/48">What I can see</div>
               <button onClick={handleMarkRead} className="text-[12px] font-medium text-white/44 transition hover:text-white/70">
                 Mark read
               </button>
@@ -309,7 +343,17 @@ export default function AssistantPanel({
           <div className="pb-1 pt-3">
             {error && (
               <div className="mb-2.5 rounded-[16px] border border-rose-300/20 bg-rose-300/10 px-3.5 py-2.5 text-[12px] text-rose-50/90">
-                {error.message}
+                <div className="flex items-center justify-between gap-3">
+                  <span>{error.message}</span>
+                  {error.code === 'quota_exceeded' && (
+                    <button
+                      onClick={() => void window.api.openCheckout()}
+                      className="shrink-0 rounded-[12px] bg-[#ff9347] px-3 py-1.5 text-[12px] font-semibold text-black"
+                    >
+                      Upgrade to Pro
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

@@ -1,0 +1,81 @@
+name: Release (macOS)
+
+# Builds signed + notarized macOS artifacts (dmg/zip). Requires an Apple Developer
+# account and the repository secrets listed in docs/distribution.md. Without those
+# secrets electron-builder produces UNSIGNED artifacts (fine for a smoke build, but
+# Gatekeeper will block them on other Macs).
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      notarize:
+        description: 'Notarize the build (requires Apple secrets)'
+        type: boolean
+        default: true
+
+jobs:
+  build-mac:
+    name: Build macOS
+    runs-on: macos-14
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '0'
+      # Code-signing material (base64 .p12 + password). Empty => electron-builder skips signing.
+      CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+      # Notarization credentials (Apple ID app-specific password flow).
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build renderer + main
+        run: pnpm build
+
+      - name: Package (electron-builder)
+        env:
+          # Used by electron-builder to create/upload the draft GitHub Release (incl. the
+          # latest-mac.yml feed that electron-updater consumes). The built-in token is enough.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Publish (draft release + update feed) only for v* tags; plain builds just produce local artifacts.
+          PUBLISH_FLAG="never"
+          case "$GITHUB_REF" in
+            refs/tags/v*) PUBLISH_FLAG="always" ;;
+          esac
+          NOTARIZE_ARGS=""
+          if [ -n "$APPLE_TEAM_ID" ] && [ -n "$APPLE_ID" ]; then
+            echo "Notarizing with team $APPLE_TEAM_ID"
+            NOTARIZE_ARGS="-c.mac.notarize.teamId=$APPLE_TEAM_ID"
+          else
+            echo "::warning::Apple notarization secrets are not set; building UNSIGNED artifacts."
+          fi
+          pnpm exec electron-builder --mac $NOTARIZE_ARGS --publish "$PUBLISH_FLAG"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kashinai-macos
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/latest-mac.yml
+          if-no-files-found: error

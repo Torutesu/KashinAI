@@ -1,5 +1,5 @@
 {
-  "name": "context-assistant",
+  "name": "kashinai",
   "version": "0.1.0",
   "description": "Lightweight macOS desktop assistant that combines current screen context with GBrain company memory to generate replies, summaries, proposals, and next actions.",
   "private": true,
@@ -18,18 +18,24 @@
     "debug:context:fixture": "node ./scripts/save-context-fixture.mjs",
     "debug:context:coverage": "node ./scripts/check-context-fixture-coverage.mjs",
     "debug:context:next": "node ./scripts/print-next-context-fixture-command.mjs",
+    "bench:capture": "electron ./scripts/benchmark-capture.mjs",
     "smoke:fusion": "node scripts/smoke-fusion.mjs",
     "smoke:live-context": "node scripts/smoke-live-context.mjs",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
-    "typecheck": "pnpm typecheck:node && pnpm typecheck:web"
+    "typecheck": "pnpm typecheck:node && pnpm typecheck:web",
+    "lint": "eslint .",
+    "eval:prompts": "node --experimental-strip-types --import ./tests/unit/register-loader.mjs scripts/eval-prompts.mjs"
   },
   "dependencies": {
     "electron-store": "^8.2.0",
+    "electron-updater": "^6.8.9",
+    "posthog-node": "^5.42.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@tailwindcss/vite": "^4.0.0",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.18",
@@ -38,8 +44,10 @@
     "electron": "^33.2.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^2.3.0",
+    "eslint": "^9.39.5",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.64.0",
     "vite": "^5.4.11"
   },
   "build": {
@@ -70,16 +78,32 @@
       }
     ],
     "asar": true,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Torutesu",
+        "repo": "KashinAI"
+      }
+    ],
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
-        "dir"
+        "dmg",
+        "zip"
       ],
       "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": false,
       "extendInfo": {
         "NSAppleEventsUsageDescription": "KashinAI uses Apple Events to read the active app context and paste generated text back into the app you are using.",
         "NSScreenCaptureDescription": "KashinAI uses screen capture permission to understand visible page or app context when text is not directly available."
       }
+    },
+    "dmg": {
+      "title": "${productName} ${version}"
     }
   }
 }

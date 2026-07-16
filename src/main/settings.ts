@@ -60,13 +60,21 @@ const DEFAULT_SETTINGS: StoredSettings = {
     defaultModel: 'claude-sonnet-4-5',
     temperature: 0.3
   },
+  account: {
+    licenseUrl: ''
+  },
   defaults: {
-    language: 'ja',
+    language: 'auto',
     tone: 'professional',
     length: 'medium'
   },
   privacy: {
-    showSources: true
+    showSources: true,
+    redactSensitive: false,
+    telemetryEnabled: true
+  },
+  onboarding: {
+    completed: false
   }
 }
 
@@ -122,6 +130,17 @@ export function getSettings(): AppSettings {
     llm: {
       ...raw.llm,
       apiKey: decryptSecret(raw.llm.apiKey)
+    },
+    account: {
+      licenseUrl: raw.account?.licenseUrl ?? ''
+    },
+    privacy: {
+      showSources: raw.privacy?.showSources ?? true,
+      redactSensitive: raw.privacy?.redactSensitive ?? false,
+      telemetryEnabled: raw.privacy?.telemetryEnabled ?? true
+    },
+    onboarding: {
+      completed: raw.onboarding?.completed ?? false
     }
   }
 }
@@ -153,6 +172,17 @@ export function getPublicSettings(): PublicAppSettings {
       defaultModel: raw.llm.defaultModel,
       temperature: raw.llm.temperature,
       hasApiKey: Boolean(raw.llm.apiKey?.value)
+    },
+    account: {
+      licenseUrl: raw.account?.licenseUrl ?? ''
+    },
+    privacy: {
+      showSources: raw.privacy?.showSources ?? true,
+      redactSensitive: raw.privacy?.redactSensitive ?? false,
+      telemetryEnabled: raw.privacy?.telemetryEnabled ?? true
+    },
+    onboarding: {
+      completed: raw.onboarding?.completed ?? false
     }
   }
 }
@@ -188,8 +218,18 @@ export function updateSettings(update: SettingsUpdate): PublicAppSettings {
           ? encryptSecret(update.llm.apiKey)
           : current.llm.apiKey
     },
+    account: {
+      licenseUrl: update.account?.licenseUrl ?? current.account?.licenseUrl ?? ''
+    },
     defaults: { ...current.defaults, ...update.defaults },
-    privacy: { ...current.privacy, ...update.privacy }
+    privacy: {
+      showSources: update.privacy?.showSources ?? current.privacy?.showSources ?? true,
+      redactSensitive: update.privacy?.redactSensitive ?? current.privacy?.redactSensitive ?? false,
+      telemetryEnabled: update.privacy?.telemetryEnabled ?? current.privacy?.telemetryEnabled ?? true
+    },
+    onboarding: {
+      completed: update.onboarding?.completed ?? current.onboarding?.completed ?? false
+    }
   }
 
   store.store = next

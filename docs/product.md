@@ -4,7 +4,7 @@
 
 **A Goldfish-like macOS assistant with company memory.**
 
-ContextAssistant lets a user press a global shortcut anywhere on macOS, read the currently selected text and active app/window context, search company knowledge from GBrain, and generate useful replies, summaries, proposals, translations, or next actions — without re-explaining company/customer/project background every time.
+KashinAI lets a user press a global shortcut anywhere on macOS, read the currently selected text and active app/window context, search company knowledge from GBrain, and generate useful replies, summaries, proposals, translations, or next actions — without re-explaining company/customer/project background every time.
 
 This is not the full SHOGUN AI product (see `brain/products/shogun_ai.md`) — it is a lightweight MVP scoped to: macOS app, global shortcut, selected-text capture, GBrain search, LLM generation, copy/paste, and source display.
 

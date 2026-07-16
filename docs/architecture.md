@@ -2,7 +2,7 @@
 
 ## Overview
 
-ContextAssistant is a macOS floating assistant that combines the user's current on-screen context with long-term company memory stored in GBrain, then generates ready-to-use text (replies, summaries, proposals, next actions) via an LLM.
+KashinAI is a macOS floating assistant that combines the user's current on-screen context with long-term company memory stored in GBrain, then generates ready-to-use text (replies, summaries, proposals, next actions) via an LLM.
 
 This document describes the component layout, data flow, and the GBrain client's three connection modes, per the technical brief (sections 9 and 19).
 

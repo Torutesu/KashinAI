@@ -1,10 +1,39 @@
-import { useEffect, useState } from 'react'
-import type { ActionType, AppError, ChatMessage, ContextSource, CurrentContext, GenerateResult } from '@shared/types'
+import { useEffect, useRef, useState } from 'react'
+import type {
+  ActionType,
+  AppError,
+  ChatMessage,
+  ContextSource,
+  CurrentContext,
+  GenerateResult,
+  HistoryEntry
+} from '@shared/types'
+import { detectLanguage } from '@shared/language'
 import AssistantPanel from './components/AssistantPanel'
 import ResultView from './components/ResultView'
 import SettingsView from './components/SettingsView'
+import OnboardingView from './components/OnboardingView'
+import HistoryView from './components/HistoryView'
 
-type PanelView = 'assistant' | 'result' | 'settings'
+type PanelView = 'assistant' | 'result' | 'settings' | 'onboarding' | 'history'
+
+const RECOMMENDATION_INSTRUCTION = {
+  ja: '現在の画面コンテキスト、Accessibility Text、スクリーンOCR、選択テキストを最優先で読んで、今すぐ入力欄に貼り付けて使えるおすすめ文を1つ作ってください。Twitter/Xなら表示中の投稿や返信欄に合う短い投稿・返信文、コード画面ならそのコードやエラーに合う短いコメント・説明・次アクションにしてください。Twitter/X、SNS、コード、ターミナル、エディタ画面では会社メモやGBrainを使わず、画面に見えている内容だけに合わせてください。前置き、見出し、引用符、説明、Context used、箇条書きラベルは出さず、貼り付ける本文だけを出力してください。',
+  en: 'Read the current screen context, Accessibility Text, screen OCR, and selected text first, and write one ready-to-paste suggestion for the active input. For Twitter/X, make a short post/reply that fits the visible post or reply box; for a code screen, make a short comment, explanation, or next action that fits the code or error. On Twitter/X, social, code, terminal, and editor screens, do not use company memory or GBrain — match only what is visible on screen. Output only the body to paste: no preamble, headings, quotes, explanations, "Context used", or bullet labels.'
+} as const
+
+function contextLanguageText(context: CurrentContext): string {
+  return [
+    context.selectedText,
+    context.accessibilityText,
+    context.screenText,
+    context.pageText,
+    context.pageTitle,
+    context.windowTitle
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
 
 function AssistantFlow() {
   const [context, setContext] = useState<CurrentContext | null>(null)
@@ -16,6 +45,10 @@ function AssistantFlow() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [lastContextSource, setLastContextSource] = useState<ContextSource | null>(null)
   const [lastSearchQuery, setLastSearchQuery] = useState('')
+  const [searchQueryOverride, setSearchQueryOverride] = useState('')
+  const [history, setHistory] = useState<HistoryEntry[]>([])
+  const [streamingText, setStreamingText] = useState('')
+  const streamIdRef = useRef<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<AppError | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle')
@@ -32,6 +65,7 @@ function AssistantFlow() {
       setResult(null)
       setError(null)
       setMessages([])
+      setSearchQueryOverride('')
       void autoRecommendForContext(ctx, autoInsert)
     })
 
@@ -41,9 +75,18 @@ function AssistantFlow() {
 
     const unsubscribeCollapsed = window.api.onCollapsedChanged(setCollapsed)
 
+    const unsubscribeChunk = window.api.onGenerationChunk(({ streamId, delta }) => {
+      if (streamId === streamIdRef.current) setStreamingText((prev) => prev + delta)
+    })
+
+    // (paywall telemetry is emitted from a dedicated effect below)
+
     window.api.getSettings().then((settings) => {
       setAppDisplayName(settings.appDisplayName)
       setShowSources(settings.privacy.showSources)
+      if (!settings.onboarding.completed) {
+        setView('onboarding')
+      }
     })
 
     window.api.getWindowState().then((state) => setCollapsed(state.collapsed))
@@ -61,24 +104,35 @@ function AssistantFlow() {
       unsubscribe()
       unsubscribeNavigate()
       unsubscribeCollapsed()
+      unsubscribeChunk()
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [])
 
+  useEffect(() => {
+    if (error?.code === 'quota_exceeded') void window.api.captureTelemetry('paywall_shown')
+  }, [error])
+
   async function autoRecommendForContext(nextContext: CurrentContext, autoInsert: boolean): Promise<void> {
     const recommendationRequest: ChatMessage = {
       role: 'user',
-      content:
-        '現在の画面コンテキスト、Accessibility Text、スクリーンOCR、選択テキストを最優先で読んで、今すぐ入力欄に貼り付けて使えるおすすめ文を1つ作ってください。Twitter/Xなら表示中の投稿や返信欄に合う短い投稿・返信文、コード画面ならそのコードやエラーに合う短いコメント・説明・次アクションにしてください。Twitter/X、SNS、コード、ターミナル、エディタ画面では会社メモやGBrainを使わず、画面に見えている内容だけに合わせてください。前置き、見出し、引用符、説明、Context used、箇条書きラベルは出さず、貼り付ける本文だけを出力してください。'
+      content: RECOMMENDATION_INSTRUCTION[detectLanguage(contextLanguageText(nextContext))]
     }
 
     setLoading(true)
     setError(null)
+    const streamId = crypto.randomUUID()
+    streamIdRef.current = streamId
+    setStreamingText('')
     const res = await window.api.chat({
       currentContext: nextContext,
-      messages: [recommendationRequest]
+      messages: [recommendationRequest],
+      searchQueryOverride: searchQueryOverride.trim() || null,
+      streamId
     })
 
+    streamIdRef.current = null
+    setStreamingText('')
     setLoading(false)
     if (res.ok) {
       setMessages([res.data.message])
@@ -86,6 +140,7 @@ function AssistantFlow() {
       setLastSearchQuery(res.data.searchQuery)
       if (autoInsert && res.data.message.content.trim()) {
         await window.api.insertOutput(res.data.message.content, nextContext.activeApp)
+        void window.api.captureTelemetry('paste_performed', { source: 'tap' })
       }
     } else {
       setError(res.error)
@@ -103,7 +158,8 @@ function AssistantFlow() {
       currentContext: context,
       actionType: nextActionType,
       userInstruction: nextInstruction,
-      modifier: null
+      modifier: null,
+      searchQueryOverride: searchQueryOverride.trim() || null
     })
 
     setLoading(false)
@@ -123,12 +179,19 @@ function AssistantFlow() {
     setMessages(nextMessages)
     setLoading(true)
     setError(null)
+    const streamId = crypto.randomUUID()
+    streamIdRef.current = streamId
+    setStreamingText('')
 
     const res = await window.api.chat({
       currentContext: context,
-      messages: nextMessages
+      messages: nextMessages,
+      searchQueryOverride: searchQueryOverride.trim() || null,
+      streamId
     })
 
+    streamIdRef.current = null
+    setStreamingText('')
     setLoading(false)
     if (res.ok) {
       setMessages((prev) => [...prev, res.data.message])
@@ -156,14 +219,33 @@ function AssistantFlow() {
     }
   }
 
+  async function openHistory(): Promise<void> {
+    const entries = await window.api.getHistory()
+    setHistory(entries)
+    setView('history')
+  }
+
+  async function clearHistory(): Promise<void> {
+    await window.api.clearHistory()
+    setHistory([])
+  }
+
+  async function completeOnboarding(skipped: boolean): Promise<void> {
+    await window.api.setSettings({ onboarding: { completed: true } })
+    void window.api.captureTelemetry('onboarding_finished', { skipped })
+    setView('assistant')
+  }
+
   async function requestAccessibility(): Promise<void> {
     const granted = await window.api.requestAccessibility()
     setAccessibilityGranted(granted)
+    if (granted) void window.api.captureTelemetry('permission_granted', { kind: 'accessibility' })
   }
 
   async function requestScreenCapture(): Promise<void> {
     const status = await window.api.requestScreenCapture()
     setScreenCaptureStatus(status)
+    if (status === 'granted') void window.api.captureTelemetry('permission_granted', { kind: 'screen' })
   }
 
   async function regenerate(modifier: 'shorter' | 'more_polite' | null): Promise<void> {
@@ -175,7 +257,8 @@ function AssistantFlow() {
       currentContext: context,
       actionType,
       userInstruction,
-      modifier
+      modifier,
+      searchQueryOverride: searchQueryOverride.trim() || null
     })
 
     setLoading(false)
@@ -197,6 +280,7 @@ function AssistantFlow() {
   async function handleInsert(): Promise<void> {
     if (!result) return
     await window.api.insertOutput(result.output, context?.activeApp ?? null)
+    void window.api.captureTelemetry('paste_performed', { source: 'result' })
   }
 
   if (collapsed) {
@@ -217,14 +301,29 @@ function AssistantFlow() {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-transparent">
+      {view === 'onboarding' && (
+        <OnboardingView
+          appDisplayName={appDisplayName}
+          accessibilityGranted={accessibilityGranted}
+          screenCaptureStatus={screenCaptureStatus}
+          onRequestAccessibility={() => void requestAccessibility()}
+          onRequestScreenCapture={() => void requestScreenCapture()}
+          onFinish={() => void completeOnboarding(false)}
+          onSkip={() => void completeOnboarding(true)}
+        />
+      )}
       {view === 'assistant' && (
         <AssistantPanel
           appDisplayName={appDisplayName}
           context={context}
           customInstruction={customInstruction}
           messages={messages}
+          streamingText={streamingText}
           lastContextSource={lastContextSource}
           lastSearchQuery={lastSearchQuery}
+          searchQueryOverride={searchQueryOverride}
+          onSearchQueryOverrideChange={setSearchQueryOverride}
+          onOpenHistory={() => void openHistory()}
           onCustomInstructionChange={setCustomInstruction}
           onSelectAction={(type) => {
             const instructionByAction: Record<ActionType, string> = {
@@ -265,6 +364,19 @@ function AssistantFlow() {
           copyState={copyState}
         />
       )}
+      {view === 'history' && (
+        <HistoryView
+          entries={history}
+          onBack={() => setView('assistant')}
+          onClose={() => void window.api.hideWindow()}
+          onClear={() => void clearHistory()}
+          onCopy={(text) => void window.api.copyOutput(text)}
+          onInsert={(text) => {
+            void window.api.insertOutput(text, context?.activeApp ?? null)
+            void window.api.captureTelemetry('paste_performed', { source: 'history' })
+          }}
+        />
+      )}
       {view === 'settings' && (
         <SettingsView
           accessibilityGranted={accessibilityGranted}
@@ -273,6 +385,7 @@ function AssistantFlow() {
           onClose={() => void window.api.hideWindow()}
           screenCaptureStatus={screenCaptureStatus}
           onRequestScreenCapture={() => void requestScreenCapture()}
+          onReplayOnboarding={() => setView('onboarding')}
         />
       )}
     </div>

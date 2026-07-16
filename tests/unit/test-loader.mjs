@@ -15,7 +15,7 @@ const electronMockUrl = pathToFileURL(pathResolve(mockDir, 'electron.ts')).href
 const mockModulesUrl = pathToFileURL(pathResolve(mockDir, 'mock-modules.ts')).href
 
 // Sibling modules that src/main/index.ts imports
-const mainIndexSiblingSpecifiers = ['./ipc', './shortcut', './windows', './context-reader', './settings', './option-listener', './insert']
+const mainIndexSiblingSpecifiers = ['./ipc', './shortcut', './windows', './context-reader', './settings', './option-listener', './insert', './updater', './telemetry']
 const ipcSiblingSpecifiers = [
   '../shared/prompts',
   '../shared/live-context',
@@ -27,7 +27,11 @@ const ipcSiblingSpecifiers = [
   './windows',
   './insert',
   './shortcut',
-  './memory'
+  './memory',
+  './history',
+  './telemetry',
+  './device-identity',
+  './license'
 ]
 
 export async function resolve(specifier, context, next) {
@@ -62,12 +66,23 @@ export async function resolve(specifier, context, next) {
     return next('../shared/live-context.ts', context)
   }
 
+  if (specifier === '../shared/redaction') {
+    return next('../shared/redaction.ts', context)
+  }
+
   if (specifier === './ipc-utils') {
     return next('./ipc-utils.ts', context)
   }
 
   if (specifier === './context-reader-utils') {
     return next('./context-reader-utils.ts', context)
+  }
+
+  // General fallback: source uses extensionless relative .ts imports (bundler resolution), which
+  // Node's default resolver does not add. Map extensionless relative specifiers to `.ts` so real
+  // modules (e.g. prompts.ts importing './live-context') can be loaded directly in tests.
+  if ((specifier.startsWith('./') || specifier.startsWith('../')) && !/\.[a-z0-9]+$/i.test(specifier)) {
+    return next(`${specifier}.ts`, context)
   }
 
   return next(specifier, context)

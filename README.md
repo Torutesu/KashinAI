@@ -79,12 +79,15 @@ Run in development:
 pnpm dev
 ```
 
-Build the app:
+Build the app (local, unsigned):
 
 ```bash
 pnpm build
 pnpm package:mac
 ```
+
+This produces an unsigned `.app` for local testing. For a signed + notarized
+build that runs on other Macs, see `docs/distribution.md`.
 
 Full setup instructions: `docs/setup.md`.
 

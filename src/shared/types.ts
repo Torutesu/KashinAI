@@ -1,3 +1,7 @@
+import type { LanguagePreference } from './language'
+import type { CaptureStageTimings, GenerationTimings } from './timing'
+import type { TelemetryEventName } from './telemetry'
+
 export type ActionType = 'reply' | 'summarize' | 'next_actions' | 'proposal' | 'translate' | 'custom'
 
 export type CurrentContext = {
@@ -50,7 +54,7 @@ export type ContextPack = {
   searchQuery: string
   retrievedContext: RetrievedContext[]
   outputPreferences: {
-    language: 'ja' | 'en'
+    language: LanguagePreference
     tone: 'casual' | 'professional' | 'polite'
     length: 'short' | 'medium' | 'long'
   }
@@ -76,6 +80,15 @@ export type GenerateRequest = {
   actionType: ActionType
   userInstruction: string
   modifier?: 'shorter' | 'more_polite' | null
+  /** When set, this query is used for GBrain retrieval instead of the auto-generated one. */
+  searchQueryOverride?: string | null
+  /** When set, streamed text deltas are pushed to the renderer via generation:chunk events. */
+  streamId?: string
+}
+
+export type GenerationChunk = {
+  streamId: string
+  delta: string
 }
 
 export type GenerateResult = {
@@ -83,6 +96,7 @@ export type GenerateResult = {
   sources: RetrievedContext[]
   searchQuery: string
   contextSource: ContextSource
+  timings?: GenerationTimings
 }
 
 export type ChatMessage = {
@@ -93,6 +107,27 @@ export type ChatMessage = {
 export type ChatRequest = {
   currentContext: CurrentContext
   messages: ChatMessage[]
+  /** When set, this query is used for GBrain retrieval instead of the auto-generated one. */
+  searchQueryOverride?: string | null
+  /** When set, streamed text deltas are pushed to the renderer via generation:chunk events. */
+  streamId?: string
+  /** Skip memory/GBrain retrieval and answer from the visible context only (fast path, e.g. the
+   * onboarding demo where a retrieval round-trip would delay the first draft). */
+  skipMemory?: boolean
+}
+
+/** A single saved generation, shown in the History view so past outputs can be reused. */
+export type HistoryEntry = {
+  id: string
+  timestamp: string
+  kind: 'generate' | 'chat'
+  actionType: ActionType | null
+  activeApp: string | null
+  contextKind: CurrentContext['contextKind'] | null
+  output: string
+  searchQuery: string
+  contextSource: ContextSource
+  sources: { source: string; title: string }[]
 }
 
 export type ChatResult = {
@@ -101,6 +136,7 @@ export type ChatResult = {
   searchQuery: string
   contextSource: ContextSource
   currentContext: CurrentContext
+  timings?: GenerationTimings
 }
 
 export type ContextPushPayload = {
@@ -203,6 +239,8 @@ export type BackendDiagnostics = {
         preferredCaptureMode: 'desktop-source' | 'native-screen'
       } | null
     }
+    /** Best-effort per-stage capture timings (ms). Unstable — redacted from saved fixtures. */
+    timings?: CaptureStageTimings
   }
   canFuseContext: boolean
   gbrain: {
@@ -229,6 +267,7 @@ export type ErrorCode =
   | 'llm_missing_api_key'
   | 'llm_request_failed'
   | 'llm_unknown_provider'
+  | 'quota_exceeded'
   | 'unknown'
 
 export type AppError = {
@@ -260,13 +299,26 @@ export type AppSettings = {
     defaultModel: string
     temperature: number
   }
+  /** KashinAI license server (BYOK model). Optional URL of the license/billing backend. Generation
+   * always uses the user's own API key; this server only reports the device's plan (free/pro) and
+   * runs Stripe Checkout. It never sees or runs inference. */
+  account: {
+    licenseUrl: string
+  }
   defaults: {
-    language: 'ja' | 'en'
+    language: LanguagePreference
     tone: 'casual' | 'professional' | 'polite'
     length: 'short' | 'medium' | 'long'
   }
   privacy: {
     showSources: boolean
+    /** When true, mask emails/keys/long numbers in captured text before sending to the LLM. */
+    redactSensitive: boolean
+    /** Anonymous product analytics (never includes screen text/output/keys). Opt-out. */
+    telemetryEnabled: boolean
+  }
+  onboarding: {
+    completed: boolean
   }
 }
 
@@ -284,8 +336,10 @@ export type SettingsUpdate = {
   gbrain?: Partial<Omit<AppSettings['gbrain'], 'token'>> & { token?: string }
   memory?: Partial<AppSettings['memory']>
   llm?: Partial<Omit<AppSettings['llm'], 'apiKey'>> & { apiKey?: string }
+  account?: Partial<AppSettings['account']>
   defaults?: Partial<AppSettings['defaults']>
   privacy?: Partial<AppSettings['privacy']>
+  onboarding?: Partial<AppSettings['onboarding']>
 }
 
 export type GenerateIpcResult = { ok: true; data: GenerateResult } | { ok: false; error: AppError }
@@ -299,7 +353,7 @@ export type BackendDiagnosticsIpcResult =
 /** The typed contract exposed on window.api by the preload script. Declared here (not in
  * src/preload) so both the main-process tsconfig and the renderer tsconfig can reference it
  * without one composite TS project reaching into the other's file set. */
-export type ContextAssistantApi = {
+export type KashinAiApi = {
   captureContext: () => Promise<CurrentContext>
   generate: (request: GenerateRequest) => Promise<GenerateIpcResult>
   chat: (request: ChatRequest) => Promise<ChatIpcResult>
@@ -308,6 +362,12 @@ export type ContextAssistantApi = {
   getSettings: () => Promise<PublicAppSettings>
   setSettings: (update: SettingsUpdate) => Promise<PublicAppSettings>
   saveMemory: (request: { currentContext: CurrentContext; note?: string }) => Promise<{ ok: true; path: string } | { ok: false; error: AppError }>
+  getHistory: () => Promise<HistoryEntry[]>
+  clearHistory: () => Promise<boolean>
+  captureTelemetry: (event: TelemetryEventName, properties?: Record<string, string | number | boolean>) => Promise<boolean>
+  cancelGeneration: (streamId: string) => Promise<boolean>
+  openCheckout: () => Promise<{ ok: true; url: string } | { ok: false; error: AppError }>
+  onGenerationChunk: (callback: (chunk: GenerationChunk) => void) => () => void
   getWindowState: () => Promise<{ collapsed: boolean; registeredShortcut: string | null }>
   hideWindow: () => Promise<void>
   expandWindow: () => Promise<void>

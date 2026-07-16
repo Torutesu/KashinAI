@@ -5,7 +5,14 @@ import {
   buildSearchQueryCalls,
   buildChatPromptCalls,
   captureCurrentContextCalls,
+  clearHistoryCalls,
+  captureTelemetryCalls,
   generateCalls,
+  buildPromptCalls,
+  recordHistoryEntryCalls,
+  setMockHistoryEntries,
+  setMockRedactSensitive,
+  setMockLlmApiKey,
   getFrontmostAppInfoCalls,
   mockRegisteredShortcut,
   resetAllMocks,
@@ -175,6 +182,27 @@ test('assistant:chat uses GBrain retrieval path for normal browser chat', async 
   assert.match(result.data.message.content, /retrieval-only backend check|The backend successfully fused/)
 })
 
+test('assistant:chat skipMemory answers from context only (no GBrain) but still generates', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  setMockLlmApiKey('sk-test-key')
+  const handler = electronMockState.ipcHandlers['assistant:chat']
+  const result = await handler(
+    {},
+    {
+      currentContext: browserContext(),
+      messages: [{ role: 'user', content: 'draft a reply' }],
+      skipMemory: true
+    }
+  )
+
+  assert.equal(result.ok, true)
+  assert.equal(searchGBrainCalls.length, 0)
+  assert.equal(generateCalls.length, 1)
+  assert.equal(result.data.contextSource, 'none')
+})
+
 test('output:insert forwards the generated text and active app to the native insert bridge', async () => {
   const { registerIpcHandlers } = await importIpc()
   registerIpcHandlers()
@@ -206,8 +234,9 @@ test('memory:save persists the current context and optional note through the mar
         gbrain: { mode: 'cli', endpoint: 'http://localhost:3000', token: '', cliPath: 'gbrain', timeoutMs: 10000 },
         memory: { enabled: true, dir: '/tmp/memory' },
         llm: { provider: 'anthropic', apiKey: '', defaultModel: 'claude-sonnet-4-5', temperature: 0.3 },
+        account: { licenseUrl: '' },
         defaults: { language: 'ja', tone: 'professional', length: 'medium' },
-        privacy: { showSources: true }
+        privacy: { showSources: true, redactSensitive: false }
       },
       currentContext,
       note: 'pricing page looked promising'
@@ -586,36 +615,53 @@ test('system:runDiagnostics returns a structured error when resolving the frontm
   })
 })
 
+// Screen-capture permission is a macOS-only concept: getScreenCaptureStatusForPlatform short-circuits
+// to 'granted' on any non-darwin host. These tests exercise the macOS code path, so they pin
+// process.platform to 'darwin' to stay deterministic when run on Linux/Windows CI.
+async function withDarwinPlatform(run: () => Promise<void>): Promise<void> {
+  const original = Object.getOwnPropertyDescriptor(process, 'platform')
+  Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true })
+  try {
+    await run()
+  } finally {
+    if (original) Object.defineProperty(process, 'platform', original)
+  }
+}
+
 test('system:requestScreenCapture opens System Settings until permission is granted', async () => {
-  const { registerIpcHandlers } = await importIpc()
-  registerIpcHandlers()
+  await withDarwinPlatform(async () => {
+    const { registerIpcHandlers } = await importIpc()
+    registerIpcHandlers()
 
-  electronMockState.screenCaptureStatus = 'denied'
-  const handler = electronMockState.ipcHandlers['system:requestScreenCapture']
-  assert.ok(handler, 'system:requestScreenCapture handler should be registered')
+    electronMockState.screenCaptureStatus = 'denied'
+    const handler = electronMockState.ipcHandlers['system:requestScreenCapture']
+    assert.ok(handler, 'system:requestScreenCapture handler should be registered')
 
-  const result = await handler({}, undefined)
+    const result = await handler({}, undefined)
 
-  assert.equal(electronMockState.desktopSourcesCalls, 1)
-  assert.equal(result, 'denied')
-  assert.deepEqual(electronMockState.shellOpenExternalCalls, [
-    'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
-  ])
+    assert.equal(electronMockState.desktopSourcesCalls, 1)
+    assert.equal(result, 'denied')
+    assert.deepEqual(electronMockState.shellOpenExternalCalls, [
+      'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
+    ])
+  })
 })
 
 test('system:requestScreenCapture avoids reopening System Settings once permission is already granted', async () => {
-  const { registerIpcHandlers } = await importIpc()
-  registerIpcHandlers()
+  await withDarwinPlatform(async () => {
+    const { registerIpcHandlers } = await importIpc()
+    registerIpcHandlers()
 
-  electronMockState.screenCaptureStatus = 'granted'
-  const handler = electronMockState.ipcHandlers['system:requestScreenCapture']
-  assert.ok(handler, 'system:requestScreenCapture handler should be registered')
+    electronMockState.screenCaptureStatus = 'granted'
+    const handler = electronMockState.ipcHandlers['system:requestScreenCapture']
+    assert.ok(handler, 'system:requestScreenCapture handler should be registered')
 
-  const result = await handler({}, undefined)
+    const result = await handler({}, undefined)
 
-  assert.equal(electronMockState.desktopSourcesCalls, 1)
-  assert.equal(result, 'granted')
-  assert.deepEqual(electronMockState.shellOpenExternalCalls, [])
+    assert.equal(electronMockState.desktopSourcesCalls, 1)
+    assert.equal(result, 'granted')
+    assert.deepEqual(electronMockState.shellOpenExternalCalls, [])
+  })
 })
 
 test('window:getState reports the current collapsed state and registered shortcut', async () => {
@@ -673,4 +719,349 @@ test('settings:set returns public settings after rollback even when restoring th
   assert.deepEqual(updateRegisteredShortcutCalls, ['Option+[', 'Option+Space'])
   assert.equal(mockRegisteredShortcut, 'Option+Space')
   assert.equal(result.shortcut, 'Option+Space')
+})
+
+test('assistant:generate records a history entry on success', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  assert.ok(handler, 'assistant:generate handler should be registered')
+
+  const result = await handler(
+    {},
+    {
+      currentContext: browserContext(),
+      actionType: 'reply',
+      userInstruction: '返信して',
+      modifier: null
+    }
+  )
+
+  assert.equal(result.ok, true)
+  assert.equal(recordHistoryEntryCalls.length, 1)
+  const entry = recordHistoryEntryCalls[0] as {
+    kind: string
+    actionType: string | null
+    output: string
+    searchQuery: string
+  }
+  assert.equal(entry.kind, 'generate')
+  assert.equal(entry.actionType, 'reply')
+  assert.equal(entry.output, result.data.output)
+  assert.equal(entry.searchQuery, result.data.searchQuery)
+})
+
+test('assistant:generate uses the caller search query override for retrieval', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  assert.ok(handler, 'assistant:generate handler should be registered')
+
+  const result = await handler(
+    {},
+    {
+      currentContext: browserContext(),
+      actionType: 'reply',
+      userInstruction: '返信して',
+      modifier: null,
+      searchQueryOverride: '  custom pricing query  '
+    }
+  )
+
+  assert.equal(result.ok, true)
+  // The override wins over the mocked buildSearchQuery result ('mock search query'), trimmed.
+  assert.equal(result.data.searchQuery, 'custom pricing query')
+  assert.deepEqual(searchGBrainCalls, [{ searchQuery: 'custom pricing query' }])
+})
+
+test('assistant:generate falls back to the auto-built query when override is blank', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  const result = await handler(
+    {},
+    {
+      currentContext: browserContext(),
+      actionType: 'reply',
+      userInstruction: '返信して',
+      modifier: null,
+      searchQueryOverride: '   '
+    }
+  )
+
+  assert.equal(result.ok, true)
+  assert.equal(result.data.searchQuery, 'mock search query')
+})
+
+test('history:list returns the stored entries', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  setMockHistoryEntries([{ id: 'a', output: 'hello' }])
+  const handler = electronMockState.ipcHandlers['history:list']
+  assert.ok(handler, 'history:list handler should be registered')
+
+  const result = await handler({}, undefined)
+  assert.deepEqual(result, [{ id: 'a', output: 'hello' }])
+})
+
+test('history:clear empties the history and returns true', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['history:clear']
+  assert.ok(handler, 'history:clear handler should be registered')
+
+  const result = await handler({}, undefined)
+  assert.equal(result, true)
+  assert.equal(clearHistoryCalls.length, 1)
+})
+
+test('assistant:generate redacts sensitive context before building the prompt when enabled', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  setMockRedactSensitive(true)
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  const sensitive = {
+    ...browserContext(),
+    pageText: 'Email me at toru@example.com',
+    accessibilityText: 'card 4111 1111 1111 1111'
+  }
+
+  const result = await handler(
+    {},
+    { currentContext: sensitive, actionType: 'reply', userInstruction: '返信して', modifier: null }
+  )
+
+  assert.equal(result.ok, true)
+  assert.equal(buildPromptCalls.length, 1)
+  const pack = buildPromptCalls[0] as { currentContext: { pageText: string; accessibilityText: string } }
+  assert.equal(pack.currentContext.pageText, 'Email me at [redacted-email]')
+  assert.equal(pack.currentContext.accessibilityText, 'card [redacted-number]')
+})
+
+test('assistant:generate leaves context untouched when redaction is disabled', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  const sensitive = { ...browserContext(), pageText: 'Email me at toru@example.com' }
+
+  const result = await handler(
+    {},
+    { currentContext: sensitive, actionType: 'reply', userInstruction: '返信して', modifier: null }
+  )
+
+  assert.equal(result.ok, true)
+  const pack = buildPromptCalls[0] as { currentContext: { pageText: string } }
+  assert.equal(pack.currentContext.pageText, 'Email me at toru@example.com')
+})
+
+test('assistant:generate returns generation timings', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  const result = await handler(
+    {},
+    { currentContext: browserContext(), actionType: 'reply', userInstruction: '返信して', modifier: null }
+  )
+
+  assert.equal(result.ok, true)
+  const timings = result.data.timings
+  assert.ok(timings, 'timings should be present')
+  assert.equal(typeof timings.totalMs, 'number')
+  assert.equal(typeof timings.llmMs, 'number')
+  // browserContext searches GBrain, so gbrainMs is a number (not null).
+  assert.equal(typeof timings.gbrainMs, 'number')
+  assert.ok(timings.totalMs >= 0 && timings.llmMs >= 0 && timings.gbrainMs >= 0)
+})
+
+test('assistant:chat inline social fallback still reports timings with null gbrainMs', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:chat']
+  const result = await handler(
+    {},
+    {
+      currentContext: socialContext(),
+      messages: [{ role: 'user', content: '今すぐ貼り付けて使えるおすすめ文をください' }]
+    }
+  )
+
+  assert.equal(result.ok, true)
+  assert.ok(result.data.timings, 'timings should be present on the inline fallback')
+  assert.equal(result.data.timings.gbrainMs, null)
+  assert.equal(typeof result.data.timings.totalMs, 'number')
+})
+
+test('assistant:generate emits a generation_completed telemetry event with safe properties only', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  await handler(
+    {},
+    { currentContext: browserContext(), actionType: 'reply', userInstruction: '返信して', modifier: null }
+  )
+
+  const event = captureTelemetryCalls.find((c) => c.event === 'generation_completed')
+  assert.ok(event, 'generation_completed should be captured')
+  const props = event.properties as Record<string, unknown>
+  assert.equal(props.kind, 'generate')
+  assert.equal(props.context_kind, 'browser')
+  assert.equal(props.provider, 'anthropic')
+  assert.equal(typeof props.latency_ms, 'number')
+  // The output text must never be part of a telemetry payload.
+  assert.ok(!('output' in props))
+})
+
+test('telemetry:capture forwards to the telemetry service', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['telemetry:capture']
+  assert.ok(handler, 'telemetry:capture handler should be registered')
+
+  const result = await handler({}, { event: 'first_paste', properties: { source: 'tap' } })
+  assert.equal(result, true)
+  const captured = captureTelemetryCalls.find((c) => c.event === 'first_paste')
+  assert.ok(captured)
+  assert.deepEqual(captured.properties, { source: 'tap' })
+})
+
+test('assistant:chat streams generation chunks to the sender when a streamId is given', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  setMockLlmApiKey('sk-test-key')
+  const sent: { channel: string; payload: unknown }[] = []
+  const sender = { send: (channel: string, payload: unknown) => sent.push({ channel, payload }), isDestroyed: () => false }
+
+  const handler = electronMockState.ipcHandlers['assistant:chat']
+  const result = await handler(
+    { sender },
+    {
+      currentContext: browserContext(),
+      messages: [{ role: 'user', content: 'このページを要約して' }],
+      streamId: 'stream-1'
+    }
+  )
+
+  assert.equal(result.ok, true)
+  const chunk = sent.find((s) => s.channel === 'generation:chunk')
+  assert.ok(chunk, 'a generation:chunk event should be sent')
+  assert.deepEqual(chunk.payload, { streamId: 'stream-1', delta: 'generated response' })
+})
+
+test('assistant:chat does not stream when no streamId is provided', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  setMockLlmApiKey('sk-test-key')
+  const sent: { channel: string }[] = []
+  const sender = { send: (channel: string) => sent.push({ channel }), isDestroyed: () => false }
+
+  const handler = electronMockState.ipcHandlers['assistant:chat']
+  await handler(
+    { sender },
+    { currentContext: browserContext(), messages: [{ role: 'user', content: 'このページを要約して' }] }
+  )
+
+  assert.equal(sent.filter((s) => s.channel === 'generation:chunk').length, 0)
+})
+
+test('generation:cancel handler is registered and returns true', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['generation:cancel']
+  assert.ok(handler, 'generation:cancel handler should be registered')
+  assert.equal(await handler({}, 'nonexistent-stream'), true)
+})
+
+test('assistant:generate always generates BYOK and records the generation after a successful run', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const { setMockLlmApiKey, generateCalls, assertWithinFreeQuotaCalls, recordGenerationCalls } = await import(
+    './__mocks__/mock-modules.ts'
+  )
+  setMockLlmApiKey('sk-user-key')
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  const result = await handler(
+    {},
+    { currentContext: browserContext(), actionType: 'reply', userInstruction: '返信して', modifier: null }
+  )
+
+  assert.equal(result.ok, true)
+  assert.equal(result.data.output, 'generated response')
+  // BYOK generate is used; the free-quota gate runs before and the generation is recorded after.
+  assert.equal(generateCalls.length, 1)
+  assert.equal(assertWithinFreeQuotaCalls.length, 1)
+  assert.equal(recordGenerationCalls.length, 1)
+  const telem = captureTelemetryCalls.find((c) => c.event === 'generation_completed')
+  assert.equal((telem?.properties as Record<string, unknown>)?.provider, 'anthropic')
+})
+
+test('assistant:generate returns quota_exceeded and skips generation when the free cap is hit', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const { setMockLlmApiKey, setMockQuotaExceeded, generateCalls, recordGenerationCalls } = await import(
+    './__mocks__/mock-modules.ts'
+  )
+  setMockLlmApiKey('sk-user-key')
+  setMockQuotaExceeded(true)
+
+  const handler = electronMockState.ipcHandlers['assistant:generate']
+  const result = await handler(
+    {},
+    { currentContext: browserContext(), actionType: 'reply', userInstruction: '返信して', modifier: null }
+  )
+
+  assert.equal(result.ok, false)
+  assert.equal(result.error.code, 'quota_exceeded')
+  // The BYOK generation never ran and nothing was recorded against the counter.
+  assert.equal(generateCalls.length, 0)
+  assert.equal(recordGenerationCalls.length, 0)
+})
+
+test('billing:checkout opens the Stripe URL returned by the license server', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const { setMockLicenseUrl } = await import('./__mocks__/mock-modules.ts')
+  setMockLicenseUrl('https://api.kashin.ai')
+
+  const originalFetch = globalThis.fetch
+  // @ts-expect-error test stub
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ url: 'https://checkout.stripe.com/pay/xyz' }), { status: 200 })
+  try {
+    const handler = electronMockState.ipcHandlers['billing:checkout']
+    assert.ok(handler, 'billing:checkout handler should be registered')
+    const result = await handler({}, undefined)
+    assert.equal(result.ok, true)
+    assert.equal(result.url, 'https://checkout.stripe.com/pay/xyz')
+    assert.ok(electronMockState.shellOpenExternalCalls.includes('https://checkout.stripe.com/pay/xyz'))
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('billing:checkout returns an error when no account is configured', async () => {
+  const { registerIpcHandlers } = await importIpc()
+  registerIpcHandlers()
+
+  const handler = electronMockState.ipcHandlers['billing:checkout']
+  const result = await handler({}, undefined)
+  assert.equal(result.ok, false)
 })

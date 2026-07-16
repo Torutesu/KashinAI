@@ -990,7 +990,7 @@ function hasStrongValueText(snapshot: AccessibilitySnapshot): boolean {
 }
 
 function hasStrongStructuralSignal(snapshot: AccessibilitySnapshot): boolean {
-  if (Boolean(snapshot.selectedText)) return true
+  if (snapshot.selectedText) return true
   if (hasStrongValueText(snapshot)) return true
   return false
 }
@@ -1003,7 +1003,7 @@ export function computeAccessibilityLineBaseScore(line: string): number {
   if (CONTENT_SIGNAL_RE.test(line)) score += 4
   if (CALENDAR_CONTENT_SIGNAL_RE.test(line)) score += 3
   if (DESIGN_CONTENT_SIGNAL_RE.test(line)) score += 3
-  if (/^[•◦\-]|\d+\./.test(line)) score += 1
+  if (/^[•◦-]|\d+\./.test(line)) score += 1
   if (isBrowserTabLabel(line)) score -= 3
 
   if (GENERIC_AX_NOISE_RE.test(line)) score -= 10

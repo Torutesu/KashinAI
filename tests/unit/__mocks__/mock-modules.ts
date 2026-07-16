@@ -254,6 +254,26 @@ export function warmContextHelpers(): void {
   warmContextHelpersCalls.push(1)
 }
 
+// --- updater.ts mock ---
+export const initAutoUpdaterCalls: number[] = []
+export function initAutoUpdater(): void {
+  initAutoUpdaterCalls.push(1)
+}
+
+// --- telemetry.ts mock ---
+export const captureTelemetryCalls: { event: string; properties?: Record<string, unknown> }[] = []
+export const initTelemetryCalls: number[] = []
+export const shutdownTelemetryCalls: number[] = []
+export function captureTelemetry(event: string, properties?: Record<string, unknown>): void {
+  captureTelemetryCalls.push({ event, properties })
+}
+export async function initTelemetry(): Promise<void> {
+  initTelemetryCalls.push(1)
+}
+export async function shutdownTelemetry(): Promise<void> {
+  shutdownTelemetryCalls.push(1)
+}
+
 // --- option-listener.ts mock ---
 export const startOptionListenerCalls: {
   onOptionTap: () => void
@@ -337,7 +357,43 @@ export class LlmError extends Error {
 
 export async function generate(payload: unknown): Promise<string> {
   generateCalls.push(payload)
+  // Emulate streaming so the ipc chunk plumbing can be tested through the mock.
+  const onDelta = (payload as { onDelta?: (text: string) => void })?.onDelta
+  if (typeof onDelta === 'function') onDelta('generated response')
   return 'generated response'
+}
+
+// --- license.ts mock ---
+export const FREE_DAILY_LIMIT = 20
+export const assertWithinFreeQuotaCalls: string[] = []
+export const recordGenerationCalls: number[] = []
+export let mockQuotaExceeded = false
+export let mockPlan: 'free' | 'pro' = 'free'
+
+export function setMockQuotaExceeded(next: boolean): void {
+  mockQuotaExceeded = next
+}
+export function setMockPlan(next: 'free' | 'pro'): void {
+  mockPlan = next
+}
+
+export async function assertWithinFreeQuota(licenseUrl: string): Promise<void> {
+  assertWithinFreeQuotaCalls.push(licenseUrl)
+  if (mockQuotaExceeded) {
+    throw new LlmError('quota_exceeded', 'Free daily limit reached.')
+  }
+}
+
+export function recordGeneration(): void {
+  recordGenerationCalls.push(1)
+}
+
+export async function getPlan(): Promise<'free' | 'pro'> {
+  return mockPlan
+}
+
+export async function getUsageSnapshot(): Promise<{ plan: 'free' | 'pro'; used: number; limit: number; remaining: number }> {
+  return { plan: mockPlan, used: recordGenerationCalls.length, limit: FREE_DAILY_LIMIT, remaining: FREE_DAILY_LIMIT }
 }
 
 // --- settings.ts mock extensions ---
@@ -352,6 +408,7 @@ export function getPublicSettings() {
     gbrain: { mode: 'cli', endpoint: 'http://localhost:3000', cliPath: 'gbrain', timeoutMs: 10000, hasToken: false },
     memory: { enabled: true, dir: '/tmp/memory' },
     llm: { provider: 'anthropic', defaultModel: 'claude-sonnet-4-5', temperature: 0.3, hasApiKey: false },
+    account: { licenseUrl: mockLicenseUrl },
     defaults: { language: 'ja', tone: 'professional', length: 'medium' },
     privacy: { showSources: true }
   }
@@ -365,15 +422,36 @@ export function updateSettings(update: unknown) {
   return getPublicSettings()
 }
 
+export let mockRedactSensitive = false
+export function setMockRedactSensitive(next: boolean): void {
+  mockRedactSensitive = next
+}
+
+export let mockLlmApiKey = ''
+export function setMockLlmApiKey(next: string): void {
+  mockLlmApiKey = next
+}
+
+export let mockLicenseUrl = ''
+export function setMockLicenseUrl(url: string): void {
+  mockLicenseUrl = url
+}
+
+// --- device-identity.ts mock ---
+export function getDeviceCredentials(): { deviceId: string; deviceSecret: string } {
+  return { deviceId: 'test-device-id', deviceSecret: 'test-device-secret-abcdef0123456789' }
+}
+
 export function getSettings() {
   return {
     appDisplayName: 'TestApp',
     shortcut: 'Option+Space',
     gbrain: { mode: 'cli', endpoint: 'http://localhost:3000', token: '', cliPath: 'gbrain', timeoutMs: 10000 },
     memory: { enabled: true, dir: '/tmp/memory' },
-    llm: { provider: 'anthropic', apiKey: '', defaultModel: 'claude-sonnet-4-5', temperature: 0.3 },
+    llm: { provider: 'anthropic', apiKey: mockLlmApiKey, defaultModel: 'claude-sonnet-4-5', temperature: 0.3 },
+    account: { licenseUrl: mockLicenseUrl },
     defaults: { language: 'ja', tone: 'professional', length: 'medium' },
-    privacy: { showSources: true }
+    privacy: { showSources: true, redactSensitive: mockRedactSensitive }
   }
 }
 
@@ -413,8 +491,46 @@ export async function saveMarkdownMemory(payload: unknown): Promise<string> {
   return '/tmp/memory/mock.md'
 }
 
+// --- history.ts mock ---
+export const recordHistoryEntryCalls: unknown[] = []
+export let mockHistoryEntries: unknown[] = []
+export const clearHistoryCalls: number[] = []
+
+export function recordHistoryEntry(input: unknown): void {
+  recordHistoryEntryCalls.push(input)
+}
+
+export function setMockHistoryEntries(next: unknown[]): void {
+  mockHistoryEntries = next
+}
+
+export function listHistory(): unknown[] {
+  return mockHistoryEntries
+}
+
+export function clearHistory(): void {
+  clearHistoryCalls.push(1)
+  mockHistoryEntries = []
+}
+
+export function summarizeHistorySources(
+  sources: Array<{ source: string; title: string }>
+): Array<{ source: string; title: string }> {
+  return sources.map((source) => ({ source: source.source, title: source.title }))
+}
+
 // --- Reset helper ---
 export function resetAllMocks(): void {
+  recordHistoryEntryCalls.length = 0
+  mockHistoryEntries = []
+  clearHistoryCalls.length = 0
+  mockRedactSensitive = false
+  mockLlmApiKey = ''
+  mockLicenseUrl = ''
+  mockQuotaExceeded = false
+  mockPlan = 'free'
+  assertWithinFreeQuotaCalls.length = 0
+  recordGenerationCalls.length = 0
   registerIpcHandlersCalls.length = 0
   registerShortcutCalls.length = 0
   createAssistantWindowCalls.length = 0
@@ -433,6 +549,10 @@ export function resetAllMocks(): void {
   mockCaptureCurrentContextResult = null
   startOptionListenerCalls.length = 0
   stopOptionListenerCalls.length = 0
+  initAutoUpdaterCalls.length = 0
+  captureTelemetryCalls.length = 0
+  initTelemetryCalls.length = 0
+  shutdownTelemetryCalls.length = 0
   insertTextCalls.length = 0
   buildPromptCalls.length = 0
   buildChatPromptCalls.length = 0

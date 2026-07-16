@@ -158,7 +158,7 @@ export function suggestedCommandForPageMethod(method: string, options?: FixtureR
         EXPECT_BROWSER_INITIAL_STEP: 'browser',
         EXPECT_BROWSER_AFTER_BROWSER_STEP: 'none'
       })
-    case 'keyboard-copy':
+    case 'keyboard-copy': {
       const keyboardTargetApp = resolveAvailableApp(options, ['Firefox', 'Safari', 'Google Chrome', 'Arc', 'Brave Browser', 'Microsoft Edge'])
       return withEnv(`pnpm debug:context:fixture ${slugifyFixtureToken(keyboardTargetApp ?? 'browser')}-keyboard-copy`, {
         TARGET_APP: keyboardTargetApp,
@@ -173,6 +173,7 @@ export function suggestedCommandForPageMethod(method: string, options?: FixtureR
         EXPECT_BROWSER_AFTER_BROWSER_STEP: 'keyboard',
         EXPECT_BROWSER_AFTER_KEYBOARD_STEP: 'none'
       })
+    }
     case 'chrome-session':
       return withEnv('pnpm debug:context:fixture chrome-session-fallback', {
         TARGET_APP: 'Google Chrome',
@@ -227,7 +228,7 @@ export function describePageMethodRecommendation(
         command: suggestedCommandForPageMethod(method),
         preflightHints: buildPreflightHints(suggestedCommandForPageMethod(method))
       }
-    case 'keyboard-copy':
+    case 'keyboard-copy': {
       const keyboardTargetApp = resolveAvailableApp(options, ['Firefox', 'Safari', 'Google Chrome', 'Arc', 'Brave Browser', 'Microsoft Edge'])
       return {
         method,
@@ -237,6 +238,7 @@ export function describePageMethodRecommendation(
         command: suggestedCommandForPageMethod(method, options),
         preflightHints: buildPreflightHints(suggestedCommandForPageMethod(method, options))
       }
+    }
     case 'chrome-session':
       return {
         method,
